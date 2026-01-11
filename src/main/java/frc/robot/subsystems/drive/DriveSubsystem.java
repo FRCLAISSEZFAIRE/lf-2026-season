@@ -30,8 +30,8 @@ public class DriveSubsystem extends SubsystemBase {
 
     private final ModuleIO[] moduleIOs = new ModuleIO[4]; // 4 Modül (FL, FR, BL, BR)
     private final ModuleIOInputsAutoLogged[] moduleInputs = {
-        new ModuleIOInputsAutoLogged(), new ModuleIOInputsAutoLogged(),
-        new ModuleIOInputsAutoLogged(), new ModuleIOInputsAutoLogged()
+            new ModuleIOInputsAutoLogged(), new ModuleIOInputsAutoLogged(),
+            new ModuleIOInputsAutoLogged(), new ModuleIOInputsAutoLogged()
     };
 
     // --- ODOMETRY & KINEMATICS ---
@@ -48,7 +48,8 @@ public class DriveSubsystem extends SubsystemBase {
         this.moduleIOs[2] = bl;
         this.moduleIOs[3] = br;
 
-        // Başlangıçta veri okumayı dene ki ilk pozisyon 0,0 olmasın (Encoderlar absolute ise)
+        // Başlangıçta veri okumayı dene ki ilk pozisyon 0,0 olmasın (Encoderlar
+        // absolute ise)
         for (int i = 0; i < 4; i++) {
             moduleIOs[i].updateInputs(moduleInputs[i]);
         }
@@ -56,11 +57,10 @@ public class DriveSubsystem extends SubsystemBase {
 
         // Odometry Başlangıç (0,0 noktası ve 0 derece açısı ile başlar)
         poseEstimator = new SwerveDrivePoseEstimator(
-            kinematics, 
-            Rotation2d.fromRadians(gyroInputs.yawPositionRad), 
-            getModulePositions(), 
-            new Pose2d()
-        );
+                kinematics,
+                Rotation2d.fromRadians(gyroInputs.yawPositionRad),
+                getModulePositions(),
+                new Pose2d());
 
         edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.putData("Field", field);
 
@@ -69,81 +69,96 @@ public class DriveSubsystem extends SubsystemBase {
             // RobotConfig dosyadan yüklenir (pathplanner/settings/robot.json)
             // PathPlanner AutoBuilder yapılandırması
             RobotConfig config = RobotConfig.fromGUISettings();
-            
+
             AutoBuilder.configure(
-                this::getPose,                // Pose supplier
-                this::resetOdometry,          // Pose reset
-                this::getChassisSpeeds,       // Robot-relative speeds supplier
-                (speeds, feedforwards) -> runVelocity(speeds),  // Robot-relative output (feedforward ignore)
-                new PPHolonomicDriveController(
-                    new PIDConstants(5.0, 0.0, 0.0),   // Translation PID (agresif sim için)
-                    new PIDConstants(5.0, 0.0, 0.0)   // Rotation PID (agresif sim için)
-                ),
-                config,
-                // Alliance'a göre yolu çevir (Red ise mirror)
-                () -> {
-                    var alliance = DriverStation.getAlliance();
-                    return alliance.isPresent() && alliance.get() == DriverStation.Alliance.Red;
-                },
-                this
-            );
-        } catch (Exception e) {
-            // RobotConfig yüklenemezse fallback oluştur
-            DriverStation.reportError("PathPlanner RobotConfig dosyadan yüklenemedi, manuel config oluşturuluyor: " + e.getMessage(), false);
-            
-            try {
-                 // Manuel Config (Robota özel gerçek veriler)
-                 // NOT: PathPlanner GUI'sında "0 Acceleration" hatası olduğundan,
-                 // motor özelliklerini burada manuel olarak en doğru şekilde giriyoruz.
-                 // NEO Vortex Gerçek Özellikleri:
-                 // Stall Torque: 3.6 Nm, Stall Current: 211 A, Free Speed: 6784 RPM
-                 DCMotor customMotor = new DCMotor(12.0, 3.6, 211.0, 3.6, 6784.0 / 60.0 * 2.0 * Math.PI, 1);
-
-                 RobotConfig manualConfig = new RobotConfig(
-                    50.0, // Mass kg (Kullanıcının verisi)
-                    6.0, // MOI
-                    new com.pathplanner.lib.config.ModuleConfig(
-                        ModuleConstants.kWheelDiameterMeters / 2.0, // 3 inç yarıçap (0.0381m)
-                        4.5, // Max Speed
-                        1.2, // Wheel COF
-                        customMotor,
-                        60, // Current Limit (Kullanıcının verisi)
-                        1
-                    ),
-                    // Modül offsetleri (0.57m x 0.57m kare şase için)
-                    // Center to module = 0.57 / 2 = 0.285
-                    new Translation2d(0.285, 0.285),
-                    new Translation2d(0.285, -0.285),
-                    new Translation2d(-0.285, 0.285),
-                    new Translation2d(-0.285, -0.285)
-                 );
-
-                 AutoBuilder.configure(
-                    this::getPose,
-                    this::resetOdometry,
-                    this::getChassisSpeeds,
-                    (speeds, feedforwards) -> runVelocity(speeds),
+                    this::getPose, // Pose supplier
+                    this::resetOdometry, // Pose reset
+                    this::getChassisSpeeds, // Robot-relative speeds supplier
+                    (speeds, feedforwards) -> runVelocity(speeds), // Robot-relative output (feedforward ignore)
                     new PPHolonomicDriveController(
-                        // PID Katsayıları: P, I, D
-                        // 1.0 az geldi, 3.0'a çıkarıldı.
-                        new PIDConstants(3.0, 0.0, 0.0), // Translation PID
-                        new PIDConstants(3.0, 0.0, 0.0)  // Rotation PID
+                            new PIDConstants(5.0, 0.0, 0.0), // Translation PID (agresif sim için)
+                            new PIDConstants(5.0, 0.0, 0.0) // Rotation PID (agresif sim için)
                     ),
-                    manualConfig,
+                    config,
+                    // Alliance'a göre yolu çevir (Red ise mirror)
                     () -> {
                         var alliance = DriverStation.getAlliance();
                         return alliance.isPresent() && alliance.get() == DriverStation.Alliance.Red;
                     },
-                    this
-                );
+                    this);
+        } catch (Exception e) {
+            // RobotConfig yüklenemezse fallback oluştur
+            DriverStation.reportError(
+                    "PathPlanner RobotConfig dosyadan yüklenemedi, manuel config oluşturuluyor: " + e.getMessage(),
+                    false);
+
+            try {
+                // Manuel Config (Robota özel gerçek veriler)
+                // NOT: PathPlanner GUI'sında "0 Acceleration" hatası olduğundan,
+                // motor özelliklerini burada manuel olarak en doğru şekilde giriyoruz.
+                // NEO Vortex Gerçek Özellikleri:
+                // Stall Torque: 3.6 Nm, Stall Current: 211 A, Free Speed: 6784 RPM
+                DCMotor customMotor = new DCMotor(12.0, 3.6, 211.0, 3.6, 6784.0 / 60.0 * 2.0 * Math.PI, 1);
+
+                RobotConfig manualConfig = new RobotConfig(
+                        50.0, // Mass kg (Kullanıcının verisi)
+                        6.0, // MOI
+                        new com.pathplanner.lib.config.ModuleConfig(
+                                ModuleConstants.kWheelDiameterMeters / 2.0, // 3 inç yarıçap (0.0381m)
+                                4.5, // Max Speed
+                                1.2, // Wheel COF
+                                customMotor,
+                                60, // Current Limit (Kullanıcının verisi)
+                                1),
+                        // Modül offsetleri (0.57m x 0.57m kare şase için)
+                        // Center to module = 0.57 / 2 = 0.285
+                        new Translation2d(0.285, 0.285),
+                        new Translation2d(0.285, -0.285),
+                        new Translation2d(-0.285, 0.285),
+                        new Translation2d(-0.285, -0.285));
+
+                AutoBuilder.configure(
+                        this::getPose,
+                        this::resetOdometry,
+                        this::getChassisSpeeds,
+                        (speeds, feedforwards) -> runVelocity(speeds),
+                        new PPHolonomicDriveController(
+                                // PID Katsayıları: P, I, D
+                                // 1.0 az geldi, 3.0'a çıkarıldı.
+                                new PIDConstants(3.0, 0.0, 0.0), // Translation PID
+                                new PIDConstants(3.0, 0.0, 0.0) // Rotation PID
+                        ),
+                        manualConfig,
+                        () -> {
+                            var alliance = DriverStation.getAlliance();
+                            return alliance.isPresent() && alliance.get() == DriverStation.Alliance.Red;
+                        },
+                        this);
             } catch (Exception ex) {
-                DriverStation.reportError("Manuel PathPlanner Config oluşturulamadı: " + ex.getMessage(), ex.getStackTrace());
+                DriverStation.reportError("Manuel PathPlanner Config oluşturulamadı: " + ex.getMessage(),
+                        ex.getStackTrace());
             }
         }
     }
-    
+
     // Field Visualization
     private final edu.wpi.first.wpilibj.smartdashboard.Field2d field = new edu.wpi.first.wpilibj.smartdashboard.Field2d();
+
+    /**
+     * Hedef pozisyonu sahada (Glass/SmartDashboard) gösterir.
+     * 
+     * @param target Hedef Pose
+     */
+    public void showTargetPose(Pose2d target) {
+        field.getObject("Target").setPose(target);
+    }
+
+    /**
+     * Hedef pozisyon göstergesini temizler.
+     */
+    public void clearTargetPose() {
+        field.getObject("Target").setPoses(); // Boş liste ile temizle
+    }
 
     @Override
     public void periodic() {
@@ -157,17 +172,18 @@ public class DriveSubsystem extends SubsystemBase {
         }
 
         // 2. ODOMETRY GÜNCELLEME (Robot Nerede?)
-        // Eğer Gyro bağlı değilse veya koptuysa, Odometry'yi sadece encoderlarla sürdürebiliriz 
+        // Eğer Gyro bağlı değilse veya koptuysa, Odometry'yi sadece encoderlarla
+        // sürdürebiliriz
         // ama Swerve için Gyro şarttır.
         Rotation2d gyroAngle = Rotation2d.fromRadians(gyroInputs.yawPositionRad);
-        
+
         poseEstimator.update(gyroAngle, getModulePositions());
         field.setRobotPose(getPose());
 
         // 3. LOGLAMA (Görselleştirme)
         // Robotun tahmini konumunu logla (AdvantageScope 3D sahasında görünür)
         Logger.recordOutput("Odometry/Robot", getPose());
-        
+
         // Modüllerin gerçek durumunu logla
         Logger.recordOutput("SwerveStates/Real", getModuleStates());
 
@@ -187,6 +203,7 @@ public class DriveSubsystem extends SubsystemBase {
 
     /**
      * Robotu Sür (Teleop veya Otonom)
+     * 
      * @param speeds İstenen X hızı, Y hızı ve Dönüş hızı
      */
     public void runVelocity(ChassisSpeeds speeds) {
@@ -194,7 +211,7 @@ public class DriveSubsystem extends SubsystemBase {
         Logger.recordOutput("Drive/Debug/CommandedSpeeds/Vx", speeds.vxMetersPerSecond);
         Logger.recordOutput("Drive/Debug/CommandedSpeeds/Vy", speeds.vyMetersPerSecond);
         Logger.recordOutput("Drive/Debug/CommandedSpeeds/Omega", speeds.omegaRadiansPerSecond);
-        
+
         // Şase hızlarını modül durumlarına (State) çevir
         ChassisSpeeds discreteSpeeds = ChassisSpeeds.discretize(speeds, 0.02);
         SwerveModuleState[] setpointStates = kinematics.toSwerveModuleStates(discreteSpeeds);
@@ -206,10 +223,10 @@ public class DriveSubsystem extends SubsystemBase {
 
     public void stop() {
         SwerveModuleState[] states = new SwerveModuleState[] {
-            new SwerveModuleState(0, Rotation2d.fromDegrees(45)),
-            new SwerveModuleState(0, Rotation2d.fromDegrees(-45)),
-            new SwerveModuleState(0, Rotation2d.fromDegrees(-45)),
-            new SwerveModuleState(0, Rotation2d.fromDegrees(45))
+                new SwerveModuleState(0, Rotation2d.fromDegrees(45)),
+                new SwerveModuleState(0, Rotation2d.fromDegrees(-45)),
+                new SwerveModuleState(0, Rotation2d.fromDegrees(-45)),
+                new SwerveModuleState(0, Rotation2d.fromDegrees(45))
         };
         setModuleStates(states);
     }
@@ -220,10 +237,9 @@ public class DriveSubsystem extends SubsystemBase {
 
         for (int i = 0; i < 4; i++) {
             SwerveModuleState optimizedState = SwerveModuleState.optimize(
-                states[i], 
-                Rotation2d.fromRadians(moduleInputs[i].turnAbsolutePositionRad)
-            );
-            
+                    states[i],
+                    Rotation2d.fromRadians(moduleInputs[i].turnAbsolutePositionRad));
+
             // 1. Dönüş (Turn) Kontrolü
             moduleIOs[i].setTurnPosition(optimizedState.angle.getRadians());
 
@@ -231,11 +247,11 @@ public class DriveSubsystem extends SubsystemBase {
             double volts = 0.0;
             // Daha hassas kontrol için deadband daha da düşürüldü
             if (Math.abs(optimizedState.speedMetersPerSecond) > 0.0001) {
-                 volts = (optimizedState.speedMetersPerSecond / DriveConstants.kMaxSpeedMetersPerSecond) * 12.0;
+                volts = (optimizedState.speedMetersPerSecond / DriveConstants.kMaxSpeedMetersPerSecond) * 12.0;
             }
-            
+
             moduleIOs[i].setDriveVoltage(volts);
-            
+
             // DEBUG: Her modül için hesaplanan voltajı logla
             Logger.recordOutput("Drive/Debug/Module" + i + "/TargetSpeed", optimizedState.speedMetersPerSecond);
             Logger.recordOutput("Drive/Debug/Module" + i + "/AppliedVolts", volts);
@@ -245,11 +261,54 @@ public class DriveSubsystem extends SubsystemBase {
     /**
      * Vision Subsystem'den gelen veriyi Odometry'ye ekler.
      * Bu metod sayesinde robot zamanla kayan konumunu kamera ile düzeltir.
+     * 
+     * @param visionPose Kameradan gelen tahmini pozisyon
+     * @param timestamp  Görüntünün alındığı zaman
      */
     public void addVisionMeasurement(Pose2d visionPose, double timestamp) {
-        // Güvenlik: Eğer kamera saçma bir yerde (örn: saha dışı) robot görüyorsa ekleme.
-        // Şimdilik direkt ekliyoruz.
-        poseEstimator.addVisionMeasurement(visionPose, timestamp);
+        // Saha dışı kontrolü
+        if (visionPose.getX() < 0 || visionPose.getX() > 17 ||
+                visionPose.getY() < 0 || visionPose.getY() > 9) {
+            return; // Saçma veri, ekleme
+        }
+
+        // Standart sapma ile ekle (titreme önleme)
+        // Değerler: x (metre), y (metre), rotation (radyan)
+        // Daha yüksek değer = daha az güven = daha az titreme
+        poseEstimator.addVisionMeasurement(
+                visionPose,
+                timestamp,
+                edu.wpi.first.math.VecBuilder.fill(0.5, 0.5, 0.5) // Standart sapma değerleri
+        );
+    }
+
+    /**
+     * Vision Subsystem'den gelen veriyi mesafe bazlı güvenle Odometry'ye ekler.
+     * Yakın tag = yüksek güven, uzak tag = düşük güven.
+     * 
+     * @param visionPose     Kameradan gelen tahmini pozisyon
+     * @param timestamp      Görüntünün alındığı zaman
+     * @param avgTagDistance Tag'lere ortalama mesafe (metre)
+     */
+    public void addVisionMeasurement(Pose2d visionPose, double timestamp, double avgTagDistance) {
+        // Saha dışı kontrolü
+        if (visionPose.getX() < 0 || visionPose.getX() > 17 ||
+                visionPose.getY() < 0 || visionPose.getY() > 9) {
+            return; // Saçma veri, ekleme
+        }
+
+        // Mesafeye göre standart sapma hesapla
+        // Yakın (0.5m) = 0.1 std dev (yüksek güven)
+        // Uzak (4m) = 0.9 std dev (düşük güven)
+        double baseStdDev = 0.1;
+        double distanceMultiplier = avgTagDistance * 0.2; // Her metre için 0.2 ekle
+        double stdDev = Math.min(baseStdDev + distanceMultiplier, 1.0); // Max 1.0
+
+        poseEstimator.addVisionMeasurement(
+                visionPose,
+                timestamp,
+                edu.wpi.first.math.VecBuilder.fill(stdDev, stdDev, stdDev * 2) // Açı için 2x
+        );
     }
 
     /**
@@ -264,7 +323,8 @@ public class DriveSubsystem extends SubsystemBase {
      */
     public void zeroHeading() {
         gyroIO.zeroHeading();
-        // Odometry'yi sıfırlarken mevcut pozisyonu koruyup sadece açıyı sıfırlamak istersek:
+        // Odometry'yi sıfırlarken mevcut pozisyonu koruyup sadece açıyı sıfırlamak
+        // istersek:
         Pose2d currentPose = getPose();
         Pose2d newPose = new Pose2d(currentPose.getX(), currentPose.getY(), new Rotation2d());
         resetOdometry(newPose);
@@ -275,10 +335,9 @@ public class DriveSubsystem extends SubsystemBase {
      */
     public void resetOdometry(Pose2d pose) {
         poseEstimator.resetPosition(
-            Rotation2d.fromRadians(gyroInputs.yawPositionRad), 
-            getModulePositions(), 
-            pose
-        );
+                Rotation2d.fromRadians(gyroInputs.yawPositionRad),
+                getModulePositions(),
+                pose);
     }
 
     /**
@@ -288,10 +347,10 @@ public class DriveSubsystem extends SubsystemBase {
         SwerveModulePosition[] positions = new SwerveModulePosition[4];
         for (int i = 0; i < 4; i++) {
             positions[i] = new SwerveModulePosition(
-                // Dişli oranı hesaba katılmalı: Motor Rad / Reduction * Radius = Metre
-                (moduleInputs[i].drivePositionRad / ModuleConstants.kDrivingMotorReduction) * (ModuleConstants.kWheelDiameterMeters / 2.0),
-                Rotation2d.fromRadians(moduleInputs[i].turnAbsolutePositionRad)
-            );
+                    // Dişli oranı hesaba katılmalı: Motor Rad / Reduction * Radius = Metre
+                    (moduleInputs[i].drivePositionRad / ModuleConstants.kDrivingMotorReduction)
+                            * (ModuleConstants.kWheelDiameterMeters / 2.0),
+                    Rotation2d.fromRadians(moduleInputs[i].turnAbsolutePositionRad));
         }
         return positions;
     }
@@ -303,10 +362,10 @@ public class DriveSubsystem extends SubsystemBase {
         SwerveModuleState[] states = new SwerveModuleState[4];
         for (int i = 0; i < 4; i++) {
             states[i] = new SwerveModuleState(
-                // Dişli oranı hesaba katılmalı: Motor Rad/s / Reduction * Radius = m/s
-                (moduleInputs[i].driveVelocityRadPerSec / ModuleConstants.kDrivingMotorReduction) * (ModuleConstants.kWheelDiameterMeters / 2.0),
-                Rotation2d.fromRadians(moduleInputs[i].turnAbsolutePositionRad)
-            );
+                    // Dişli oranı hesaba katılmalı: Motor Rad/s / Reduction * Radius = m/s
+                    (moduleInputs[i].driveVelocityRadPerSec / ModuleConstants.kDrivingMotorReduction)
+                            * (ModuleConstants.kWheelDiameterMeters / 2.0),
+                    Rotation2d.fromRadians(moduleInputs[i].turnAbsolutePositionRad));
         }
         return states;
     }

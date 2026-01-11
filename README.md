@@ -1,10 +1,13 @@
 # 🦊 FoxyCode 2026
 
-**FRC 2026 Sezonu Robot Yazılımı**
+**FRC 2026 REBUILT Sezonu Robot Yazılımı**
 
-![WPILib](https://img.shields.io/badge/WPILib-2026_Beta-blue)
+> 🏗️ **REBUILT** - FIRST AGE temalı arkeoloji sezonunun FRC oyunu. Fuel (köpük toplar) Hub'a atılır, Tower'a tırmanılır.
+
+![WPILib](https://img.shields.io/badge/WPILib-2026.1.1-blue)
 ![Java](https://img.shields.io/badge/Java-17-orange)
 ![AdvantageKit](https://img.shields.io/badge/AdvantageKit-Logging-green)
+![Game](https://img.shields.io/badge/Game-REBUILT-red)
 
 ---
 
@@ -31,10 +34,7 @@ src/main/java/frc/robot/
 │   ├── RobotMap.java             # Motor ve sensör ID'leri
 │   ├── DriveConstants.java       # Sürüş sabitleri
 │   ├── ElevatorConstants.java    # Asansör sabitleri
-│   ├── ArmConstants.java         # Kol sabitleri
-│   ├── GrabberConstants.java     # Tutucu sabitleri
 │   ├── ClimberConstants.java     # Tırmanıcı sabitleri
-│   ├── WristConstants.java       # Bilek sabitleri
 │   ├── FeederConstants.java      # Besleyici sabitleri
 │   └── LEDConstants.java         # LED sabitleri
 ├── subsystems/                   # Alt sistemler
@@ -42,19 +42,13 @@ src/main/java/frc/robot/
 │   ├── vision/                   # Limelight görüş
 │   ├── intake/                   # Alma sistemi
 │   ├── shooter/                  # Atış sistemi
-│   ├── elevator/                 # Asansör
-│   ├── arm/                      # Kol
-│   ├── grabber/                  # Tutucu
-│   ├── climber/                  # Tırmanıcı
-│   ├── wrist/                    # Bilek
+│   ├── lift/                     # Lift (Elevator + Climber)
 │   ├── feeder/                   # Besleyici
 │   └── led/                      # LED kontrolü
 ├── commands/                     # Komutlar
 │   ├── drive/                    # Sürüş komutları
 │   ├── intake/                   # Alma komutları
-│   ├── shooter/                  # Atış komutları
-│   ├── grabber/                  # Tutucu komutları
-│   └── climber/                  # Tırmanıcı komutları
+│   └── shooter/                  # Atış komutları
 └── util/                         # Yardımcı sınıflar
     ├── TunableNumber.java        # PID ayar aracı
     └── LimelightHelpers.java     # Limelight yardımcıları
@@ -70,12 +64,8 @@ src/main/java/frc/robot/
 | **Vision** | Limelight görüş sistemi | - | ✅ |
 | **Intake** | Oyun parçası alma | TBD | ✅ |
 | **Shooter** | Flywheel + Turret + Hood | Kraken + SparkMax | ✅ |
-| **Elevator** | Dikey hareket | Kraken | ✅ |
-| **Arm** | Açısal hareket | SparkMax | ✅ |
-| **Grabber** | Parça tutma | SparkMax NEO 550 | ✅ |
-| **Climber** | Tırmanma (2 motor) | 2x Kraken | ✅ |
-| **Wrist** | Bilek döndürme | SparkMax NEO 550 | ✅ |
-| **Feeder** | Intake → Shooter transfer | Falcon 500 | ✅ |
+| **Lift** | Elevator + Climber (birleşik) | 2x Kraken | ✅ |
+| **Feeder** | Intake → Shooter transfer | NEO v1.1 (SparkMax) | ✅ |
 | **LED** | Durum gösterimi | AddressableLED | - |
 
 ---
@@ -94,12 +84,9 @@ src/main/java/frc/robot/
 | 11-12 | Shooter Master/Follower | Shooter |
 | 13 | Turret | Shooter |
 | 14 | Hood | Shooter |
-| 20 | Elevator | Elevator |
-| 21 | Arm | Arm |
-| 22 | Grabber | Grabber |
-| 23-24 | Climber Left/Right | Climber |
-| 25 | Wrist | Wrist |
-| 26 | Feeder | Feeder |
+| 20 | Lift Left | Lift |
+| 23 | Lift Right | Lift |
+| 26 | Feeder (NEO v1.1) | Feeder |
 
 ### DIO Portları
 
@@ -137,12 +124,6 @@ src/main/java/frc/robot/
 | Sağ Bumper | Atış |
 | D-Pad ↑ | Elevator yukarı |
 | D-Pad ↓ | Elevator aşağı |
-| D-Pad → | Arm yukarı |
-| D-Pad ← | Arm aşağı |
-| A | Grabber kapat (tut) |
-| B | Grabber aç (bırak) |
-| X | Wrist merkez |
-| Y | Wrist skor pozisyonu |
 | LB + Sağ Stick ↑ | Tırman yukarı |
 | LB + Sağ Stick ↓ | Tırman aşağı |
 | Start | Acil durdur |
@@ -215,11 +196,8 @@ Logger.recordOutput("Subsystem/Value", value);
 | Swerve Drive | ✅ Tamamlandı |
 | Vision Integration | ✅ Tamamlandı |
 | Elevator | ✅ Tamamlandı |
-| Arm | ✅ Tamamlandı |
-| Grabber | ✅ Tamamlandı |
 | Shooter | ✅ Tamamlandı |
 | Climber | ✅ Tamamlandı |
-| Wrist | ✅ Tamamlandı |
 | Feeder | ✅ Tamamlandı |
 | LED | ✅ Tamamlandı |
 | Autonomous | 🔲 Bekleniyor |

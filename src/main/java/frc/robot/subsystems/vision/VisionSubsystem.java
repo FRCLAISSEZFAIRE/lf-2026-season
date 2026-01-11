@@ -7,7 +7,7 @@ import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 
 public class VisionSubsystem extends SubsystemBase {
-    
+
     private final VisionIO io;
     private final VisionIOInputsAutoLogged inputs = new VisionIOInputsAutoLogged();
 
@@ -22,19 +22,24 @@ public class VisionSubsystem extends SubsystemBase {
     }
 
     /**
-     * Eğer geçerli bir görüntü varsa, Pose ve Zaman bilgisini paketleyip döndürür.
+     * Eğer geçerli bir görüntü varsa, Pose, Zaman ve Mesafe bilgisini döndürür.
      * DriveSubsystem bunu alıp Odometry'sine ekleyecek.
      */
     public Optional<VisionMeasurement> getBestMeasurement() {
         if (inputs.hasTarget && inputs.tagCount > 0) {
-            // Basit bir filtre: Eğer tag'e çok uzaksak (örn 4 metre) güvenme diyebiliriz.
-            if(inputs.avgTagDist > 4.0) return Optional.empty();
+            // Çok uzak tag'leri reddet (güvenilmez)
+            if (inputs.avgTagDist > 4.0)
+                return Optional.empty();
 
-            return Optional.of(new VisionMeasurement(inputs.estimatedPose, inputs.timestamp));
+            return Optional.of(new VisionMeasurement(
+                    inputs.estimatedPose,
+                    inputs.timestamp,
+                    inputs.avgTagDist));
         }
         return Optional.empty();
     }
 
-    // Veri transferi için yardımcı sınıf (Record)
-    public record VisionMeasurement(Pose2d pose, double timestamp) {}
+    // Veri transferi için yardımcı record (mesafe bilgisi dahil)
+    public record VisionMeasurement(Pose2d pose, double timestamp, double avgTagDist) {
+    }
 }

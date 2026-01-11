@@ -1,41 +1,43 @@
 package frc.robot.subsystems.feeder;
 
-import com.ctre.phoenix6.hardware.TalonFX;
-import com.ctre.phoenix6.controls.VoltageOut;
-import com.ctre.phoenix6.configs.TalonFXConfiguration;
-import com.ctre.phoenix6.signals.NeutralModeValue;
+import com.revrobotics.spark.SparkMax;
+import com.revrobotics.spark.SparkLowLevel.MotorType;
+import com.revrobotics.spark.config.SparkMaxConfig;
+import com.revrobotics.spark.config.SparkBaseConfig.IdleMode;
+import com.revrobotics.spark.SparkBase.PersistMode;
+import com.revrobotics.spark.SparkBase.ResetMode;
+
 import frc.robot.constants.FeederConstants;
 
 /**
  * Feeder IO gerçek implementasyonu.
- * Falcon 500 (TalonFX) kullanır.
+ * NEO v1.1 (SparkMax) kullanır.
  */
 public class FeederIOReal implements FeederIO {
 
-    private final TalonFX motor;
-    private final VoltageOut voltageControl = new VoltageOut(0);
+    private final SparkMax motor;
 
     public FeederIOReal(int motorID) {
-        motor = new TalonFX(motorID);
+        motor = new SparkMax(motorID, MotorType.kBrushless);
 
         // Konfigürasyon
-        TalonFXConfiguration config = new TalonFXConfiguration();
-        config.MotorOutput.NeutralMode = NeutralModeValue.Coast;
-        config.CurrentLimits.SupplyCurrentLimit = FeederConstants.kCurrentLimit;
-        config.CurrentLimits.SupplyCurrentLimitEnable = true;
-        motor.getConfigurator().apply(config);
+        SparkMaxConfig config = new SparkMaxConfig();
+        config.idleMode(IdleMode.kCoast);
+        config.smartCurrentLimit(FeederConstants.kCurrentLimit);
+
+        motor.configure(config, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
     }
 
     @Override
     public void updateInputs(FeederIOInputs inputs) {
-        inputs.velocityRPM = motor.getVelocity().getValueAsDouble() * 60; // RPS → RPM
-        inputs.appliedVolts = motor.getMotorVoltage().getValueAsDouble();
-        inputs.currentAmps = motor.getSupplyCurrent().getValueAsDouble();
+        inputs.velocityRPM = motor.getEncoder().getVelocity();
+        inputs.appliedVolts = motor.getAppliedOutput() * motor.getBusVoltage();
+        inputs.currentAmps = motor.getOutputCurrent();
     }
 
     @Override
     public void setVoltage(double voltage) {
-        motor.setControl(voltageControl.withOutput(voltage));
+        motor.setVoltage(voltage);
     }
 
     @Override

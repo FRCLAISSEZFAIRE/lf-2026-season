@@ -33,23 +33,11 @@ public final class RobotMap {
     public static final int kTurretMotorID = 13;
     public static final int kHoodMotorID = 14; // Atış açısı (pitch)
 
-    // Elevator
-    public static final int kElevatorMotorID = 20;
+    // Lift (Elevator + Climber birleşik)
+    public static final int kLiftLeftMotorID = 20;
+    public static final int kLiftRightMotorID = 23;
 
-    // Arm
-    public static final int kArmMotorID = 21;
-
-    // Grabber
-    public static final int kGrabberMotorID = 22;
-
-    // Climber
-    public static final int kClimberLeftMotorID = 23;
-    public static final int kClimberRightMotorID = 24;
-
-    // Wrist (Arm ucunda döner eklem)
-    public static final int kWristMotorID = 25;
-
-    // Feeder (Intake → Shooter arası)
+    // Feeder (Intake → Shooter arası) - NEO V2
     public static final int kFeederMotorID = 26;
 
     // ==================== DIO PORTS ====================

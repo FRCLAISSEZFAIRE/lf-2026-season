@@ -1,6 +1,5 @@
 package frc.robot.commands.drive;
 
-import java.util.function.BooleanSupplier;
 import java.util.function.DoubleSupplier;
 
 import edu.wpi.first.math.MathUtil;
