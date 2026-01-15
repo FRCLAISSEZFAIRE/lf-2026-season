@@ -5,6 +5,7 @@ import com.ctre.phoenix6.controls.VoltageOut;
 import edu.wpi.first.wpilibj.DigitalInput;
 import frc.robot.LimelightHelpers;
 import frc.robot.constants.MechanismConstants;
+import frc.robot.constants.VisionConstants;
 
 /**
  * Intake mekanizması için gerçek donanım IO implementasyonu.
@@ -13,7 +14,7 @@ import frc.robot.constants.MechanismConstants;
 public class IntakeIOReal implements IntakeIO {
     private final TalonFX motor;
     private final DigitalInput mz80Sensor;
-    private final String cameraName = "limelight-intake";
+    private final String cameraName = VisionConstants.kLimelightName;
 
     public IntakeIOReal(int motorID) {
         motor = new TalonFX(motorID);

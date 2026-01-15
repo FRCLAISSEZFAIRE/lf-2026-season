@@ -6,10 +6,16 @@ package frc.robot.constants;
  */
 public final class ShooterConstants {
 
-    // --- HOOD (Atış Açısı) ---
-    public static final double kHoodP = 0.05;
-    public static final double kHoodI = 0.0;
-    public static final double kHoodD = 0.002;
+    // --- CONFIGURATION ---
+    public static final boolean kIsTurreted = true; // True: Shooter dönebilir, False: Gövdeyle döner
+    public static final boolean kHasDualFlywheels = false; // True: Çift flywheel (Sağ/Sol), False: Tek
+
+    // --- HOOD (Servo) ---
+    public static final int kHoodLeftPWMPort = 0;
+    public static final int kHoodRightPWMPort = 1;
+    
+    public static final boolean kHoodLeftServoInverted = false;
+    public static final boolean kHoodRightServoInverted = true;
 
     public static final double kHoodMinAngle = 20.0; // Derece (düz atış)
     public static final double kHoodMaxAngle = 65.0; // Derece (dikey atış)
@@ -26,7 +32,15 @@ public final class ShooterConstants {
     public static final double kTurretD = 0.1;
     public static final double kTurretTolerance = 0.05; // Radyan (~3 derece)
 
-    // --- FLYWHEEL ---
-    public static final double kFlywheelVoltage = 12.0;
-    public static final double kFlywheelTargetRPM = 5000;
+    // --- FLYWHEEL (Kraken X60 - Velocity Control) ---
+    public static final double kIdleFlywheelRPM = 2000.0; // Bekleme hızı
+    public static final double kShootingFlywheelRPM = 6000.0; // Atış hızı
+    public static final double kFlywheelToleranceRPM = 50.0;
+
+    // Flywheel PID Gains (Slot 0)
+    public static final double kFlywheelP = 0.2; // Tuning gerekli
+    public static final double kFlywheelI = 0.0;
+    public static final double kFlywheelD = 0.0;
+    public static final double kFlywheelkS = 0.25; // Static friction volt
+    public static final double kFlywheelkV = 0.12; // Volt per (Rot/Sec) - Yaklaşık hesap
 }

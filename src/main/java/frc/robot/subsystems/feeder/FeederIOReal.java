@@ -16,6 +16,10 @@ import frc.robot.constants.FeederConstants;
 public class FeederIOReal implements FeederIO {
 
     private final SparkMax motor;
+    private final edu.wpi.first.wpilibj.DigitalInput sensorBottom;
+    private final edu.wpi.first.wpilibj.DigitalInput sensorLow;
+    private final edu.wpi.first.wpilibj.DigitalInput sensorHigh;
+    private final edu.wpi.first.wpilibj.DigitalInput sensorTop;
 
     public FeederIOReal(int motorID) {
         motor = new SparkMax(motorID, MotorType.kBrushless);
@@ -26,6 +30,12 @@ public class FeederIOReal implements FeederIO {
         config.smartCurrentLimit(FeederConstants.kCurrentLimit);
 
         motor.configure(config, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
+
+        // Sensörler
+        sensorBottom = new edu.wpi.first.wpilibj.DigitalInput(FeederConstants.kFuelSensorBottomID);
+        sensorLow = new edu.wpi.first.wpilibj.DigitalInput(FeederConstants.kFuelSensorLowID);
+        sensorHigh = new edu.wpi.first.wpilibj.DigitalInput(FeederConstants.kFuelSensorHighID);
+        sensorTop = new edu.wpi.first.wpilibj.DigitalInput(FeederConstants.kFuelSensorTopID);
     }
 
     @Override
@@ -33,6 +43,12 @@ public class FeederIOReal implements FeederIO {
         inputs.velocityRPM = motor.getEncoder().getVelocity();
         inputs.appliedVolts = motor.getAppliedOutput() * motor.getBusVoltage();
         inputs.currentAmps = motor.getOutputCurrent();
+
+        // Sensörler (Genellikle NPN: 0V=Var, 5V=Yok. Bu yüzden tersliyoruz)
+        inputs.fuelPresentBottom = !sensorBottom.get();
+        inputs.fuelPresentLow = !sensorLow.get();
+        inputs.fuelPresentHigh = !sensorHigh.get();
+        inputs.fuelPresentTop = !sensorTop.get();
     }
 
     @Override

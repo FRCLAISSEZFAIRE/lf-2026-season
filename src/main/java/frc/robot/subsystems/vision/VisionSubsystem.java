@@ -42,4 +42,16 @@ public class VisionSubsystem extends SubsystemBase {
     // Veri transferi için yardımcı record (mesafe bilgisi dahil)
     public record VisionMeasurement(Pose2d pose, double timestamp, double avgTagDist) {
     }
+
+    public boolean hasGamePiece() {
+        return inputs.hasGamePiece;
+    }
+
+    public double getGamePieceYaw() {
+        return inputs.gamePieceYaw;
+    }
+
+    public void setPipeline(int pipelineIndex) {
+        io.setPipeline(pipelineIndex);
+    }
 }

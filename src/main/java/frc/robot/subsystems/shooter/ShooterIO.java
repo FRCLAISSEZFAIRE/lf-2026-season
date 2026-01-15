@@ -7,7 +7,10 @@ public interface ShooterIO {
     public static class ShooterIOInputs {
         // Flywheel (Fırlatıcı)
         public double flywheelVelocityRadPerSec = 0.0;
+        public double flywheelVelocityError = 0.0; // RPM Error
         public double flywheelAppliedVolts = 0.0;
+        public double flywheelRightVelocityRadPerSec = 0.0; // Secondary Flywheel
+        public double flywheelRightAppliedVolts = 0.0; // Secondary Flywheel
 
         // Turret (Yatay Döner Tabla)
         public double turretAbsolutePositionRad = 0.0;
@@ -26,6 +29,15 @@ public interface ShooterIO {
 
     // Motor Kontrolleri
     default void setFlywheelVoltage(double volts) {
+    }
+
+    default void setFlywheelVelocity(double velocityRPM) {
+    }
+
+    default void setFlywheelRightVoltage(double volts) {
+    }
+
+    default void setFlywheelRightVelocity(double velocityRPM) {
     }
 
     default void setTurretVoltage(double volts) {

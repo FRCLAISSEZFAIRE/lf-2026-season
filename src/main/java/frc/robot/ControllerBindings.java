@@ -125,10 +125,10 @@ public class ControllerBindings {
                                 .whileTrue(Commands.sequence(
                                                 Commands.runOnce(() -> ledSubsystem
                                                                 .setState(LEDSubsystem.LEDState.SHOOTING)),
-                                                new ShootCommand(shooterSubsystem, intakeSubsystem)))
+                                                new ShootCommand(shooterSubsystem, feederSubsystem)))
                                 .onFalse(Commands.parallel(
                                                 Commands.runOnce(shooterSubsystem::stopShooter),
-                                                Commands.runOnce(() -> intakeSubsystem.runRoller(0)),
+                                                Commands.runOnce(feederSubsystem::stop, feederSubsystem),
                                                 Commands.runOnce(() -> ledSubsystem.setIdle())));
         }
 

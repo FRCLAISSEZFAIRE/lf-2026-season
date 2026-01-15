@@ -36,7 +36,7 @@ public class ShooterSubsystem extends SubsystemBase {
             ShooterConstants.kTurretD);
 
     // Flywheel
-    private double targetFlywheelSpeed = 0.0;
+    private double targetFlywheelSpeed = ShooterConstants.kIdleFlywheelRPM; // Başlangıçta idle
 
     // Hood (Atış Açısı)
     private double targetHoodAngle = ShooterConstants.kHoodMidAngle;
@@ -56,10 +56,11 @@ public class ShooterSubsystem extends SubsystemBase {
         turretPID.enableContinuousInput(-Math.PI, Math.PI);
         turretPID.setTolerance(ShooterConstants.kTurretTolerance);
 
-        // Tunable Hood PID
-        tunableHoodP = new TunableNumber("Shooter", "Hood P", ShooterConstants.kHoodP);
-        tunableHoodI = new TunableNumber("Shooter", "Hood I", ShooterConstants.kHoodI);
-        tunableHoodD = new TunableNumber("Shooter", "Hood D", ShooterConstants.kHoodD);
+        // Tunable Hood PID (Servo için gerekip gerekmediği tartışılır ama şimdilik dursun veya kaldıralım)
+        // Servo için PID genellikle yoktur (IO içinde Servo.setAngle)
+        tunableHoodP = new TunableNumber("Shooter", "Hood P", 0.0);
+        tunableHoodI = new TunableNumber("Shooter", "Hood I", 0.0);
+        tunableHoodD = new TunableNumber("Shooter", "Hood D", 0.0);
     }
 
     public void setIntakeSubsystem(IntakeSubsystem intakeSubsystem) {
@@ -80,23 +81,29 @@ public class ShooterSubsystem extends SubsystemBase {
         lastShooterSensorState = inputs.shooterSensorTriggered;
 
         // --- TURRET AUTO-AIM ---
-        Pose2d robotPose = robotPoseSupplier.get();
-        double targetAngleRad = Math.atan2(
-                targetLocation.getY() - robotPose.getY(),
-                targetLocation.getX() - robotPose.getX());
-        Rotation2d robotHeading = robotPose.getRotation();
-        double turretTargetAngle = MathUtil.angleModulus(targetAngleRad - robotHeading.getRadians());
-        double turretVolts = turretPID.calculate(inputs.turretAbsolutePositionRad, turretTargetAngle);
-        io.setTurretVoltage(turretVolts);
+        double turretTargetAngle = 0.0;
+        if (ShooterConstants.kIsTurreted) {
+            Pose2d robotPose = robotPoseSupplier.get();
+            double targetAngleRad = Math.atan2(
+                    targetLocation.getY() - robotPose.getY(),
+                    targetLocation.getX() - robotPose.getX());
+            Rotation2d robotHeading = robotPose.getRotation();
+            turretTargetAngle = MathUtil.angleModulus(targetAngleRad - robotHeading.getRadians());
+            double turretVolts = turretPID.calculate(inputs.turretAbsolutePositionRad, turretTargetAngle);
+            io.setTurretVoltage(turretVolts);
+        } else {
+            io.setTurretVoltage(0.0);
+        }
 
         // --- HOOD CONTROL ---
         io.setHoodAngle(targetHoodAngle);
 
-        // --- FLYWHEEL CONTROL ---
-        if (targetFlywheelSpeed > 0) {
-            io.setFlywheelVoltage(ShooterConstants.kFlywheelVoltage);
-        } else {
-            io.setFlywheelVoltage(0.0);
+        // --- FLYWHEEL CONTROL (Velocity) ---
+        // targetFlywheelSpeed, shoot() veya stopShooter() ile ayarlanır.
+        
+        io.setFlywheelVelocity(targetFlywheelSpeed);
+        if (ShooterConstants.kHasDualFlywheels) {
+            io.setFlywheelRightVelocity(targetFlywheelSpeed);
         }
 
         // Loglama
@@ -105,16 +112,24 @@ public class ShooterSubsystem extends SubsystemBase {
         Logger.recordOutput("Shooter/TurretActual", inputs.turretAbsolutePositionRad);
         Logger.recordOutput("Shooter/HoodTarget", targetHoodAngle);
         Logger.recordOutput("Shooter/HoodActual", inputs.hoodPositionDegrees);
+        Logger.recordOutput("Shooter/FlywheelTargetRPM", targetFlywheelSpeed);
+        Logger.recordOutput("Shooter/FlywheelActualRPM", inputs.flywheelVelocityRadPerSec * 60.0 / (2 * Math.PI));
     }
 
     // ==================== COMMANDS ====================
 
     public void shoot() {
-        targetFlywheelSpeed = ShooterConstants.kFlywheelTargetRPM;
+        targetFlywheelSpeed = ShooterConstants.kShootingFlywheelRPM;
     }
 
+    /** Atışı durdur (Idle hızına dön) */
     public void stopShooter() {
-        targetFlywheelSpeed = 0;
+        targetFlywheelSpeed = ShooterConstants.kIdleFlywheelRPM;
+    }
+    
+    /** Tamamen durdur (Test/Acil durum için opsiyonel) */
+    public void stopMotorTotal() {
+        targetFlywheelSpeed = 0.0;
     }
 
     /** Hood açısını ayarla (derece) */
@@ -143,17 +158,36 @@ public class ShooterSubsystem extends SubsystemBase {
     // ==================== STATUS ====================
 
     public boolean isAimingAtTarget() {
-        return turretPID.atSetpoint();
+        if (ShooterConstants.kIsTurreted) {
+            return turretPID.atSetpoint();
+        } else {
+            // Taret yoksa, robotun gövdesinin hedefe bakıp bakmadığını kontrol et
+            Pose2d robotPose = robotPoseSupplier.get();
+            double targetAngleRad = Math.atan2(
+                    targetLocation.getY() - robotPose.getY(),
+                    targetLocation.getX() - robotPose.getX());
+            
+            // Robotun dönüş hatasını hesapla (-PI ile PI arası)
+            double errorRad = MathUtil.angleModulus(targetAngleRad - robotPose.getRotation().getRadians());
+            
+            // Tolerans içinde mi? (kTurretTolerance ~3 derece)
+            return Math.abs(errorRad) < ShooterConstants.kTurretTolerance;
+        }
     }
 
     public boolean isHoodAtTarget() {
         return Math.abs(inputs.hoodPositionDegrees - targetHoodAngle) < ShooterConstants.kHoodTolerance;
     }
-
-    public boolean isReadyToShoot() {
-        return isAimingAtTarget() && isHoodAtTarget();
+    
+    public boolean isFlywheelAtSpeed() {
+        double currentRPM = inputs.flywheelVelocityRadPerSec * 60.0 / (2 * Math.PI);
+        return Math.abs(currentRPM - targetFlywheelSpeed) < ShooterConstants.kFlywheelToleranceRPM;
     }
 
+    public boolean isReadyToShoot() {
+        return isAimingAtTarget() && isHoodAtTarget() && isFlywheelAtSpeed();
+    }
+    
     public double getHoodAngle() {
         return inputs.hoodPositionDegrees;
     }

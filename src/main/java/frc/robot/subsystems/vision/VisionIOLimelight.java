@@ -1,23 +1,30 @@
 package frc.robot.subsystems.vision;
 
 import edu.wpi.first.math.geometry.Pose2d;
-import edu.wpi.first.wpilibj.Timer;
-import frc.robot.LimelightHelpers; // Limelight kütüphanesi
+import frc.robot.LimelightHelpers;
 import frc.robot.constants.VisionConstants;
 
 public class VisionIOLimelight implements VisionIO {
 
+    private int currentPipeline = VisionConstants.kAprilTagPipelineIndex;
+
     public VisionIOLimelight() {
-        // Limelight başlangıç ayarları (Pipeline 0 genelde AprilTag'dir)
-        LimelightHelpers.setPipelineIndex(VisionConstants.kLimelightName, 0);
+        // Limelight başlangıç ayarları
+        setPipeline(currentPipeline);
+    }
+
+    @Override
+    public void setPipeline(int pipelineIndex) {
+        currentPipeline = pipelineIndex;
+        LimelightHelpers.setPipelineIndex(VisionConstants.kLimelightName, pipelineIndex);
     }
 
     @Override
     public void updateInputs(VisionIOInputs inputs) {
+        // 1. AprilTag / Pose Estimate (MegaTag2)
         LimelightHelpers.PoseEstimate limelightMeasurement = LimelightHelpers
                 .getBotPoseEstimate_wpiBlue_MegaTag2(VisionConstants.kLimelightName);
 
-        // Eğer geçerli bir tag görüyorsa
         if (limelightMeasurement != null && limelightMeasurement.tagCount > 0) {
             inputs.hasTarget = true;
             inputs.estimatedPose = limelightMeasurement.pose;
@@ -26,7 +33,19 @@ public class VisionIOLimelight implements VisionIO {
             inputs.avgTagDist = limelightMeasurement.avgTagDist;
         } else {
             inputs.hasTarget = false;
-            // Eski veriyi koru veya boşalt
+            inputs.tagCount = 0;
+        }
+
+        // 2. Game Piece Detection (Pipeline dependent)
+        if (currentPipeline == VisionConstants.kGamePiecePipelineIndex) {
+            boolean tv = LimelightHelpers.getTV(VisionConstants.kLimelightName);
+            double tx = LimelightHelpers.getTX(VisionConstants.kLimelightName);
+            
+            inputs.hasGamePiece = tv;
+            inputs.gamePieceYaw = tx;
+        } else {
+            inputs.hasGamePiece = false;
+            inputs.gamePieceYaw = 0.0;
         }
     }
 }

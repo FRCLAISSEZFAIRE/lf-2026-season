@@ -8,6 +8,12 @@ public interface FeederIO {
         public double velocityRPM = 0.0;
         public double appliedVolts = 0.0;
         public double currentAmps = 0.0;
+
+        // Sensors
+        public boolean fuelPresentBottom = false;
+        public boolean fuelPresentLow = false;
+        public boolean fuelPresentHigh = false;
+        public boolean fuelPresentTop = false;
     }
 
     default void updateInputs(FeederIOInputs inputs) {

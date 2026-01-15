@@ -70,6 +70,7 @@ public class VisionIOSim implements VisionIO {
 
     private volatile Supplier<Pose2d> poseSupplier;
     private final Random random = new Random();
+    private int currentPipeline = VisionConstants.kAprilTagPipelineIndex;
 
     /**
      * VisionIOSim constructor - pose supplier'sız.
@@ -97,9 +98,26 @@ public class VisionIOSim implements VisionIO {
     public void setPoseSupplier(Supplier<Pose2d> poseSupplier) {
         this.poseSupplier = poseSupplier;
     }
+    
+    @Override
+    public void setPipeline(int pipelineIndex) {
+        this.currentPipeline = pipelineIndex;
+    }
 
     @Override
     public void updateInputs(VisionIOInputs inputs) {
+        // Varsayılan değerler
+        inputs.hasGamePiece = false;
+        inputs.gamePieceYaw = 0.0;
+        
+        // Eğer AprilTag Pipeline seçili değilse, AprilTag aramayı atla
+        if (currentPipeline != VisionConstants.kAprilTagPipelineIndex) {
+            inputs.hasTarget = false;
+            inputs.tagCount = 0;
+            inputs.avgTagDist = 0.0;
+            return;
+        }
+
         Pose2d robotPose = poseSupplier.get();
 
         // Kamera pozisyonunu hesapla (robot merkezinden offset)

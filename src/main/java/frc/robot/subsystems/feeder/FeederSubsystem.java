@@ -111,4 +111,50 @@ public class FeederSubsystem extends SubsystemBase {
     public double getVelocityRPM() {
         return inputs.velocityRPM;
     }
+
+    // ==================== FUEL TANK LOGIC ====================
+
+    private boolean isLoading = false;
+
+    /**
+     * Yükleme modunu ayarlar.
+     * Yükleme yaparken (Intake -> Feeder), feeder sensörlere bakmaksızın çalışabilir veya durabilir.
+     * Shooter çalışırken bu mod aktifse besleme yapılmaz.
+     */
+    public void setLoading(boolean loading) {
+        this.isLoading = loading;
+    }
+
+    public boolean isLoading() {
+        return isLoading;
+    }
+
+    /**
+     * Yakıt tankında yakıt (fuel) var mı?
+     * En alt sensör (Bottom) görüyorsa yakıt vardır.
+     */
+    public boolean isFuelSystemEmpty() {
+        return !inputs.fuelPresentBottom;
+    }
+
+    /**
+     * Yakıt seviyesini döndürür (0-4).
+     */
+    public int getFuelLevel() {
+        int level = 0;
+        if (inputs.fuelPresentBottom) level++;
+        if (inputs.fuelPresentLow) level++;
+        if (inputs.fuelPresentHigh) level++;
+        if (inputs.fuelPresentTop) level++;
+        return level;
+    }
+
+    /**
+     * Tank tamamen dolu mu?
+     * Tüm sensörler (Bottom, Low, High, Top) 'var' okuyorsa dolu demektir.
+     */
+    public boolean isFuelSystemFull() {
+        return inputs.fuelPresentBottom && inputs.fuelPresentLow && 
+               inputs.fuelPresentHigh && inputs.fuelPresentTop;
+    }
 }

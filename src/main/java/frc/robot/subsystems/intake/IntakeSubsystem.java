@@ -45,6 +45,9 @@ public class IntakeSubsystem extends SubsystemBase {
         Logger.recordOutput("Intake/ItemCount", itemCount);
         Logger.recordOutput("Intake/IsFull", isFull());
         Logger.recordOutput("Intake/SensorTriggered", inputs.intakeSensorTriggered);
+        
+        // Dashboard Indicator (User Request)
+        edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.putBoolean("Fuel Present", seesGamePiece());
     }
 
     /**

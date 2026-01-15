@@ -32,15 +32,16 @@ import frc.robot.subsystems.led.*;
 
 // --- COMMANDS ---
 import frc.robot.commands.drive.DriveWithJoystick;
+import frc.robot.commands.drive.DriveWithAiming;
 import frc.robot.commands.drive.SimpleDriveToPose;
+
+import frc.robot.commands.intake.RunIntakeCommand;
+import frc.robot.commands.intake.AutoIntakeCommand;
 
 // --- PATHPLANNER ---
 import com.pathplanner.lib.auto.AutoBuilder;
 import com.pathplanner.lib.auto.NamedCommands;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
-
-/**
- * Robot yapılandırma merkezi.
  * 
  * <p>
  * Robotun tüm alt sistemlerini, IO katmanlarını ve komutlarını yapılandırır.
@@ -379,19 +380,19 @@ public class RobotContainer {
                                 edu.wpi.first.math.util.Units.degreesToRadians(360),
                                 edu.wpi.first.math.util.Units.degreesToRadians(540));
 
-                // --- GO TO SCORE (Button X) ---
+                // --- AUTO INTAKE (Button X) ---
                 driverController.x().whileTrue(
-                                Commands.defer(() -> AutoBuilder.pathfindToPose(
-                                                FieldConstants.kHubScoringPoses[selectedScoreIndex],
-                                                constraints,
-                                                0.0), java.util.Set.of(driveSubsystem)));
+                                new AutoIntakeCommand(driveSubsystem, intakeSubsystem, feederSubsystem, visionSubsystem));
 
-                // --- GO TO SOURCE (Button Y) ---
+                // --- AUTO AIM (Button Y) ---
+                // Y tuşuna basılı tutulduğunda: Hareket serbest, robot hedefe döner (Auto-Aim)
                 driverController.y().whileTrue(
-                                Commands.defer(() -> AutoBuilder.pathfindToPose(
-                                                FieldConstants.kSourcePoses[selectedSourceIndex],
-                                                constraints,
-                                                0.0), java.util.Set.of(driveSubsystem)));
+                                new DriveWithAiming(
+                                                driveSubsystem,
+                                                () -> -driverController.getRawAxis(OIConstants.kDriverLeftYAxis),
+                                                () -> -driverController.getRawAxis(OIConstants.kDriverLeftXAxis),
+                                                () -> new edu.wpi.first.math.geometry.Translation2d(16.5, 5.55) // Hedef Konumu (Shooter ile aynı)
+                                ));
         }// ==================== STARTING POSE ====================
 
         /**
