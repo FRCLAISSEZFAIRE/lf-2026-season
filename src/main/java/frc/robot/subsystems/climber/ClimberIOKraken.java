@@ -1,4 +1,4 @@
-package frc.robot.subsystems.lift;
+package frc.robot.subsystems.climber;
 
 import com.ctre.phoenix6.BaseStatusSignal;
 import com.ctre.phoenix6.StatusSignal;
@@ -8,7 +8,6 @@ import com.ctre.phoenix6.configs.Slot0Configs;
 import com.ctre.phoenix6.configs.SoftwareLimitSwitchConfigs;
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
 import com.ctre.phoenix6.configs.CurrentLimitsConfigs;
-import com.ctre.phoenix6.controls.Follower;
 import com.ctre.phoenix6.controls.MotionMagicVoltage;
 import com.ctre.phoenix6.controls.VelocityVoltage;
 import com.ctre.phoenix6.controls.VoltageOut;
@@ -17,17 +16,22 @@ import com.ctre.phoenix6.signals.FeedbackSensorSourceValue;
 import com.ctre.phoenix6.signals.InvertedValue;
 import com.ctre.phoenix6.signals.NeutralModeValue;
 
-import frc.robot.constants.LiftConstants;
+import edu.wpi.first.wpilibj.DigitalInput;
+
+import frc.robot.constants.ClimberConstants;
 
 /**
- * Lift için gerçek donanım IO implementasyonu.
+ * Climber için gerçek donanım IO implementasyonu.
  * 2 Kraken X60 motor ile Motion Magic kontrolü.
  * CAN mesajları optimize edilmiştir.
  */
-public class LiftIOKraken implements LiftIO {
+public class ClimberIOKraken implements ClimberIO {
 
     private final TalonFX leftMotor;
     private final TalonFX rightMotor;
+
+    // Seat Sensor (Limit Switch)
+    private final DigitalInput seatSensor;
 
     // Control requests (reusable)
     private final MotionMagicVoltage positionRequest = new MotionMagicVoltage(0);
@@ -47,9 +51,12 @@ public class LiftIOKraken implements LiftIO {
     private final StatusSignal<?> rightTemp;
     private final StatusSignal<?> rightVoltage;
 
-    public LiftIOKraken(int leftID, int rightID) {
+    public ClimberIOKraken(int leftID, int rightID) {
         leftMotor = new TalonFX(leftID);
         rightMotor = new TalonFX(rightID);
+
+        // Seat Sensor init
+        seatSensor = new DigitalInput(ClimberConstants.kSeatSensorDIO);
 
         // Motor konfigürasyonu
         configureMotor(leftMotor, false);
@@ -84,8 +91,8 @@ public class LiftIOKraken implements LiftIO {
         SoftwareLimitSwitchConfigs softLimits = new SoftwareLimitSwitchConfigs();
         softLimits.ForwardSoftLimitEnable = true;
         softLimits.ReverseSoftLimitEnable = true;
-        softLimits.ForwardSoftLimitThreshold = LiftConstants.kForwardSoftLimit;
-        softLimits.ReverseSoftLimitThreshold = LiftConstants.kReverseSoftLimit;
+        softLimits.ForwardSoftLimitThreshold = ClimberConstants.kForwardSoftLimit;
+        softLimits.ReverseSoftLimitThreshold = ClimberConstants.kReverseSoftLimit;
         config.SoftwareLimitSwitch = softLimits;
 
         // Motor Output - Brake mode
@@ -97,23 +104,23 @@ public class LiftIOKraken implements LiftIO {
 
         // Current Limits
         CurrentLimitsConfigs currentLimits = new CurrentLimitsConfigs();
-        currentLimits.SupplyCurrentLimit = LiftConstants.kSupplyCurrentLimit;
+        currentLimits.SupplyCurrentLimit = ClimberConstants.kSupplyCurrentLimit;
         currentLimits.SupplyCurrentLimitEnable = true;
         config.CurrentLimits = currentLimits;
 
         // PID Slot 0 (Motion Magic için)
         Slot0Configs slot0 = config.Slot0;
-        slot0.kS = LiftConstants.kLiftS;
-        slot0.kV = LiftConstants.kLiftV;
-        slot0.kA = LiftConstants.kLiftA;
-        slot0.kP = LiftConstants.kLiftP;
-        slot0.kI = LiftConstants.kLiftI;
-        slot0.kD = LiftConstants.kLiftD;
+        slot0.kS = ClimberConstants.kClimberS;
+        slot0.kV = ClimberConstants.kClimberV;
+        slot0.kA = ClimberConstants.kClimberA;
+        slot0.kP = ClimberConstants.kClimberP;
+        slot0.kI = ClimberConstants.kClimberI;
+        slot0.kD = ClimberConstants.kClimberD;
 
         // Motion Magic Profiling
-        config.MotionMagic.MotionMagicCruiseVelocity = LiftConstants.kLiftMMCV;
-        config.MotionMagic.MotionMagicAcceleration = LiftConstants.kLiftMMA;
-        config.MotionMagic.MotionMagicJerk = LiftConstants.kLiftMMJ;
+        config.MotionMagic.MotionMagicCruiseVelocity = ClimberConstants.kClimberMMCV;
+        config.MotionMagic.MotionMagicAcceleration = ClimberConstants.kClimberMMA;
+        config.MotionMagic.MotionMagicJerk = ClimberConstants.kClimberMMJ;
 
         motor.getConfigurator().apply(config);
     }
@@ -124,18 +131,18 @@ public class LiftIOKraken implements LiftIO {
      */
     private void optimizeCANUsage() {
         // Sol motor sinyalleri
-        leftPosition.setUpdateFrequency(LiftConstants.kPositionUpdateHz);
-        leftVelocity.setUpdateFrequency(LiftConstants.kVelocityUpdateHz);
-        leftCurrent.setUpdateFrequency(LiftConstants.kCurrentUpdateHz);
-        leftTemp.setUpdateFrequency(LiftConstants.kTemperatureUpdateHz);
-        leftVoltage.setUpdateFrequency(LiftConstants.kCurrentUpdateHz);
+        leftPosition.setUpdateFrequency(ClimberConstants.kPositionUpdateHz);
+        leftVelocity.setUpdateFrequency(ClimberConstants.kVelocityUpdateHz);
+        leftCurrent.setUpdateFrequency(ClimberConstants.kCurrentUpdateHz);
+        leftTemp.setUpdateFrequency(ClimberConstants.kTemperatureUpdateHz);
+        leftVoltage.setUpdateFrequency(ClimberConstants.kCurrentUpdateHz);
 
         // Sağ motor sinyalleri
-        rightPosition.setUpdateFrequency(LiftConstants.kPositionUpdateHz);
-        rightVelocity.setUpdateFrequency(LiftConstants.kVelocityUpdateHz);
-        rightCurrent.setUpdateFrequency(LiftConstants.kCurrentUpdateHz);
-        rightTemp.setUpdateFrequency(LiftConstants.kTemperatureUpdateHz);
-        rightVoltage.setUpdateFrequency(LiftConstants.kCurrentUpdateHz);
+        rightPosition.setUpdateFrequency(ClimberConstants.kPositionUpdateHz);
+        rightVelocity.setUpdateFrequency(ClimberConstants.kVelocityUpdateHz);
+        rightCurrent.setUpdateFrequency(ClimberConstants.kCurrentUpdateHz);
+        rightTemp.setUpdateFrequency(ClimberConstants.kTemperatureUpdateHz);
+        rightVoltage.setUpdateFrequency(ClimberConstants.kCurrentUpdateHz);
 
         // Gereksiz sinyalleri kapat
         leftMotor.optimizeBusUtilization();
@@ -143,7 +150,7 @@ public class LiftIOKraken implements LiftIO {
     }
 
     @Override
-    public void updateInputs(LiftIOInputs inputs) {
+    public void updateInputs(ClimberIOInputs inputs) {
         // Tüm sinyalleri tek seferde refresh et (daha verimli)
         BaseStatusSignal.refreshAll(
                 leftPosition, leftVelocity, leftCurrent, leftTemp, leftVoltage,
@@ -165,8 +172,14 @@ public class LiftIOKraken implements LiftIO {
 
         // Limit kontrolü
         double avgPosition = (inputs.leftPositionRotations + inputs.rightPositionRotations) / 2.0;
-        inputs.atForwardLimit = avgPosition >= LiftConstants.kForwardSoftLimit - 0.5;
-        inputs.atReverseLimit = avgPosition <= LiftConstants.kReverseSoftLimit + 0.5;
+        inputs.atForwardLimit = avgPosition >= ClimberConstants.kForwardSoftLimit - 0.5;
+        inputs.atReverseLimit = avgPosition <= ClimberConstants.kReverseSoftLimit + 0.5;
+
+        // Seat Sensor (!get() çünkü switch basılıyken genelde false/low döner, ama NO/NC'ye göre değişir.
+        // Genelde basıldığında devre tamamlanır (TRUE) ya da kesilir (FALSE).
+        // Varsayım: Switch basıldığında TRUE dönüyor. Eğer ters ise !seatSensor.get() yapın.
+        // FRC standartlarında limit switchler genelde Normally Open (NO) kullanılır ve basınca 1 olur.
+        inputs.isSeated = seatSensor.get();
     }
 
     @Override

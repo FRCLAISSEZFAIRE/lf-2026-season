@@ -7,20 +7,20 @@ public final class GamePieceConstants {
 
     /**
      * Oyun nesnesi tanımı.
-     * @param id Limelight class ID'si
+     * 
+     * @param id          Limelight class ID'si
      * @param intakeSpeed Intake motor voltajı
-     * @param name Görüntüleme adı
+     * @param name        Görüntüleme adı
      */
-    public record GamePiece(int id, double intakeSpeed, String name) {}
+    public record GamePiece(int id, double intakeSpeed, String name) {
+    }
 
     /**
      * Mevcut oyun nesneleri listesi.
      * Limelight Neural Network pipeline'da bu ID'ler class olarak tanımlı olmalı.
      */
     public static final GamePiece[] GAME_PIECES = {
-        new GamePiece(0, 10.0, "Note"),      // 2024 Note
-        new GamePiece(1, 8.0, "Coral"),      // 2025 Coral
-        new GamePiece(2, 6.0, "Algae"),      // 2025 Algae
+            new GamePiece(0, 10.0, "Fuel"), // 2026 Fuel
     };
 
     /**
@@ -30,6 +30,7 @@ public final class GamePieceConstants {
 
     /**
      * ID'ye göre oyun nesnesi bul.
+     * 
      * @param id Aranacak ID
      * @return Bulunan GamePiece veya varsayılan
      */
@@ -44,6 +45,7 @@ public final class GamePieceConstants {
 
     /**
      * İsme göre oyun nesnesi bul.
+     * 
      * @param name Aranacak isim
      * @return Bulunan GamePiece veya varsayılan
      */

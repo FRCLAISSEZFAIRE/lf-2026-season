@@ -17,7 +17,7 @@ import frc.robot.constants.Constants;
 import frc.robot.constants.DriveConstants;
 import frc.robot.constants.MechanismConstants;
 import frc.robot.constants.OIConstants;
-import frc.robot.constants.LiftConstants;
+import frc.robot.constants.ClimberConstants;
 import frc.robot.constants.FeederConstants;
 import frc.robot.constants.FieldConstants;
 
@@ -26,7 +26,7 @@ import frc.robot.subsystems.drive.*;
 import frc.robot.subsystems.vision.*;
 import frc.robot.subsystems.intake.*;
 import frc.robot.subsystems.shooter.*;
-import frc.robot.subsystems.lift.*;
+import frc.robot.subsystems.climber.*;
 import frc.robot.subsystems.feeder.*;
 import frc.robot.subsystems.led.*;
 
@@ -42,6 +42,9 @@ import frc.robot.commands.intake.AutoIntakeCommand;
 import com.pathplanner.lib.auto.AutoBuilder;
 import com.pathplanner.lib.auto.NamedCommands;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
+
+/**
+ * Bu sınıf, robotunuzun ana yapısını tanımlar.
  * 
  * <p>
  * Robotun tüm alt sistemlerini, IO katmanlarını ve komutlarını yapılandırır.
@@ -63,8 +66,7 @@ import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
  * görüş</li>
  * <li>{@link frc.robot.subsystems.intake.IntakeSubsystem} - Alma sistemi</li>
  * <li>{@link frc.robot.subsystems.shooter.ShooterSubsystem} - Atış sistemi</li>
- * <li>{@link frc.robot.subsystems.lift.LiftSubsystem} - Lift (Elevator +
- * Climber)</li>
+ * <li>{@link frc.robot.subsystems.climber.ClimberSubsystem} - Climber (Tırmanma)</li>
  * <li>{@link frc.robot.subsystems.feeder.FeederSubsystem} - Besleyici</li>
  * <li>{@link frc.robot.subsystems.led.LEDSubsystem} - LED kontrolü</li>
  * </ul>
@@ -85,7 +87,7 @@ public class RobotContainer {
         private final VisionSubsystem visionSubsystem;
         private final IntakeSubsystem intakeSubsystem;
         private final ShooterSubsystem shooterSubsystem;
-        private final LiftSubsystem liftSubsystem;
+        private final ClimberSubsystem climberSubsystem;
         private final FeederSubsystem feederSubsystem;
         private final LEDSubsystem ledSubsystem;
 
@@ -105,7 +107,7 @@ public class RobotContainer {
                 VisionIO visionIO;
                 IntakeIO intakeIO;
                 ShooterIO shooterIO;
-                LiftIO liftIO;
+                ClimberIO climberIO; // Değiştirildi: LiftIO -> ClimberIO
                 FeederIO feederIO;
 
                 switch (Constants.currentMode) {
@@ -128,7 +130,7 @@ public class RobotContainer {
                                 shooterIO = new ShooterIOReal(MechanismConstants.kShooterMasterID,
                                                 MechanismConstants.kTurretID,
                                                 MechanismConstants.kHoodID);
-                                liftIO = new LiftIOKraken(LiftConstants.kLeftMotorID, LiftConstants.kRightMotorID);
+                                climberIO = new ClimberIOKraken(ClimberConstants.kLeftMotorID, ClimberConstants.kRightMotorID); // Değiştirildi
                                 feederIO = new FeederIOReal(FeederConstants.kFeederMotorID);
                                 break;
 
@@ -142,7 +144,7 @@ public class RobotContainer {
                                 visionIO = new VisionIOSim();
                                 intakeIO = new IntakeIOSim();
                                 shooterIO = new ShooterIOSim();
-                                liftIO = new LiftIOSim();
+                                climberIO = new ClimberIOSim(); // Değiştirildi
                                 feederIO = new FeederIOSim();
                                 break;
 
@@ -163,7 +165,7 @@ public class RobotContainer {
                                 };
                                 shooterIO = new ShooterIO() {
                                 };
-                                liftIO = new LiftIO() {
+                                climberIO = new ClimberIO() { // Değiştirildi
                                 };
                                 feederIO = new FeederIO() {
                                 };
@@ -175,12 +177,14 @@ public class RobotContainer {
                 visionSubsystem = new VisionSubsystem(visionIO);
                 intakeSubsystem = new IntakeSubsystem(intakeIO);
                 shooterSubsystem = new ShooterSubsystem(shooterIO, driveSubsystem::getPose);
-                liftSubsystem = new LiftSubsystem(liftIO);
+                climberSubsystem = new ClimberSubsystem(climberIO); // Değiştirildi
                 feederSubsystem = new FeederSubsystem(feederIO);
                 ledSubsystem = new LEDSubsystem();
 
                 // Bağlantılar
                 shooterSubsystem.setIntakeSubsystem(intakeSubsystem);
+                // Climber için gyro verilerini bağla (eğim kontrolü)
+                climberSubsystem.setGyroSuppliers(driveSubsystem::getPitch, driveSubsystem::getRoll);
 
                 // VisionIOSim için pose supplier'ı ayarla (SIM modunda)
                 if (visionIO instanceof VisionIOSim) {
@@ -191,7 +195,9 @@ public class RobotContainer {
                 bindings = new ControllerBindings(
                                 driverController, operatorController,
                                 driveSubsystem, intakeSubsystem, shooterSubsystem,
-                                liftSubsystem, feederSubsystem, ledSubsystem);
+                                climberSubsystem, feederSubsystem, ledSubsystem,
+                                visionSubsystem,
+                                this::cycleClimbPosition); // Değiştirildi
 
                 configureDefaultCommands();
                 bindings.configureAll();
@@ -230,6 +236,7 @@ public class RobotContainer {
                 }
 
                 // 6. Pathfinding Kontrollerini Ayarla (Score Pose Seçimi)
+                configureAutoClimb();
                 configureDriverPathfindingBindings();
 
                 // Örnek: Shooter + PathPlanner + Intake entegrasyonu
@@ -442,11 +449,6 @@ public class RobotContainer {
         // ==================== DEFAULT COMMANDS ====================
         private void configureDefaultCommands() {
                 // Drive: Joystick ile sürüş
-                // Sol Stick: Hareket (Y=ileri/geri, X=strafe)
-                // Sağ Stick X: Dönüş
-                // NOT: Bazı Xbox controller'larda Axis 4/5 -1 ile başlar, bu yüzden normalize
-                // ediyoruz
-                // Drive: Joystick ile sürüş
                 // Sol Stick: Hareket (LeftY, LeftX)
                 // Sağ Stick X: Dönüş (Axis mapping OIConstants içinde tanımlı)
                 driveSubsystem.setDefaultCommand(
@@ -484,9 +486,54 @@ public class RobotContainer {
                 NamedCommands.registerCommand("AutoIntake", Commands.print("[PathPlanner] AutoIntake Çalıştı"));
                 NamedCommands.registerCommand("Shoot", Commands.print("[PathPlanner] Shoot Çalıştı"));
 
-                NamedCommands.registerCommand("ElevatorL1", Commands.print("[PathPlanner] ElevatorL1 Çalıştı"));
-                NamedCommands.registerCommand("ElevatorL2", Commands.print("[PathPlanner] ElevatorL2 Çalıştı"));
-                NamedCommands.registerCommand("ElevatorL3", Commands.print("[PathPlanner] ElevatorL3 Çalıştı"));
+                NamedCommands.registerCommand("ClimberExtend", new frc.robot.commands.climber.ClimberExtendCommand(climberSubsystem));
+                NamedCommands.registerCommand("ClimberRetract", new frc.robot.commands.climber.ClimberRetractCommand(climberSubsystem));
+        }
+
+        // ==================== AUTO CLIMB SETUP ====================
+        private SendableChooser<Integer> climbPositionChooser;
+
+        private void configureAutoClimb() {
+                climbPositionChooser = new SendableChooser<>();
+                climbPositionChooser.setDefaultOption("Tower Mid", 1);
+                climbPositionChooser.addOption("Tower Left", 0);
+                climbPositionChooser.addOption("Tower Right", 2);
+                
+                edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.putData("Climb Position", climbPositionChooser);
+
+                // Auto Climb Komutu (Dashboard Button)
+                edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.putData("START AUTO CLIMB", 
+                    new frc.robot.commands.climber.AutoClimbCommand(
+                        climberSubsystem, 
+                        driveSubsystem, 
+                        this::getSelectedClimbPose
+                    )
+                );
+        }
+        
+        // Climb Position Selection Logic
+        private int selectedClimbIndex = 1; // Default: Mid (0:Left, 1:Mid, 2:Right)
+        
+        public void cycleClimbPosition(int delta) {
+            selectedClimbIndex += delta;
+            if (selectedClimbIndex > 2) selectedClimbIndex = 0;
+            if (selectedClimbIndex < 0) selectedClimbIndex = 2;
+            
+            updateClimbDashboard();
+        }
+        
+        private Pose2d getSelectedClimbPose() {
+            // Dashboard chooser öncelikli olsun mu? Şimdilik index kullanalım.
+            // Ama kullanıcı Dashboard'dan seçerse ne olacak?
+            // İkisi ayrı kalsın, POV indexi değiştirir.
+            return FieldConstants.kTowerClimbPoses[selectedClimbIndex];
+        }
+
+        private void updateClimbDashboard() {
+             String[] names = {"Tower Left", "Tower Mid", "Tower Right"};
+             edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.putString("Active Climb Target", names[selectedClimbIndex]);
+             // Visualisation
+             driveSubsystem.showTargetPose(FieldConstants.kTowerClimbPoses[selectedClimbIndex]);
         }
 
         // ==================== AUTO CHOOSER SETUP ====================

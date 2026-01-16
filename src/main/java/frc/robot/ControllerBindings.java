@@ -6,13 +6,16 @@ import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import frc.robot.subsystems.drive.DriveSubsystem;
 import frc.robot.subsystems.intake.IntakeSubsystem;
 import frc.robot.subsystems.shooter.ShooterSubsystem;
-import frc.robot.subsystems.lift.LiftSubsystem;
+import frc.robot.subsystems.climber.ClimberSubsystem;
 import frc.robot.subsystems.feeder.FeederSubsystem;
 import frc.robot.subsystems.led.LEDSubsystem;
 
 import frc.robot.commands.intake.RunIntakeCommand;
 import frc.robot.commands.intake.AutoIntakeCommand;
 import frc.robot.commands.shooter.ShootCommand;
+
+import frc.robot.commands.climber.ClimberExtendCommand;
+import frc.robot.commands.climber.ClimberRetractCommand;
 
 /**
  * Controller binding'lerini yöneten sınıf.
@@ -32,7 +35,7 @@ import frc.robot.commands.shooter.ShootCommand;
  * <ul>
  * <li><b>Intake/Feeder:</b> Sağ/Sol Tetik</li>
  * <li><b>Shooter:</b> Sağ Bumper</li>
- * <li><b>Lift:</b> D-Pad (Elevator) + Sol Bumper + Sağ Stick (Climb)</li>
+ * <li><b>Climber:</b> Y (Extend), A (Retract), POV (Manuel)</li>
  * <li><b>Acil:</b> Start butonu</li>
  * </ul>
  * 
@@ -45,12 +48,15 @@ public class ControllerBindings {
         private final CommandXboxController operatorController;
 
         // Subsystem referansları
+        // Subsystem referansları
         private final DriveSubsystem driveSubsystem;
         private final IntakeSubsystem intakeSubsystem;
         private final ShooterSubsystem shooterSubsystem;
-        private final LiftSubsystem liftSubsystem;
+        private final ClimberSubsystem climberSubsystem;
         private final FeederSubsystem feederSubsystem;
         private final LEDSubsystem ledSubsystem;
+        private final frc.robot.subsystems.vision.VisionSubsystem visionSubsystem;
+        private final java.util.function.Consumer<Integer> climbPosChanger;
 
         public ControllerBindings(
                         CommandXboxController driverController,
@@ -58,18 +64,22 @@ public class ControllerBindings {
                         DriveSubsystem driveSubsystem,
                         IntakeSubsystem intakeSubsystem,
                         ShooterSubsystem shooterSubsystem,
-                        LiftSubsystem liftSubsystem,
+                        ClimberSubsystem climberSubsystem,
                         FeederSubsystem feederSubsystem,
-                        LEDSubsystem ledSubsystem) {
+                        LEDSubsystem ledSubsystem,
+                        frc.robot.subsystems.vision.VisionSubsystem visionSubsystem,
+                        java.util.function.Consumer<Integer> climbPosChanger) {
 
                 this.driverController = driverController;
                 this.operatorController = operatorController;
                 this.driveSubsystem = driveSubsystem;
                 this.intakeSubsystem = intakeSubsystem;
                 this.shooterSubsystem = shooterSubsystem;
-                this.liftSubsystem = liftSubsystem;
+                this.climberSubsystem = climberSubsystem;
                 this.feederSubsystem = feederSubsystem;
                 this.ledSubsystem = ledSubsystem;
+                this.visionSubsystem = visionSubsystem;
+                this.climbPosChanger = climbPosChanger;
         }
 
         /** Tüm binding'leri yapılandır */
@@ -89,13 +99,13 @@ public class ControllerBindings {
         private void configureOperatorBindings() {
                 configureIntakeBindings();
                 configureShooterBindings();
-                configureLiftBindings();
+                configureClimberBindings();
                 configureEmergencyBindings();
         }
 
         // --- INTAKE / FEEDER ---
         private void configureIntakeBindings() {
-                // Right Trigger: Intake + Feeder (alma)
+                // Right Trigger: Intake + Feeder (Normal Alma)
                 operatorController.rightTrigger(0.5)
                                 .whileTrue(Commands.parallel(
                                                 new RunIntakeCommand(intakeSubsystem, 12.0),
@@ -105,22 +115,21 @@ public class ControllerBindings {
                                                 Commands.runOnce(feederSubsystem::stop, feederSubsystem),
                                                 Commands.runOnce(() -> ledSubsystem.setIdle())));
 
-                // Left Trigger: Intake + Feeder Ters (çıkarma)
+                // Left Trigger: SADECE Intake Ters (Çıkarma) - Feeder durur
                 operatorController.leftTrigger(0.5)
-                                .whileTrue(Commands.parallel(
-                                                new RunIntakeCommand(intakeSubsystem, -12.0),
-                                                Commands.run(() -> feederSubsystem.reverse(), feederSubsystem)))
-                                .onFalse(Commands.runOnce(feederSubsystem::stop, feederSubsystem));
+                                .whileTrue(new RunIntakeCommand(intakeSubsystem, -12.0))
+                                .onFalse(Commands.runOnce(() -> intakeSubsystem.runRoller(0), intakeSubsystem));
 
-                // Back Button: Auto-Intake (kamerayı takip et ve al)
-                operatorController.back()
-                                .whileTrue(new AutoIntakeCommand(intakeSubsystem, driveSubsystem, driverController))
+                // X Button: Auto-Intake (Sürücüdeki gibi kamera takibi)
+                operatorController.x()
+                                .whileTrue(new AutoIntakeCommand(driveSubsystem, intakeSubsystem, feederSubsystem,
+                                                visionSubsystem))
                                 .onFalse(Commands.runOnce(() -> ledSubsystem.setIdle()));
         }
 
         // --- SHOOTER ---
         private void configureShooterBindings() {
-                // Right Bumper: Atış
+                // Right Bumper: Atış (Manuel)
                 operatorController.rightBumper()
                                 .whileTrue(Commands.sequence(
                                                 Commands.runOnce(() -> ledSubsystem
@@ -130,60 +139,70 @@ public class ControllerBindings {
                                                 Commands.runOnce(shooterSubsystem::stopShooter),
                                                 Commands.runOnce(feederSubsystem::stop, feederSubsystem),
                                                 Commands.runOnce(() -> ledSubsystem.setIdle())));
+
+                // Left Bumper: Flywheel Ters (Sıkışma Giderme)
+                operatorController.leftBumper()
+                                .whileTrue(Commands.run(shooterSubsystem::reverse, shooterSubsystem))
+                                .onFalse(Commands.runOnce(shooterSubsystem::stopMotorTotal, shooterSubsystem));
+
+                // Y Button: Auto Aim & Shoot
+                // Robotu hedefe döndürür (DriveWithAiming) VE Atış yapar (ShootCommand)
+                operatorController.y()
+                                .whileTrue(Commands.parallel(
+                                                new frc.robot.commands.drive.DriveWithAiming(
+                                                                driveSubsystem,
+                                                                () -> 0.0, // X hızı yok (Sabit)
+                                                                () -> 0.0, // Y hızı yok (Sabit)
+                                                                () -> new edu.wpi.first.math.geometry.Translation2d(
+                                                                                16.5, 5.55) // Hedef
+                                                ),
+                                                Commands.sequence(
+                                                                Commands.runOnce(() -> ledSubsystem.setState(
+                                                                                LEDSubsystem.LEDState.SHOOTING)),
+                                                                new ShootCommand(shooterSubsystem, feederSubsystem))))
+                                .onFalse(Commands.parallel(
+                                                Commands.runOnce(driveSubsystem::stop),
+                                                Commands.runOnce(shooterSubsystem::stopShooter),
+                                                Commands.runOnce(feederSubsystem::stop, feederSubsystem),
+                                                Commands.runOnce(() -> ledSubsystem.setIdle())));
         }
 
-        // --- LIFT (Elevator + Climber) ---
-        private void configureLiftBindings() {
-                // D-Pad Up: Lift Yukarı (manuel)
-                operatorController.povUp()
-                                .whileTrue(Commands.run(() -> liftSubsystem.setVoltage(6.0), liftSubsystem))
-                                .onFalse(Commands.runOnce(liftSubsystem::stop, liftSubsystem));
-
-                // D-Pad Down: Lift Aşağı (manuel)
-                operatorController.povDown()
-                                .whileTrue(Commands.run(() -> liftSubsystem.setVoltage(-4.0), liftSubsystem))
-                                .onFalse(Commands.runOnce(liftSubsystem::stop, liftSubsystem));
-
-                // A Button: Lift Level 1
-                operatorController.a()
-                                .onTrue(Commands.runOnce(() -> liftSubsystem.goToLevel(1), liftSubsystem));
-
-                // B Button: Lift Level 2
+        // --- CLIMBER ---
+        private void configureClimberBindings() {
+                // B Button: Extend (Yukarı)
                 operatorController.b()
-                                .onTrue(Commands.runOnce(() -> liftSubsystem.goToLevel(2), liftSubsystem));
+                                .onTrue(new ClimberExtendCommand(climberSubsystem));
 
-                // Y Button: Lift Level 3
-                operatorController.y()
-                                .onTrue(Commands.runOnce(() -> liftSubsystem.goToLevel(3), liftSubsystem));
+                // A Button: Retract (Aşağı - Tırmanma)
+                operatorController.a()
+                                .onTrue(new ClimberRetractCommand(climberSubsystem));
 
-                // X Button: Lift Home (Level 0)
-                operatorController.x()
-                                .onTrue(Commands.runOnce(() -> liftSubsystem.goToLevel(0), liftSubsystem));
+                // POV Up: Manuel Yukarı
+                operatorController.povUp()
+                                .whileTrue(Commands.run(climberSubsystem::manualUp, climberSubsystem))
+                                .onFalse(Commands.runOnce(climberSubsystem::stop, climberSubsystem));
 
-                // Left Bumper + Right Stick Up: Climb Extend
-                operatorController.leftBumper()
-                                .and(() -> operatorController.getRightY() < -0.5)
-                                .whileTrue(Commands.parallel(
-                                                Commands.runOnce(liftSubsystem::climbExtend, liftSubsystem),
-                                                Commands.runOnce(() -> ledSubsystem
-                                                                .setState(LEDSubsystem.LEDState.CLIMBING))))
-                                .onFalse(Commands.parallel(
-                                                Commands.runOnce(liftSubsystem::stop, liftSubsystem),
-                                                Commands.runOnce(() -> ledSubsystem.setIdle())));
+                // POV Down: Manuel Aşağı
+                operatorController.povDown()
+                                .whileTrue(Commands.run(climberSubsystem::manualDown, climberSubsystem))
+                                .onFalse(Commands.runOnce(climberSubsystem::stop, climberSubsystem));
 
-                // Left Bumper + Right Stick Down: Climb Retract
-                operatorController.leftBumper()
-                                .and(() -> operatorController.getRightY() > 0.5)
-                                .whileTrue(Commands.runOnce(liftSubsystem::climbRetract, liftSubsystem))
-                                .onFalse(Commands.runOnce(liftSubsystem::stop, liftSubsystem));
+                // POV Left: Kule Seçimi (Önceki)
+                operatorController.povLeft()
+                                .onTrue(Commands.runOnce(() -> climbPosChanger.accept(-1)));
+
+                // POV Right: Kule Seçimi (Sonraki)
+                operatorController.povRight()
+                                .onTrue(Commands.runOnce(() -> climbPosChanger.accept(1)));
         }
 
         // --- EMERGENCY ---
         private void configureEmergencyBindings() {
+
                 // Start: Tüm mekanizmaları sıfırla (acil)
                 operatorController.start()
                                 .onTrue(Commands.parallel(
-                                                Commands.runOnce(liftSubsystem::stop),
+                                                Commands.runOnce(climberSubsystem::stop),
                                                 Commands.runOnce(feederSubsystem::stop),
                                                 Commands.runOnce(shooterSubsystem::stopShooter),
                                                 Commands.runOnce(() -> ledSubsystem

@@ -51,6 +51,13 @@ public final class FieldConstants {
     public static final Translation2d kTowerCenter = new Translation2d(8.245, 4.05);
     public static final double kTowerClimbHeightMeters = 1.5; // Yaklaşık tırmanma yüksekliği
 
+    // Tower tırmanma pozisyonları (Left, Mid, Right)
+    public static final Pose2d[] kTowerClimbPoses = new Pose2d[] {
+            new Pose2d(kTowerCenter.getX() - 1.0, kTowerCenter.getY(), Rotation2d.fromDegrees(0)), // Left
+            new Pose2d(kTowerCenter.getX(), kTowerCenter.getY(), Rotation2d.fromDegrees(0)),       // Mid
+            new Pose2d(kTowerCenter.getX() + 1.0, kTowerCenter.getY(), Rotation2d.fromDegrees(0))  // Right
+    };
+
     // === HUB SCORING POSITIONS (FRC 2026 REBUILT) ===
     // 6 Adet skor noktası. POV tuşları ile gezilebilir.
     // Blue Alliance tarafındaki Hub etrafındaki yaklaşım noktaları

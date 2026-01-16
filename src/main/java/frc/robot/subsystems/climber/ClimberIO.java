@@ -1,15 +1,15 @@
-package frc.robot.subsystems.lift;
+package frc.robot.subsystems.climber;
 
 import org.littletonrobotics.junction.AutoLog;
 
 /**
- * Lift IO interface.
- * 2 Kraken motor ile elevator + climber birleşik sistem.
+ * Climber IO interface.
+ * 2 Kraken motor ile climber sistemi.
  */
-public interface LiftIO {
+public interface ClimberIO {
 
     @AutoLog
-    public static class LiftIOInputs {
+    public static class ClimberIOInputs {
         // Sol motor
         public double leftPositionRotations = 0.0;
         public double leftVelocityRPS = 0.0;
@@ -27,10 +27,11 @@ public interface LiftIO {
         // Limit durumları
         public boolean atForwardLimit = false;
         public boolean atReverseLimit = false;
+        public boolean isSeated = false; // Tırmanma tamamlandı sensörü
     }
 
     /** IO girişlerini günceller */
-    default void updateInputs(LiftIOInputs inputs) {
+    default void updateInputs(ClimberIOInputs inputs) {
     }
 
     /** Hedef pozisyon ayarlar (Motion Magic) */

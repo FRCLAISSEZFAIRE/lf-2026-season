@@ -10,6 +10,12 @@ public interface IntakeIO {
         public double currentAmps = 0.0;
         public double appliedVolts = 0.0;
 
+        // Pivot Verileri
+        public double pivotPositionRad = 0.0;
+        public double pivotVelocityRadPerSec = 0.0;
+        public double pivotAppliedVolts = 0.0;
+        public double pivotCurrentAmps = 0.0;
+
         // Kamera Verileri (Limelight 3A Object Detection)
         public boolean hasGamePiece = false;
         public double targetTx = 0.0;
@@ -29,5 +35,11 @@ public interface IntakeIO {
     }
 
     default void setVoltage(double volts) {
+    }
+
+    default void setPivotVoltage(double volts) {
+    }
+
+    default void setPivotPosition(double rad) {
     }
 }

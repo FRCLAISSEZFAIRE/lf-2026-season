@@ -14,14 +14,12 @@ public class IntakeSubsystem extends SubsystemBase {
     private final IntakeIO io;
     private final IntakeIOInputsAutoLogged inputs = new IntakeIOInputsAutoLogged();
 
-    // Nesne sayacı
-    private int itemCount = 0;
+    // Pivot Constants
+    private static final double kPivotDeployedRad = 1.5; // Örnek Açı (~85 derece)
+    private static final double kPivotRetractedRad = 0.0; // Kapalı Konum
+    private static final double kPivotToleranceRad = 0.1;
 
-    // Edge detection için önceki sensör durumu
-    private boolean lastIntakeSensorState = false;
-
-    // Aktif oyun nesnesi
-    private GamePiece activeGamePiece = GamePieceConstants.DEFAULT_GAME_PIECE;
+    private GamePiece activeGamePiece = GamePieceConstants.DEFAULT_GAME_PIECE; // Varsayılan
 
     public IntakeSubsystem(IntakeIO io) {
         this.io = io;
@@ -32,66 +30,53 @@ public class IntakeSubsystem extends SubsystemBase {
         io.updateInputs(inputs);
         Logger.processInputs("Intake", inputs);
 
-        // --- EDGE DETECTION: Intake Sensör ---
-        // Sensör LOW'dan HIGH'a geçtiyse (nesne geçti)
-        if (inputs.intakeSensorTriggered && !lastIntakeSensorState) {
-            if (itemCount < MechanismConstants.kMaxItemCount) {
-                itemCount++;
-            }
-        }
-        lastIntakeSensorState = inputs.intakeSensorTriggered;
-
         // --- LOGLAMA ---
-        Logger.recordOutput("Intake/ItemCount", itemCount);
-        Logger.recordOutput("Intake/IsFull", isFull());
-        Logger.recordOutput("Intake/SensorTriggered", inputs.intakeSensorTriggered);
-        
-        // Dashboard Indicator (User Request)
+        Logger.recordOutput("Intake/PivotPosition", inputs.pivotPositionRad);
+        // Dashboard Indicator
         edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.putBoolean("Fuel Present", seesGamePiece());
     }
 
     /**
      * Intake motorunu çalıştırır.
-     * Eğer kapasite doluysa çalışmaz.
      */
     public void runRoller(double volts) {
-        if (isFull() && volts > 0) {
-            // Kapasite dolu, intake çalışmasın
-            io.setVoltage(0);
-        } else {
-            io.setVoltage(volts);
-        }
+        io.setVoltage(volts);
+    }
+
+    // ==================== PIVOT CONTROL ====================
+
+    public void setPivotPosition(double rad) {
+        io.setPivotPosition(rad);
+    }
+
+    public void deploy() {
+        setPivotPosition(kPivotDeployedRad);
+    }
+
+    public void retract() {
+        setPivotPosition(kPivotRetractedRad);
+    }
+
+    public boolean isDeployed() {
+        return Math.abs(inputs.pivotPositionRad - kPivotDeployedRad) < kPivotToleranceRad;
     }
 
     /**
-     * Shooter'dan nesne çıktığında çağrılır.
-     * Item sayacını azaltır.
-     */
-    public void decrementItemCount() {
-        if (itemCount > 0) {
-            itemCount--;
-        }
-    }
-
-    /**
-     * Nesne sayacını manuel olarak ayarlar (test için).
-     */
-    public void setItemCount(int count) {
-        this.itemCount = Math.max(0, Math.min(count, MechanismConstants.kMaxItemCount));
-    }
-
-    /**
-     * Kapasite dolu mu?
+     * Kapasite dolu mu? (Artık kullanılmıyor, Feeder kontrol ediyor)
      */
     public boolean isFull() {
-        return itemCount >= MechanismConstants.kMaxItemCount;
+        return false;
     }
 
     /**
      * Mevcut nesne sayısını döndürür.
      */
     public int getItemCount() {
-        return itemCount;
+        return 0; // Sensör iptal edildi
+    }
+
+    public void decrementItemCount() {
+        // Nesne atıldı (mantıksal takip gerekirse buraya eklenecek)
     }
 
     /** Robotun oyun parçasına hizalanması için gereken açı hatasını döndürür */

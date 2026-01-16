@@ -20,7 +20,7 @@ import frc.robot.constants.FeederConstants;
  * 
  * <h2>Donanım:</h2>
  * <ul>
- * <li>Motor: Falcon 500 (TalonFX)</li>
+ * <li>Motor: NEO (SparkMax)</li>
  * <li>CAN ID: {@link frc.robot.constants.RobotMap#kFeederMotorID}</li>
  * </ul>
  * 
@@ -50,6 +50,21 @@ public class FeederSubsystem extends SubsystemBase {
     public void periodic() {
         io.updateInputs(inputs);
         Logger.processInputs("Feeder", inputs);
+
+        // Yakıt Durumu Mantığı
+        String status = "Boş";
+        if (inputs.fuelPresentTop) {
+            status = "Dolu";
+        } else if (inputs.fuelPresentBottom) {
+            status = "Yarım";
+        }
+
+        Logger.recordOutput("Feeder/Status", status);
+        edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.putString("Feeder Status", status);
+        
+        // Diğer lojikler
+        Logger.recordOutput("Feeder/ItemCount", getFuelLevel());
+        Logger.recordOutput("Feeder/IsFull", isFuelSystemFull());
     }
 
     // ==================== AKSİYONLAR ====================
@@ -138,23 +153,20 @@ public class FeederSubsystem extends SubsystemBase {
     }
 
     /**
-     * Yakıt seviyesini döndürür (0-4).
+     * Yakıt seviyesini döndürür (0-2).
      */
     public int getFuelLevel() {
         int level = 0;
         if (inputs.fuelPresentBottom) level++;
-        if (inputs.fuelPresentLow) level++;
-        if (inputs.fuelPresentHigh) level++;
         if (inputs.fuelPresentTop) level++;
         return level;
     }
 
     /**
      * Tank tamamen dolu mu?
-     * Tüm sensörler (Bottom, Low, High, Top) 'var' okuyorsa dolu demektir.
+     * En üst sensör (Top) 'var' okuyorsa dolu demektir.
      */
     public boolean isFuelSystemFull() {
-        return inputs.fuelPresentBottom && inputs.fuelPresentLow && 
-               inputs.fuelPresentHigh && inputs.fuelPresentTop;
+        return inputs.fuelPresentTop;
     }
 }

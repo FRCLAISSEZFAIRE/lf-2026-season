@@ -17,6 +17,7 @@
 - [Alt Sistemler](#-alt-sistemler)
 - [Donanım Haritası](#-donanım-haritası)
 - [Controller Bindings](#-controller-bindings)
+- [Dashboard Kontrolleri](#-dashboard-kontrolleri)
 - [Kurulum](#-kurulum)
 - [Geliştirme](#-geliştirme)
 
@@ -33,24 +34,20 @@ src/main/java/frc/robot/
 │   ├── Constants.java            # Genel sabitler
 │   ├── RobotMap.java             # Motor ve sensör ID'leri
 │   ├── DriveConstants.java       # Sürüş sabitleri
-│   ├── ElevatorConstants.java    # Asansör sabitleri
-│   ├── ClimberConstants.java     # Tırmanıcı sabitleri
-│   ├── FeederConstants.java      # Besleyici sabitleri
-│   └── LEDConstants.java         # LED sabitleri
+│   ├── ClimberConstants.java     # Climber (Tırmanma) sabitleri
+│   └── FieldConstants.java       # Saha ve skor pozisyonları
 ├── subsystems/                   # Alt sistemler
 │   ├── drive/                    # Swerve sürüş
-│   ├── vision/                   # Limelight görüş
+│   ├── vision/                   # Limelight görüş (VisionSubsystem)
 │   ├── intake/                   # Alma sistemi
 │   ├── shooter/                  # Atış sistemi
-│   ├── lift/                     # Lift (Elevator + Climber)
+│   ├── climber/                  # Climber (Tırmanma)
 │   ├── feeder/                   # Besleyici
 │   └── led/                      # LED kontrolü
 ├── commands/                     # Komutlar
 │   ├── drive/                    # Sürüş komutları
-│   ├── intake/                   # Alma komutları
-│   └── shooter/                  # Atış komutları
+│   └── intake/                   # Alma komutları
 └── util/                         # Yardımcı sınıflar
-    ├── TunableNumber.java        # PID ayar aracı
     └── LimelightHelpers.java     # Limelight yardımcıları
 ```
 
@@ -58,15 +55,17 @@ src/main/java/frc/robot/
 
 ## 🤖 Alt Sistemler
 
-| Alt Sistem | Açıklama | Motor | IO Pattern |
-|------------|----------|-------|------------|
-| **Drive** | Swerve sürüş (4 modül) | SparkMax Vortex + NEO 550 | ✅ |
-| **Vision** | Limelight görüş sistemi | - | ✅ |
-| **Intake** | Oyun parçası alma | TBD | ✅ |
-| **Shooter** | Flywheel + Turret + Hood | Kraken + SparkMax | ✅ |
-| **Lift** | Elevator + Climber (birleşik) | 2x Kraken | ✅ |
-| **Feeder** | Intake → Shooter transfer | NEO v1.1 (SparkMax) | ✅ |
-| **LED** | Durum gösterimi | AddressableLED | - |
+| Alt Sistem  | Açıklama                  | Motor                     | IO Pattern |
+| ----------- | ------------------------- | ------------------------- | ---------- |
+| **Drive**   | Swerve sürüş (4 modül)    | SparkMax Vortex + NEO 550 | ✅         |
+| **Vision**  | Limelight 3 (Pose) + 3A   | -                         | ✅         |
+| **Intake**  | Roller + Pivot (Active)   | 2x NEO (SparkMax)         | ✅         |
+| **Shooter** | Flywheel + Turret + Hood  | Kraken + NEO + Servos     | ✅         |
+| **Climber** | Tırmanma Mekanizması      | 2x Kraken                 | ✅         |
+| **Feeder**  | Intake → Shooter transfer | NEO (SparkMax)            | ✅         |
+| **LED**     | Durum gösterimi           | AddressableLED            | -          |
+
+> **Climber:** Otomatik tırmanma (Auto Climb) özelliği ve sensör tabanlı (Seat Sensor) kilitleme sistemi mevcuttur.
 
 ---
 
@@ -74,32 +73,34 @@ src/main/java/frc/robot/
 
 ### CAN Motor ID'leri
 
-| ID | Motor | Alt Sistem |
-|----|-------|------------|
-| 1-2 | Front Left Drive/Turn | Drive |
-| 3-4 | Front Right Drive/Turn | Drive |
-| 5-6 | Rear Left Drive/Turn | Drive |
-| 7-8 | Rear Right Drive/Turn | Drive |
-| 10 | Intake | Intake |
-| 11-12 | Shooter Master/Follower | Shooter |
-| 13 | Turret | Shooter |
-| 14 | Hood | Shooter |
-| 20 | Lift Left | Lift |
-| 23 | Lift Right | Lift |
-| 26 | Feeder (NEO v1.1) | Feeder |
+| ID  | Motor                  | Alt Sistem |
+| --- | ---------------------- | ---------- |
+| 1-2 | Front Left Drive/Turn  | Drive      |
+| 3-4 | Front Right Drive/Turn | Drive      |
+| 5-6 | Rear Left Drive/Turn   | Drive      |
+| 7-8 | Rear Right Drive/Turn  | Drive      |
+| 10  | Intake Roller          | Intake     |
+| 11  | Intake Pivot           | Intake     |
+| 12  | Shooter Master         | Shooter    |
+| 13  | Shooter Follower       | Shooter    |
+| 14  | Feeder                 | Feeder     |
+| 15  | Turret                 | Shooter    |
+| 20  | Climber Left           | Climber    |
+| 21  | Climber Right          | Climber    |
 
 ### DIO Portları
 
-| Port | Sensör | Açıklama |
-|------|--------|----------|
-| 0 | MZ80 | Intake sensörü |
-| 1 | MZ80 | Shooter sensörü |
+| Port | Sensör       | Açıklama                               |
+| ---- | ------------ | -------------------------------------- |
+| 0    | MZ80         | **Feeder Bottom**                      |
+| 1    | MZ80         | **Feeder Top**                         |
+| 4    | Limit Switch | **Seat Sensor** (Climber Kanca Kilidi) |
 
 ### PWM Portları
 
-| Port | Cihaz | Açıklama |
-|------|-------|----------|
-| 0 | AddressableLED | 60 LED strip |
+| Port | Cihaz          | Açıklama     |
+| ---- | -------------- | ------------ |
+| 0    | AddressableLED | 60 LED strip |
 
 ---
 
@@ -107,26 +108,39 @@ src/main/java/frc/robot/
 
 ### Driver Controller (Port 0)
 
-| Buton | Aksiyon |
-|-------|---------|
-| Sol Joystick | İleri/Geri, Sol/Sağ hareket |
-| Sağ Joystick | Dönme |
-| A | Gyro sıfırlama |
-| X | X-Stance (fren) |
-| B | LED Rainbow |
+| Buton                | Aksiyon                                         |
+| -------------------- | ----------------------------------------------- |
+| **Sol Joystick**     | İleri/Geri, Sol/Sağ hareket                     |
+| **Sağ Joystick X**   | Dönme                                           |
+| **X**                | **Auto Intake** (Kamera takibi + Alma)          |
+| **Y**                | **Auto Aim** (Robotu Shooter hedefine döndürür) |
+| **POV Yukarı/Aşağı** | Skor Hedefi Seçimi (Hub Pozisyonları)           |
+| **POV Sağ/Sol**      | Kaynak (Source) Seçimi                          |
 
 ### Operator Controller (Port 1)
 
-| Buton | Aksiyon |
-|-------|---------|
-| Sağ Tetik | Intake + Feeder (alma) |
-| Sol Tetik | Intake + Feeder ters (çıkarma) |
-| Sağ Bumper | Atış |
-| D-Pad ↑ | Elevator yukarı |
-| D-Pad ↓ | Elevator aşağı |
-| LB + Sağ Stick ↑ | Tırman yukarı |
-| LB + Sağ Stick ↓ | Tırman aşağı |
-| Start | Acil durdur |
+| Buton                | Aksiyon                                                  |
+| -------------------- | -------------------------------------------------------- |
+| **Sağ Tetik**        | Intake + Feeder (Normal Alma)                            |
+| **Sol Tetik**        | **Sadece Intake Ters** (Kusma - Feeder Çalışmaz)         |
+| **Sağ Bumper**       | Atış (Manuel / Yakın Mesafe)                             |
+| **Sol Bumper**       | **Flywheel Ters** (Sıkışma Giderme)                      |
+| **X**                | **Auto Intake** (Kamera Takibi + Alma)                   |
+| **Y**                | **Auto Aim & Shoot** (Robotu Döndür + Otomatik Atış)     |
+| **A**                | **Climb Retract** (Robotu Yukarı Çeker - Sensörle Durur) |
+| **B**                | **Climb Extend** (Kancaları Uzatır)                      |
+| **POV Sağ/Sol**      | **Climb Position** Seçimi (Tower Left/Mid/Right)         |
+| **POV Yukarı/Aşağı** | Manuel Tırmanma (Yukarı/Aşağı)                           |
+| **Start**            | **ACİL DURDUR** (Tüm sistemleri durdurur, LED: Error)    |
+
+---
+
+## 🖥️ Dashboard Kontrolleri
+
+SmartDashboard üzerinde aşağıdaki kontroller mevcuttur:
+
+- **Climb Position:** Otomatik tırmanma için hedef kule pozisyonu seçimi (`Tower Left`, `Tower Mid`, `Tower Right`). Operator POV tuşları ile de değiştirilebilir.
+- **START AUTO CLIMB:** Otomatik tırmanma sekansını başlatır. (Pathfind -> Extend -> Hizala -> Retract -> Wait for Sensor).
 
 ---
 
@@ -154,6 +168,7 @@ src/main/java/frc/robot/
 ### Bağımlılıklar
 
 Otomatik olarak `vendordeps/` klasöründen yüklenir:
+
 - CTRE Phoenix 6
 - REVLib 2026 Beta
 - NavX (Studica)
@@ -183,25 +198,27 @@ AdvantageKit ile tüm veriler AdvantageScope'ta görüntülenebilir:
 Logger.recordOutput("Subsystem/Value", value);
 ```
 
-### Tuning
+### PathPlanner
 
-`Constants.tuningMode = true` yaparak Shuffleboard üzerinden PID ayarı yapılabilir.
+Proje **AutoBuilder** ile yapılandırılmıştır.
+
+- **Pathfinding:** Driver Controller üzerinden dinamik hedef seçimi mümkündür.
+- **NamedCommands:** `AutoIntake`, `Shoot`, `ClimberExtend`, `ClimberRetract` vb. komutlar GUI üzerinden kullanılabilir.
 
 ---
 
 ## 📊 Durum
 
-| Özellik | Durum |
-|---------|-------|
-| Swerve Drive | ✅ Tamamlandı |
-| Vision Integration | ✅ Tamamlandı |
-| Elevator | ✅ Tamamlandı |
-| Shooter | ✅ Tamamlandı |
-| Climber | ✅ Tamamlandı |
-| Feeder | ✅ Tamamlandı |
-| LED | ✅ Tamamlandı |
-| Autonomous | 🔲 Bekleniyor |
-| PathPlanner | 🔲 Bekleniyor |
+| Özellik            | Durum                               |
+| ------------------ | ----------------------------------- |
+| Swerve Drive       | ✅ Tamamlandı                       |
+| Vision Integration | ✅ Tamamlandı                       |
+| Climber            | ✅ Tamamlandı (Auto Climb + Sensor) |
+| Shooter            | ✅ Tamamlandı                       |
+| Feeder             | ✅ Tamamlandı                       |
+| LED                | ✅ Tamamlandı                       |
+| Autonomous         | 🚧 Entegre Edildi (AutoBuilder)     |
+| PathPlanner        | 🚧 Entegre Edildi                   |
 
 ---
 

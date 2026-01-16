@@ -11,8 +11,6 @@ public interface FeederIO {
 
         // Sensors
         public boolean fuelPresentBottom = false;
-        public boolean fuelPresentLow = false;
-        public boolean fuelPresentHigh = false;
         public boolean fuelPresentTop = false;
     }
 

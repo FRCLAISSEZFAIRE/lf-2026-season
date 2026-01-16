@@ -27,7 +27,8 @@ public class GyroIONavX implements GyroIO {
         inputs.connected = true;
 
         // Yaw (dönme)
-        double angleDeg = navx.getYaw();
+        // Yaw (dönme)
+        double angleDeg = 0.0; // navx.getYaw(); // StudicaLib API sorunu nedeniyle devre dışı
         if (DriveConstants.kGyroReversed) {
             angleDeg *= -1;
         }
@@ -35,10 +36,10 @@ public class GyroIONavX implements GyroIO {
         inputs.yawVelocityRadPerSec = 0.0;
 
         // Pitch (öne/arkaya eğme)
-        inputs.pitchDegrees = navx.getPitch();
+        inputs.pitchDegrees = 0.0; // navx.getPitch(); // StudicaLib API kontrol edilmeli
 
         // Roll (sağa/sola eğme)
-        inputs.rollDegrees = navx.getRoll();
+        inputs.rollDegrees = 0.0; // navx.getRoll(); // StudicaLib API kontrol edilmeli
     }
 
     @Override

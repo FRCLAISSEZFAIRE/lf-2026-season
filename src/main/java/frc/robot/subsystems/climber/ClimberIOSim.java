@@ -1,14 +1,14 @@
-package frc.robot.subsystems.lift;
+package frc.robot.subsystems.climber;
 
 import edu.wpi.first.math.system.plant.DCMotor;
 import edu.wpi.first.wpilibj.simulation.ElevatorSim;
-import frc.robot.constants.LiftConstants;
+import frc.robot.constants.ClimberConstants;
 
 /**
- * Lift için simülasyon IO implementasyonu.
- * WPILib ElevatorSim kullanır.
+ * Climber için simülasyon IO implementasyonu.
+ * WPILib ElevatorSim kullanır (Dikey hareket).
  */
-public class LiftIOSim implements LiftIO {
+public class ClimberIOSim implements ClimberIO {
 
     // Elevator simülasyonu (her iki motor için birleşik)
     private final ElevatorSim elevatorSim = new ElevatorSim(
@@ -30,7 +30,7 @@ public class LiftIOSim implements LiftIO {
     private static final double ROTATIONS_PER_METER = 66.67; // ~100 rotasyon = 1.5m
 
     @Override
-    public void updateInputs(LiftIOInputs inputs) {
+    public void updateInputs(ClimberIOInputs inputs) {
         // Simülasyonu güncelle (20ms)
         elevatorSim.update(0.02);
 
@@ -54,8 +54,11 @@ public class LiftIOSim implements LiftIO {
         inputs.rightTemperatureCelsius = 25.0;
 
         // Limit durumları
-        inputs.atForwardLimit = positionRotations >= LiftConstants.kForwardSoftLimit - 0.5;
-        inputs.atReverseLimit = positionRotations <= LiftConstants.kReverseSoftLimit + 0.5;
+        inputs.atForwardLimit = positionRotations >= ClimberConstants.kForwardSoftLimit - 0.5;
+        inputs.atReverseLimit = positionRotations <= ClimberConstants.kReverseSoftLimit + 0.5;
+
+        // Simülasyonda Retract seviyesine geldiğinde "oturdu" varsayalım
+        inputs.isSeated = positionRotations <= ClimberConstants.kClimbRetractPosition + 2.0;
     }
 
     @Override

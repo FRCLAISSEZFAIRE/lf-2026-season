@@ -11,14 +11,12 @@ import frc.robot.constants.FeederConstants;
 
 /**
  * Feeder IO gerçek implementasyonu.
- * NEO v1.1 (SparkMax) kullanır.
+ * NEO (SparkMax) kullanır.
  */
 public class FeederIOReal implements FeederIO {
 
     private final SparkMax motor;
     private final edu.wpi.first.wpilibj.DigitalInput sensorBottom;
-    private final edu.wpi.first.wpilibj.DigitalInput sensorLow;
-    private final edu.wpi.first.wpilibj.DigitalInput sensorHigh;
     private final edu.wpi.first.wpilibj.DigitalInput sensorTop;
 
     public FeederIOReal(int motorID) {
@@ -33,8 +31,6 @@ public class FeederIOReal implements FeederIO {
 
         // Sensörler
         sensorBottom = new edu.wpi.first.wpilibj.DigitalInput(FeederConstants.kFuelSensorBottomID);
-        sensorLow = new edu.wpi.first.wpilibj.DigitalInput(FeederConstants.kFuelSensorLowID);
-        sensorHigh = new edu.wpi.first.wpilibj.DigitalInput(FeederConstants.kFuelSensorHighID);
         sensorTop = new edu.wpi.first.wpilibj.DigitalInput(FeederConstants.kFuelSensorTopID);
     }
 
@@ -46,8 +42,6 @@ public class FeederIOReal implements FeederIO {
 
         // Sensörler (Genellikle NPN: 0V=Var, 5V=Yok. Bu yüzden tersliyoruz)
         inputs.fuelPresentBottom = !sensorBottom.get();
-        inputs.fuelPresentLow = !sensorLow.get();
-        inputs.fuelPresentHigh = !sensorHigh.get();
         inputs.fuelPresentTop = !sensorTop.get();
     }
 

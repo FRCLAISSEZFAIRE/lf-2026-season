@@ -221,6 +221,29 @@ public class DriveSubsystem extends SubsystemBase {
         setModuleStates(setpointStates);
     }
 
+    /**
+     * Teleop sürüş metodu.
+     * 
+     * @param xSpeed        İleri/Geri hız (m/s)
+     * @param ySpeed        Sağ/Sol hız (m/s)
+     * @param rot           Dönüş hızı (rad/s)
+     * @param fieldRelative Saha merkezli mi?
+     * @param rateLimit     Hızlanma limiti uygulansın mı?
+     */
+    public void drive(double xSpeed, double ySpeed, double rot, boolean fieldRelative, boolean rateLimit) {
+        // Rate limit mantığı şimdilik pas geçildi, direkt runVelocity çağırıyoruz.
+        // xSpeed ve ySpeed zaten m/s cinsinden gelmeli.
+
+        ChassisSpeeds speeds;
+        if (fieldRelative) {
+            speeds = ChassisSpeeds.fromFieldRelativeSpeeds(xSpeed, ySpeed, rot,
+                    Rotation2d.fromRadians(gyroInputs.yawPositionRad));
+        } else {
+            speeds = new ChassisSpeeds(xSpeed, ySpeed, rot);
+        }
+        runVelocity(speeds);
+    }
+
     public void stop() {
         SwerveModuleState[] states = new SwerveModuleState[] {
                 new SwerveModuleState(0, Rotation2d.fromDegrees(45)),
@@ -384,5 +407,13 @@ public class DriveSubsystem extends SubsystemBase {
      */
     public ChassisSpeeds getChassisSpeeds() {
         return kinematics.toChassisSpeeds(getModuleStates());
+    }
+
+    public double getPitch() {
+        return gyroInputs.pitchDegrees;
+    }
+
+    public double getRoll() {
+        return gyroInputs.rollDegrees;
     }
 }

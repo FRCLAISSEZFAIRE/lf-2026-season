@@ -23,27 +23,26 @@ public final class RobotMap {
     public static final int kRearRightDriveID = 7;
     public static final int kRearRightTurnID = 8;
 
-    // ==================== MECHANISMS ====================
+    // ==================== MECHANISMS (10-19) ====================
     // Intake
-    public static final int kIntakeMotorID = 10;
+    public static final int kIntakeMotorID = 10; // NEO
+    public static final int kIntakePivotMotorID = 11; // NEO - Pivot
 
-    // Shooter
-    public static final int kShooterMasterID = 11;
-    public static final int kShooterFollowerID = 12;
-    public static final int kTurretMotorID = 13;
-    public static final int kHoodMotorID = 14; // Atış açısı (pitch)
+    // Shooter & Feeder
+    public static final int kShooterMasterID = 12;
+    public static final int kShooterFollowerID = 13;
+    public static final int kFeederMotorID = 14; // NEO (User Request ID: 14)
+    public static final int kTurretMotorID = 15; // NEO
 
-    // Lift (Elevator + Climber birleşik)
+    // Lift / Climber (20-29)
     public static final int kLiftLeftMotorID = 20;
-    public static final int kLiftRightMotorID = 23;
-
-    // Feeder (Intake → Shooter arası) - NEO V2
-    public static final int kFeederMotorID = 26;
+    public static final int kLiftRightMotorID = 21;
 
     // ==================== DIO PORTS ====================
     // MZ80 Sensörler
-    public static final int kIntakeMZ80Port = 0;
-    public static final int kShooterMZ80Port = 1;
+    // MZ80 Sensörler (Feeder)
+    public static final int kFeederSensorBottomID = 0;
+    public static final int kFeederSensorTopID = 1;
 
     // ==================== PWM PORTS ====================
     // LED

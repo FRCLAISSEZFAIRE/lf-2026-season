@@ -9,6 +9,7 @@ public interface ShooterIO {
         public double flywheelVelocityRadPerSec = 0.0;
         public double flywheelVelocityError = 0.0; // RPM Error
         public double flywheelAppliedVolts = 0.0;
+        public double flywheelCurrentAmps = 0.0;
         public double flywheelRightVelocityRadPerSec = 0.0; // Secondary Flywheel
         public double flywheelRightAppliedVolts = 0.0; // Secondary Flywheel
 

@@ -132,6 +132,11 @@ public class ShooterSubsystem extends SubsystemBase {
         targetFlywheelSpeed = 0.0;
     }
 
+    /** Flywheel'i ters çalıştır (Sıkışma senaryosu) */
+    public void reverse() {
+        targetFlywheelSpeed = -1000.0; // Sabit ters hız (RPM)
+    }
+
     /** Hood açısını ayarla (derece) */
     public void setHoodAngle(double angleDegrees) {
         targetHoodAngle = MathUtil.clamp(

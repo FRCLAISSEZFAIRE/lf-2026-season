@@ -18,8 +18,6 @@ public final class FeederConstants {
     public static final int kCurrentLimit = 30;
 
     // --- SENSORS (MZ-80 Digital Inputs) ---
-    public static final int kFuelSensorBottomID = 5; // En alt seviye (Boş/Dolu)
-    public static final int kFuelSensorLowID = 6;
-    public static final int kFuelSensorHighID = 7;
-    public static final int kFuelSensorTopID = 8; // En üst seviye (Full)
+    public static final int kFuelSensorBottomID = RobotMap.kFeederSensorBottomID; // Giriş Sensörü (Hazne Boş değil)
+    public static final int kFuelSensorTopID = RobotMap.kFeederSensorTopID;    // Çıkış Sensörü (Hazne Dolu/Namlu Ağzı)
 }
