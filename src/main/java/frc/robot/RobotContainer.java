@@ -66,7 +66,8 @@ import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
  * görüş</li>
  * <li>{@link frc.robot.subsystems.intake.IntakeSubsystem} - Alma sistemi</li>
  * <li>{@link frc.robot.subsystems.shooter.ShooterSubsystem} - Atış sistemi</li>
- * <li>{@link frc.robot.subsystems.climber.ClimberSubsystem} - Climber (Tırmanma)</li>
+ * <li>{@link frc.robot.subsystems.climber.ClimberSubsystem} - Climber
+ * (Tırmanma)</li>
  * <li>{@link frc.robot.subsystems.feeder.FeederSubsystem} - Besleyici</li>
  * <li>{@link frc.robot.subsystems.led.LEDSubsystem} - LED kontrolü</li>
  * </ul>
@@ -99,8 +100,6 @@ public class RobotContainer {
 
         // ==================== CONSTRUCTOR ====================
         public RobotContainer() {
-                // 0. PathPlanner Named Commands (Subsystem'lerden önce kayıt edilmeli)
-                registerNamedCommands();
                 // 1. IO Katmanlarını Oluştur
                 GyroIO gyro;
                 ModuleIO fl, fr, bl, br;
@@ -130,7 +129,8 @@ public class RobotContainer {
                                 shooterIO = new ShooterIOReal(MechanismConstants.kShooterMasterID,
                                                 MechanismConstants.kTurretID,
                                                 MechanismConstants.kHoodID);
-                                climberIO = new ClimberIOKraken(ClimberConstants.kLeftMotorID, ClimberConstants.kRightMotorID); // Değiştirildi
+                                climberIO = new ClimberIOKraken(ClimberConstants.kLeftMotorID,
+                                                ClimberConstants.kRightMotorID); // Değiştirildi
                                 feederIO = new FeederIOReal(FeederConstants.kFeederMotorID);
                                 break;
 
@@ -180,6 +180,9 @@ public class RobotContainer {
                 climberSubsystem = new ClimberSubsystem(climberIO); // Değiştirildi
                 feederSubsystem = new FeederSubsystem(feederIO);
                 ledSubsystem = new LEDSubsystem();
+
+                // 2.5 Named Commands (Subsystem'ler oluşturulduktan SONRA kayıt edilmeli)
+                registerNamedCommands();
 
                 // Bağlantılar
                 shooterSubsystem.setIntakeSubsystem(intakeSubsystem);
@@ -389,7 +392,8 @@ public class RobotContainer {
 
                 // --- AUTO INTAKE (Button X) ---
                 driverController.x().whileTrue(
-                                new AutoIntakeCommand(driveSubsystem, intakeSubsystem, feederSubsystem, visionSubsystem));
+                                new AutoIntakeCommand(driveSubsystem, intakeSubsystem, feederSubsystem,
+                                                visionSubsystem));
 
                 // --- AUTO AIM (Button Y) ---
                 // Y tuşuna basılı tutulduğunda: Hareket serbest, robot hedefe döner (Auto-Aim)
@@ -398,7 +402,11 @@ public class RobotContainer {
                                                 driveSubsystem,
                                                 () -> -driverController.getRawAxis(OIConstants.kDriverLeftYAxis),
                                                 () -> -driverController.getRawAxis(OIConstants.kDriverLeftXAxis),
-                                                () -> new edu.wpi.first.math.geometry.Translation2d(16.5, 5.55) // Hedef Konumu (Shooter ile aynı)
+                                                () -> new edu.wpi.first.math.geometry.Translation2d(16.5, 5.55) // Hedef
+                                                                                                                // Konumu
+                                                                                                                // (Shooter
+                                                                                                                // ile
+                                                                                                                // aynı)
                                 ));
         }// ==================== STARTING POSE ====================
 
@@ -486,8 +494,10 @@ public class RobotContainer {
                 NamedCommands.registerCommand("AutoIntake", Commands.print("[PathPlanner] AutoIntake Çalıştı"));
                 NamedCommands.registerCommand("Shoot", Commands.print("[PathPlanner] Shoot Çalıştı"));
 
-                NamedCommands.registerCommand("ClimberExtend", new frc.robot.commands.climber.ClimberExtendCommand(climberSubsystem));
-                NamedCommands.registerCommand("ClimberRetract", new frc.robot.commands.climber.ClimberRetractCommand(climberSubsystem));
+                NamedCommands.registerCommand("ClimberExtend",
+                                new frc.robot.commands.climber.ClimberExtendCommand(climberSubsystem));
+                NamedCommands.registerCommand("ClimberRetract",
+                                new frc.robot.commands.climber.ClimberRetractCommand(climberSubsystem));
         }
 
         // ==================== AUTO CLIMB SETUP ====================
@@ -498,42 +508,43 @@ public class RobotContainer {
                 climbPositionChooser.setDefaultOption("Tower Mid", 1);
                 climbPositionChooser.addOption("Tower Left", 0);
                 climbPositionChooser.addOption("Tower Right", 2);
-                
+
                 edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.putData("Climb Position", climbPositionChooser);
 
                 // Auto Climb Komutu (Dashboard Button)
-                edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.putData("START AUTO CLIMB", 
-                    new frc.robot.commands.climber.AutoClimbCommand(
-                        climberSubsystem, 
-                        driveSubsystem, 
-                        this::getSelectedClimbPose
-                    )
-                );
+                edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.putData("START AUTO CLIMB",
+                                new frc.robot.commands.climber.AutoClimbCommand(
+                                                climberSubsystem,
+                                                driveSubsystem,
+                                                this::getSelectedClimbPose));
         }
-        
+
         // Climb Position Selection Logic
         private int selectedClimbIndex = 1; // Default: Mid (0:Left, 1:Mid, 2:Right)
-        
+
         public void cycleClimbPosition(int delta) {
-            selectedClimbIndex += delta;
-            if (selectedClimbIndex > 2) selectedClimbIndex = 0;
-            if (selectedClimbIndex < 0) selectedClimbIndex = 2;
-            
-            updateClimbDashboard();
+                selectedClimbIndex += delta;
+                if (selectedClimbIndex > 2)
+                        selectedClimbIndex = 0;
+                if (selectedClimbIndex < 0)
+                        selectedClimbIndex = 2;
+
+                updateClimbDashboard();
         }
-        
+
         private Pose2d getSelectedClimbPose() {
-            // Dashboard chooser öncelikli olsun mu? Şimdilik index kullanalım.
-            // Ama kullanıcı Dashboard'dan seçerse ne olacak?
-            // İkisi ayrı kalsın, POV indexi değiştirir.
-            return FieldConstants.kTowerClimbPoses[selectedClimbIndex];
+                // Dashboard chooser öncelikli olsun mu? Şimdilik index kullanalım.
+                // Ama kullanıcı Dashboard'dan seçerse ne olacak?
+                // İkisi ayrı kalsın, POV indexi değiştirir.
+                return FieldConstants.kTowerClimbPoses[selectedClimbIndex];
         }
 
         private void updateClimbDashboard() {
-             String[] names = {"Tower Left", "Tower Mid", "Tower Right"};
-             edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.putString("Active Climb Target", names[selectedClimbIndex]);
-             // Visualisation
-             driveSubsystem.showTargetPose(FieldConstants.kTowerClimbPoses[selectedClimbIndex]);
+                String[] names = { "Tower Left", "Tower Mid", "Tower Right" };
+                edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.putString("Active Climb Target",
+                                names[selectedClimbIndex]);
+                // Visualisation
+                driveSubsystem.showTargetPose(FieldConstants.kTowerClimbPoses[selectedClimbIndex]);
         }
 
         // ==================== AUTO CHOOSER SETUP ====================
