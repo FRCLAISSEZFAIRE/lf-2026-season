@@ -4,14 +4,13 @@ import com.revrobotics.spark.SparkMax;
 import com.revrobotics.spark.SparkLowLevel.MotorType;
 import com.revrobotics.spark.config.SparkMaxConfig;
 import com.revrobotics.spark.config.SparkBaseConfig.IdleMode;
-import com.revrobotics.spark.SparkBase.PersistMode;
-import com.revrobotics.spark.SparkBase.ResetMode;
+import com.revrobotics.spark.SparkBase;
 
 import frc.robot.constants.FeederConstants;
 
 /**
- * Feeder IO gerçek implementasyonu.
- * NEO (SparkMax) kullanır.
+ * Feeder IO gerçek implementasyonu (REVLib 2026).
+ * NEO (SparkMax) kullanır - Voltage control.
  */
 public class FeederIOReal implements FeederIO {
 
@@ -22,12 +21,12 @@ public class FeederIOReal implements FeederIO {
     public FeederIOReal(int motorID) {
         motor = new SparkMax(motorID, MotorType.kBrushless);
 
-        // Konfigürasyon
+        // REVLib 2026: SparkMaxConfig ile configure
         SparkMaxConfig config = new SparkMaxConfig();
         config.idleMode(IdleMode.kCoast);
         config.smartCurrentLimit(FeederConstants.kCurrentLimit);
 
-        motor.configure(config, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
+        motor.configure(config, SparkBase.ResetMode.kResetSafeParameters, SparkBase.PersistMode.kPersistParameters);
 
         // Sensörler
         sensorBottom = new edu.wpi.first.wpilibj.DigitalInput(FeederConstants.kFuelSensorBottomID);
@@ -40,7 +39,7 @@ public class FeederIOReal implements FeederIO {
         inputs.appliedVolts = motor.getAppliedOutput() * motor.getBusVoltage();
         inputs.currentAmps = motor.getOutputCurrent();
 
-        // Sensörler (Genellikle NPN: 0V=Var, 5V=Yok. Bu yüzden tersliyoruz)
+        // Sensörler (NPN: 0V=Var, 5V=Yok)
         inputs.fuelPresentBottom = !sensorBottom.get();
         inputs.fuelPresentTop = !sensorTop.get();
     }

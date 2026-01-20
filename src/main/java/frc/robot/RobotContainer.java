@@ -33,9 +33,7 @@ import frc.robot.subsystems.led.*;
 // --- COMMANDS ---
 import frc.robot.commands.drive.DriveWithJoystick;
 import frc.robot.commands.drive.DriveWithAiming;
-import frc.robot.commands.drive.SimpleDriveToPose;
 
-import frc.robot.commands.intake.RunIntakeCommand;
 import frc.robot.commands.intake.AutoIntakeCommand;
 
 // --- PATHPLANNER ---
@@ -126,9 +124,7 @@ public class RobotContainer {
                                                 Rotation2d.fromRadians(DriveConstants.kRearRightOffsetRad));
                                 visionIO = new VisionIOLimelight();
                                 intakeIO = new IntakeIOReal(MechanismConstants.kIntakeID);
-                                shooterIO = new ShooterIOReal(MechanismConstants.kShooterMasterID,
-                                                MechanismConstants.kTurretID,
-                                                MechanismConstants.kHoodID);
+                                shooterIO = new ShooterIOReal();
                                 climberIO = new ClimberIOKraken(ClimberConstants.kLeftMotorID,
                                                 ClimberConstants.kRightMotorID); // Değiştirildi
                                 feederIO = new FeederIOReal(FeederConstants.kFeederMotorID);
@@ -174,7 +170,7 @@ public class RobotContainer {
 
                 // 2. Subsystemleri Başlat
                 driveSubsystem = new DriveSubsystem(gyro, fl, fr, bl, br);
-                visionSubsystem = new VisionSubsystem(visionIO);
+                visionSubsystem = new VisionSubsystem(driveSubsystem);
                 intakeSubsystem = new IntakeSubsystem(intakeIO);
                 shooterSubsystem = new ShooterSubsystem(shooterIO, driveSubsystem::getPose);
                 climberSubsystem = new ClimberSubsystem(climberIO); // Değiştirildi
@@ -310,37 +306,10 @@ public class RobotContainer {
 
         }
 
-        // ==================== SCORE & SOURCE POSITION SELECTION ====================
-        // Seçili skor indeksi (0-5 arasında)
-        private int selectedScoreIndex = 0;
+        // ==================== SOURCE POSITION SELECTION ====================
+        // Turret olduğu için skor pozisyonu seçimi gereksiz - otomatik nişan alınır
         // Seçili source indeksi (0-1 arasında)
         private int selectedSourceIndex = 0;
-
-        /**
-         * Seçili skor pozisyonunu değiştirir.
-         * 
-         * @param delta Değişim miktarı (+1 veya -1)
-         */
-        private void changeScoreIndex(int delta) {
-                selectedScoreIndex += delta;
-                // Dizi sınırları içinde tut (döngüsel)
-                if (selectedScoreIndex >= FieldConstants.kHubScoringPoses.length) {
-                        selectedScoreIndex = 0;
-                } else if (selectedScoreIndex < 0) {
-                        selectedScoreIndex = FieldConstants.kHubScoringPoses.length - 1;
-                }
-
-                // SmartDashboard ve Field görselleştirme
-                edu.wpi.first.math.geometry.Pose2d target = FieldConstants.kHubScoringPoses[selectedScoreIndex];
-                edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.putNumber("Selected Score Index",
-                                selectedScoreIndex);
-                edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.putString("Selected Target Pose",
-                                target.toString());
-                driveSubsystem.showTargetPose(target);
-
-                // AdvantageKit Loglama
-                Logger.recordOutput("Pathfinding/SelectedGoal", target);
-        }
 
         /**
          * Seçili source pozisyonunu değiştirir.
@@ -370,15 +339,15 @@ public class RobotContainer {
 
         /**
          * Sürücü kontrollerini yapılandırır.
-         * POV Up/Down: Score Seçimi
+         * POV Up/Down: Climb Pozisyonu Seçimi
          * POV Left/Right: Source Seçimi
-         * X: Score'a Git
-         * Y: Source'a Git
+         * X: Auto Intake
+         * Y: Auto Aim
          */
         private void configureDriverPathfindingBindings() {
-                // --- SCORE SELECTION (POV Up/Down) ---
-                driverController.povUp().onTrue(Commands.runOnce(() -> changeScoreIndex(1)));
-                driverController.povDown().onTrue(Commands.runOnce(() -> changeScoreIndex(-1)));
+                // --- CLIMB POSITION SELECTION (POV Up/Down) ---
+                driverController.povUp().onTrue(Commands.runOnce(() -> cycleClimbPosition(1)));
+                driverController.povDown().onTrue(Commands.runOnce(() -> cycleClimbPosition(-1)));
 
                 // --- SOURCE SELECTION (POV Right/Left) ---
                 driverController.povRight().onTrue(Commands.runOnce(() -> changeSourceIndex(1)));
@@ -467,16 +436,8 @@ public class RobotContainer {
                                                 () -> -driverController.getRawAxis(OIConstants.kDriverRotAxis)));
 
                 // Vision: Pose verilerini Drive'a aktar (mesafe bazlı güven ile)
-                visionSubsystem.setDefaultCommand(
-                                Commands.run(() -> {
-                                        var measurement = visionSubsystem.getBestMeasurement();
-                                        if (measurement.isPresent()) {
-                                                driveSubsystem.addVisionMeasurement(
-                                                                measurement.get().pose(),
-                                                                measurement.get().timestamp(),
-                                                                measurement.get().avgTagDist()); // Mesafe bazlı güven
-                                        }
-                                }, visionSubsystem));
+                // Vision: Pose verilerini VisionSubsystem.periodic() otomatik günceller.
+                // MegaTag 2 entegrasyonu tamamlandı.
 
                 // LED: Varsayılan olarak beklemede
                 ledSubsystem.setDefaultCommand(

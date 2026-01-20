@@ -26,17 +26,20 @@ public final class RobotMap {
     // ==================== MECHANISMS (10-19) ====================
     // Intake
     public static final int kIntakeMotorID = 10; // NEO
-    public static final int kIntakePivotMotorID = 11; // NEO - Pivot
+    public static final int kIntakePivotMotorID = 11; // NEO
 
-    // Shooter & Feeder
-    public static final int kShooterMasterID = 12;
-    public static final int kShooterFollowerID = 13;
-    public static final int kFeederMotorID = 14; // NEO (User Request ID: 14)
-    public static final int kTurretMotorID = 15; // NEO
+    // Shooter
+    public static final int kShooterMasterID = 12; // Kraken X60 (Flywheel)
+    public static final int kShooterFollowerID = 13; // İkinci motor gerekirse
+    public static final int kTurretMotorID = 14; // NEO
+    public static final int kHoodMotorID = 15; // NEO 550
 
-    // Lift / Climber (20-29)
-    public static final int kLiftLeftMotorID = 20;
-    public static final int kLiftRightMotorID = 21;
+    // Feeder
+    public static final int kFeederMotorID = 16; // NEO
+
+    // ==================== LIFT / CLIMBER (20-29) ====================
+    public static final int kClimberLeftMotorID = 20; // Kraken
+    public static final int kClimberRightMotorID = 21; // Kraken
 
     // ==================== DIO PORTS ====================
     // MZ80 Sensörler

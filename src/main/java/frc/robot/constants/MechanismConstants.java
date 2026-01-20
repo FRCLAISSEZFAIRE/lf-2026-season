@@ -9,9 +9,7 @@ public final class MechanismConstants {
     public static final int kShooterMasterID = RobotMap.kShooterMasterID;
     public static final int kShooterFollowerID = RobotMap.kShooterFollowerID;
     public static final int kTurretID = RobotMap.kTurretMotorID;
-    public static final int kHoodID = 99; // Dummy ID, Servo kullanıldığı için unused olabilir ama RobotContainer
-                                          // istiyor.
-    // Hood uses Servos
+    public static final int kHoodID = RobotMap.kHoodMotorID;
 
     // --- INTAKE IDs (RobotMap'ten) ---
     public static final int kIntakeID = RobotMap.kIntakeMotorID;

@@ -4,7 +4,7 @@
 
 > 🏗️ **REBUILT** - FIRST AGE temalı arkeoloji sezonunun FRC oyunu. Fuel (köpük toplar) Hub'a atılır, Tower'a tırmanılır.
 
-![WPILib](https://img.shields.io/badge/WPILib-2026.1.1-blue)
+![WPILib](https://img.shields.io/badge/WPILib-2026.2.1-blue)
 ![Java](https://img.shields.io/badge/Java-17-orange)
 ![AdvantageKit](https://img.shields.io/badge/AdvantageKit-Logging-green)
 ![Game](https://img.shields.io/badge/Game-REBUILT-red)
@@ -15,6 +15,7 @@
 
 - [Proje Yapısı](#-proje-yapısı)
 - [Alt Sistemler](#-alt-sistemler)
+- [Shooter Auto-Aim](#-shooter-auto-aim)
 - [Donanım Haritası](#-donanım-haritası)
 - [Controller Bindings](#-controller-bindings)
 - [Dashboard Kontrolleri](#-dashboard-kontrolleri)
@@ -34,21 +35,19 @@ src/main/java/frc/robot/
 │   ├── Constants.java            # Genel sabitler
 │   ├── RobotMap.java             # Motor ve sensör ID'leri
 │   ├── DriveConstants.java       # Sürüş sabitleri
+│   ├── ShooterConstants.java     # Shooter sabitleri + Shooting Table
 │   ├── ClimberConstants.java     # Climber (Tırmanma) sabitleri
-│   └── FieldConstants.java       # Saha ve skor pozisyonları
+│   └── FieldConstants.java       # Saha pozisyonları
 ├── subsystems/                   # Alt sistemler
 │   ├── drive/                    # Swerve sürüş
-│   ├── vision/                   # Limelight görüş (VisionSubsystem)
+│   ├── vision/                   # Limelight görüş
 │   ├── intake/                   # Alma sistemi
-│   ├── shooter/                  # Atış sistemi
+│   ├── shooter/                  # Atış sistemi (Turret + Hood + Flywheel)
 │   ├── climber/                  # Climber (Tırmanma)
 │   ├── feeder/                   # Besleyici
 │   └── led/                      # LED kontrolü
 ├── commands/                     # Komutlar
-│   ├── drive/                    # Sürüş komutları
-│   └── intake/                   # Alma komutları
 └── util/                         # Yardımcı sınıflar
-    └── LimelightHelpers.java     # Limelight yardımcıları
 ```
 
 ---
@@ -60,18 +59,56 @@ src/main/java/frc/robot/
 | **Drive**   | Swerve sürüş (4 modül)    | SparkMax Vortex + NEO 550 | ✅         |
 | **Vision**  | Limelight 3 (Pose) + 3A   | -                         | ✅         |
 | **Intake**  | Roller + Pivot (Active)   | 2x NEO (SparkMax)         | ✅         |
-| **Shooter** | Flywheel + Turret + Hood  | Kraken + NEO + Servos     | ✅         |
+| **Shooter** | Flywheel + Turret + Hood  | Kraken + NEO + NEO550     | ✅         |
 | **Climber** | Tırmanma Mekanizması      | 2x Kraken                 | ✅         |
 | **Feeder**  | Intake → Shooter transfer | NEO (SparkMax)            | ✅         |
 | **LED**     | Durum gösterimi           | AddressableLED            | -          |
 
-> **Climber:** Otomatik tırmanma (Auto Climb) özelliği ve sensör tabanlı (Seat Sensor) kilitleme sistemi mevcuttur.
+---
+
+## 🎯 Shooter Auto-Aim
+
+### Çalışma Modları
+
+Shooter sistemi robot konumuna göre **otomatik** çalışır:
+
+| Mod         | Koşul             | Davranış                          |
+| ----------- | ----------------- | --------------------------------- |
+| **IDLE**    | Butona basılmamış | Flywheel idle (2000 RPM)          |
+| **SCORING** | İttifak alanında  | Hub'a tam güç atış                |
+| **FEEDING** | İttifak dışında   | İttifak alanına top besleme (lob) |
+
+### Alliance Zone (İttifak Alanı)
+
+- **Blue Alliance:** X < 4.0m (sol taraf)
+- **Red Alliance:** X > 12.49m (sağ taraf)
+
+Robot ittifak alanındayken **Hub'a** nişan alır. Dışındayken **ittifak alanına** top besler.
+
+### 📊 Shooting Parameters
+
+Sadece **CLOSE** ve **FAR** noktası tanımlı, ara değerler **otomatik lineer interpolasyon** ile hesaplanır:
+
+| Parametre  | CLOSE (Yakın) | FAR (Uzak) |
+| ---------- | ------------- | ---------- |
+| Mesafe     | 1.5 m         | 7.0 m      |
+| Hood Açısı | 55° (dik)     | 17° (düz)  |
+| Flywheel   | 4500 RPM      | 7000 RPM   |
+
+> **Tuning:** Sadece 6 değeri ayarlaman yeterli! `ShooterConstants.java` içindeki `kClose*` ve `kFar*` değerlerini değiştir.
+
+### Feeding Mode (Top Besleme)
+
+İttifak alanı dışında:
+
+- **Flywheel:** 3500 RPM (düşük güç)
+- **Hood Açısı:** 50° (lob atış)
 
 ---
 
 ## 🔧 Donanım Haritası
 
-### CAN Motor ID'leri
+### CAN Motor ID'leri (`RobotMap.java`)
 
 | ID  | Motor                  | Alt Sistem |
 | --- | ---------------------- | ---------- |
@@ -81,10 +118,11 @@ src/main/java/frc/robot/
 | 7-8 | Rear Right Drive/Turn  | Drive      |
 | 10  | Intake Roller          | Intake     |
 | 11  | Intake Pivot           | Intake     |
-| 12  | Shooter Master         | Shooter    |
+| 12  | Shooter Flywheel       | Shooter    |
 | 13  | Shooter Follower       | Shooter    |
-| 14  | Feeder                 | Feeder     |
-| 15  | Turret                 | Shooter    |
+| 14  | Turret                 | Shooter    |
+| 15  | Hood (NEO 550)         | Shooter    |
+| 16  | Feeder                 | Feeder     |
 | 20  | Climber Left           | Climber    |
 | 21  | Climber Right          | Climber    |
 
@@ -108,39 +146,48 @@ src/main/java/frc/robot/
 
 ### Driver Controller (Port 0)
 
-| Buton                | Aksiyon                                         |
-| -------------------- | ----------------------------------------------- |
-| **Sol Joystick**     | İleri/Geri, Sol/Sağ hareket                     |
-| **Sağ Joystick X**   | Dönme                                           |
-| **X**                | **Auto Intake** (Kamera takibi + Alma)          |
-| **Y**                | **Auto Aim** (Robotu Shooter hedefine döndürür) |
-| **POV Yukarı/Aşağı** | Skor Hedefi Seçimi (Hub Pozisyonları)           |
-| **POV Sağ/Sol**      | Kaynak (Source) Seçimi                          |
+| Buton                | Aksiyon                                |
+| -------------------- | -------------------------------------- |
+| **Sol Joystick**     | İleri/Geri, Sol/Sağ hareket            |
+| **Sağ Joystick X**   | Dönme                                  |
+| **X**                | **Auto Intake** (Kamera takibi + Alma) |
+| **Y**                | **Auto Aim** (Robot hedefe döner)      |
+| **POV Yukarı/Aşağı** | Climb Pozisyonu Seçimi                 |
+| **POV Sağ/Sol**      | Source Seçimi                          |
 
 ### Operator Controller (Port 1)
 
-| Buton                | Aksiyon                                                  |
-| -------------------- | -------------------------------------------------------- |
-| **Sağ Tetik**        | Intake + Feeder (Normal Alma)                            |
-| **Sol Tetik**        | **Sadece Intake Ters** (Kusma - Feeder Çalışmaz)         |
-| **Sağ Bumper**       | Atış (Manuel / Yakın Mesafe)                             |
-| **Sol Bumper**       | **Flywheel Ters** (Sıkışma Giderme)                      |
-| **X**                | **Auto Intake** (Kamera Takibi + Alma)                   |
-| **Y**                | **Auto Aim & Shoot** (Robotu Döndür + Otomatik Atış)     |
-| **A**                | **Climb Retract** (Robotu Yukarı Çeker - Sensörle Durur) |
-| **B**                | **Climb Extend** (Kancaları Uzatır)                      |
-| **POV Sağ/Sol**      | **Climb Position** Seçimi (Tower Left/Mid/Right)         |
-| **POV Yukarı/Aşağı** | Manuel Tırmanma (Yukarı/Aşağı)                           |
-| **Start**            | **ACİL DURDUR** (Tüm sistemleri durdurur, LED: Error)    |
+| Buton                | Aksiyon                             |
+| -------------------- | ----------------------------------- |
+| **Sağ Tetik**        | Intake + Feeder (Normal Alma)       |
+| **Sol Tetik**        | Sadece Intake Ters (Kusma)          |
+| **Sağ Bumper**       | Atış (Auto-Aim devreye girer)       |
+| **Sol Bumper**       | Flywheel Ters (Sıkışma Giderme)     |
+| **X**                | Auto Intake                         |
+| **Y**                | Auto Aim & Shoot                    |
+| **A**                | Climb Retract (Robotu Yukarı Çeker) |
+| **B**                | Climb Extend (Kancaları Uzatır)     |
+| **POV Sağ/Sol**      | Climb Position Seçimi               |
+| **POV Yukarı/Aşağı** | Manuel Tırmanma                     |
+| **Start**            | ACİL DURDUR                         |
 
 ---
 
 ## 🖥️ Dashboard Kontrolleri
 
-SmartDashboard üzerinde aşağıdaki kontroller mevcuttur:
+- **Climb Position:** Otomatik tırmanma için hedef kule pozisyonu
+- **START AUTO CLIMB:** Otomatik tırmanma sekansını başlatır
 
-- **Climb Position:** Otomatik tırmanma için hedef kule pozisyonu seçimi (`Tower Left`, `Tower Mid`, `Tower Right`). Operator POV tuşları ile de değiştirilebilir.
-- **START AUTO CLIMB:** Otomatik tırmanma sekansını başlatır. (Pathfind -> Extend -> Hizala -> Retract -> Wait for Sensor).
+### AdvantageScope Logs
+
+```
+Shooter/Mode           → IDLE / SCORING / FEEDING
+Shooter/InAllianceZone → true / false
+Shooter/DistanceToTarget → mesafe (m)
+Shooter/HoodTarget     → hedef açı (°)
+Shooter/FlywheelTargetRPM → hedef hız
+Shooter/IsReadyToShoot → hazır mı?
+```
 
 ---
 
@@ -148,21 +195,16 @@ SmartDashboard üzerinde aşağıdaki kontroller mevcuttur:
 
 ### Gereksinimler
 
-- WPILib 2026 Beta
+- WPILib 2026
 - Java 17+
 - Gradle 8.x
 
 ### Build
 
 ```bash
-# Build
-./gradlew build
-
-# Deploy to robot
-./gradlew deploy
-
-# Simulate
-./gradlew simulateJava
+./gradlew build        # Build
+./gradlew deploy       # Deploy to robot
+./gradlew simulateJava # Simulate
 ```
 
 ### Bağımlılıklar
@@ -170,7 +212,7 @@ SmartDashboard üzerinde aşağıdaki kontroller mevcuttur:
 Otomatik olarak `vendordeps/` klasöründen yüklenir:
 
 - CTRE Phoenix 6
-- REVLib 2026 Beta
+- REVLib 2026
 - NavX (Studica)
 - AdvantageKit
 
@@ -180,30 +222,18 @@ Otomatik olarak `vendordeps/` klasöründen yüklenir:
 
 ### IO Pattern
 
-Her alt sistem şu yapıyı takip eder:
-
 ```
 subsystem/
 ├── SubsystemIO.java         # Interface + AutoLog
-├── SubsystemIOReal.java     # Gerçek robot implementasyonu
-├── SubsystemIOSim.java      # Simülasyon implementasyonu
-└── SubsystemSubsystem.java  # Ana subsystem sınıfı
-```
-
-### Logging
-
-AdvantageKit ile tüm veriler AdvantageScope'ta görüntülenebilir:
-
-```java
-Logger.recordOutput("Subsystem/Value", value);
+├── SubsystemIOReal.java     # Gerçek robot
+├── SubsystemIOSim.java      # Simülasyon
+└── SubsystemSubsystem.java  # Ana sınıf
 ```
 
 ### PathPlanner
 
-Proje **AutoBuilder** ile yapılandırılmıştır.
-
-- **Pathfinding:** Driver Controller üzerinden dinamik hedef seçimi mümkündür.
-- **NamedCommands:** `AutoIntake`, `Shoot`, `ClimberExtend`, `ClimberRetract` vb. komutlar GUI üzerinden kullanılabilir.
+- **Pathfinding:** Dinamik hedef seçimi
+- **NamedCommands:** `AutoIntake`, `Shoot`, `ClimberExtend`, `ClimberRetract`
 
 ---
 
@@ -213,11 +243,11 @@ Proje **AutoBuilder** ile yapılandırılmıştır.
 | ------------------ | ----------------------------------- |
 | Swerve Drive       | ✅ Tamamlandı                       |
 | Vision Integration | ✅ Tamamlandı                       |
+| Shooter Auto-Aim   | ✅ Tamamlandı                       |
 | Climber            | ✅ Tamamlandı (Auto Climb + Sensor) |
-| Shooter            | ✅ Tamamlandı                       |
 | Feeder             | ✅ Tamamlandı                       |
 | LED                | ✅ Tamamlandı                       |
-| Autonomous         | 🚧 Entegre Edildi (AutoBuilder)     |
+| Autonomous         | 🚧 Entegre Edildi                   |
 | PathPlanner        | 🚧 Entegre Edildi                   |
 
 ---

@@ -21,6 +21,12 @@ import edu.wpi.first.math.geometry.Translation2d;
 
 import frc.robot.constants.DriveConstants;
 import frc.robot.constants.ModuleConstants;
+import frc.robot.constants.FieldConstants; // Added Import
+
+import edu.wpi.first.apriltag.AprilTagFieldLayout;
+import edu.wpi.first.apriltag.AprilTagFields;
+import edu.wpi.first.wpilibj.Preferences;
+import java.util.List;
 
 public class DriveSubsystem extends SubsystemBase {
 
@@ -33,6 +39,12 @@ public class DriveSubsystem extends SubsystemBase {
             new ModuleIOInputsAutoLogged(), new ModuleIOInputsAutoLogged(),
             new ModuleIOInputsAutoLogged(), new ModuleIOInputsAutoLogged()
     };
+
+    // --- SAFETY LAYER FIELDS ---
+    private boolean safeDriveEnabled = true;
+    private double fieldLength = 16.54; // Fallback (Crescendo default)
+    private double fieldWidth = 8.21; // Fallback
+    private double kRobotRadius; // Constructor'da hesaplanacak
 
     // --- ODOMETRY & KINEMATICS ---
     private final SwerveDriveKinematics kinematics = DriveConstants.kDriveKinematics;
@@ -61,6 +73,28 @@ public class DriveSubsystem extends SubsystemBase {
                 Rotation2d.fromRadians(gyroInputs.yawPositionRad),
                 getModulePositions(),
                 new Pose2d());
+
+        // --- SAFETY LAYER INIT ---
+        // Robot Yarıçapı Hesapla (TrackWidth ve WheelBase'in hipotenüsünün yarısı +
+        // tampon payı)
+        kRobotRadius = Math.hypot(DriveConstants.kTrackWidthMeters, DriveConstants.kWheelBaseMeters) / 2.0 + 0.1;
+
+        // Saha Düzeni Yükle (2026/2024)
+        try {
+            // AprilTagFields.k2024Crescendo veya kDefaultField kullanıyoruz (2026 sim
+            // destekli)
+            AprilTagFieldLayout layout = AprilTagFieldLayout
+                    .loadFromResource(AprilTagFields.k2024Crescendo.m_resourceFile);
+            fieldLength = layout.getFieldLength();
+            fieldWidth = layout.getFieldWidth();
+            Logger.recordOutput("Drive/Safety/FieldLength", fieldLength);
+            Logger.recordOutput("Drive/Safety/FieldWidth", fieldWidth);
+        } catch (Exception e) {
+            DriverStation.reportError("Field Layout Yüklenemedi! Varsayılan değerler kullanılıyor.", false);
+        }
+
+        // Dashboard Toggle Oluştur (Varsayılan: True)
+        Preferences.initBoolean("SafeDriveEnabled", true);
 
         edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.putData("Field", field);
 
@@ -231,17 +265,119 @@ public class DriveSubsystem extends SubsystemBase {
      * @param rateLimit     Hızlanma limiti uygulansın mı?
      */
     public void drive(double xSpeed, double ySpeed, double rot, boolean fieldRelative, boolean rateLimit) {
-        // Rate limit mantığı şimdilik pas geçildi, direkt runVelocity çağırıyoruz.
-        // xSpeed ve ySpeed zaten m/s cinsinden gelmeli.
+        // --- SAFETY LAYER (SMART CLAMPING V2) ---
+        safeDriveEnabled = Preferences.getBoolean("SafeDriveEnabled", true);
+        Logger.recordOutput("Drive/Safety/Enabled", safeDriveEnabled);
 
-        ChassisSpeeds speeds;
+        // 1. Önce Hızları Analiz İçin Saha Merkezli (Field-Relative) Hale Getir
+        // Eğer sürücü zaten field relative sürüyorsa xSpeed sahanın X'i demektir.
+        // Eğer robot relative sürüyorsa, xSpeed robotun önüdür, sahada nereye denk
+        // geldiğini bulmalıyız.
+        ChassisSpeeds targetSpeeds;
         if (fieldRelative) {
-            speeds = ChassisSpeeds.fromFieldRelativeSpeeds(xSpeed, ySpeed, rot,
-                    Rotation2d.fromRadians(gyroInputs.yawPositionRad));
+            targetSpeeds = new ChassisSpeeds(xSpeed, ySpeed, rot);
         } else {
-            speeds = new ChassisSpeeds(xSpeed, ySpeed, rot);
+            targetSpeeds = new ChassisSpeeds(xSpeed, ySpeed, rot); // Geçici, aşağıda çevireceğiz
+            // Robot Relative hızları Saha Relative'e çevir ki sınırları kontrol edebilelim
+            Rotation2d robotHeading = getPose().getRotation();
+            // xSpeed (Forward), ySpeed (Left) -> Rotate by Heading -> Field X, Field Y
+            double c = robotHeading.getCos();
+            double s = robotHeading.getSin();
+            double fieldVx = xSpeed * c - ySpeed * s;
+            double fieldVy = xSpeed * s + ySpeed * c;
+            targetSpeeds = new ChassisSpeeds(fieldVx, fieldVy, rot);
         }
-        runVelocity(speeds);
+
+        // Güvenlik açık ise müdahale et
+        if (safeDriveEnabled) {
+            Pose2d currentPose = getPose();
+            double fieldVx = targetSpeeds.vxMetersPerSecond;
+            double fieldVy = targetSpeeds.vyMetersPerSecond;
+
+            // ---------------------------------------------------------
+            // A. DİNAMİK SAHA SINIRLARI (Field Boundaries)
+            // ---------------------------------------------------------
+            // X Ekseni Kontrolü
+            // Sol sınır (0)
+            if (currentPose.getX() < kRobotRadius && fieldVx < 0) {
+                fieldVx = 0;
+            }
+            // Sağ sınır (Length)
+            if (currentPose.getX() > (fieldLength - kRobotRadius) && fieldVx > 0) {
+                fieldVx = 0;
+            }
+
+            // Y Ekseni Kontrolü
+            // Alt sınır (0)
+            if (currentPose.getY() < kRobotRadius && fieldVy < 0) {
+                fieldVy = 0;
+            }
+            // Üst sınır (Width)
+            if (currentPose.getY() > (fieldWidth - kRobotRadius) && fieldVy > 0) {
+                fieldVy = 0;
+            }
+
+            // ---------------------------------------------------------
+            // B. YASAK BÖLGELER (Keep-Out Zones)
+            // ---------------------------------------------------------
+            for (Translation2d zoneCenter : FieldConstants.kKeepOutZones) {
+                double dist = currentPose.getTranslation().getDistance(zoneCenter);
+                // Güvenli yarıçap: Engel fiziksel boyutu (tahmini 0.5m) + Robot Yarıçapı
+                double safeZoneRadius = 0.5 + kRobotRadius;
+
+                if (dist < safeZoneRadius) {
+                    // Robot bölgeye çok yakın veya içinde!
+
+                    // Engelden robota doğru olan vektör (Kaçış vektörü)
+                    Translation2d vecRobotToZone = zoneCenter.minus(currentPose.getTranslation());
+
+                    // Hız vektörümüz engele doğru mu? (Dot Product > 0 ise engele gidiyoruz)
+                    // Hız vektörü: (fieldVx, fieldVy)
+                    // Zone vektörü: (dx, dy)
+                    double dotProduct = (fieldVx * vecRobotToZone.getX()) + (fieldVy * vecRobotToZone.getY());
+
+                    if (dotProduct > 0) {
+                        // Engele doğru gidiyoruz! Hız vektörünü durdur veya engeli teğet geçecek
+                        // şekilde yansıt.
+                        // Basitlik için: Engele doğru olan hareketi tamamen kesiyoruz.
+                        fieldVx = 0;
+                        fieldVy = 0;
+                        Logger.recordOutput("Drive/Safety/ObstacleIntervention", true);
+                    }
+                }
+            }
+
+            // Güvenli hızları geri ata
+            targetSpeeds = new ChassisSpeeds(fieldVx, fieldVy, rot);
+
+            // ---------------------------------------------------------
+            // C. KOORDİNAT SİSTEMİNİ GERİ ÇEVİR (Gerekirse)
+            // ---------------------------------------------------------
+            // Eğer kullanıcı robot-relative istemişse, ama biz field-relative üzerinde
+            // düzenleme yaptık.
+            // Şimdi bu 'güvenli' field hızlarını tekrar robot'un o anki açısına göre
+            // robot-relative'e çevirmeliyiz
+            // ki runVelocity veya sonraki adımlar doğru çalışsın.
+            // VEYA: runVelocity zaten Robot Relative istiyorsa, her halükarda Robot
+            // Relative dönmeliyiz.
+            // runVelocity metodu: setpointStates = kinematics.toSwerveModuleStates(speeds)
+            // kullanıyor.
+            // kinematics.toSwerveModuleStates her zaman ROBOT RELATIVE hız bekler!
+
+            // Dolayısıyla, elimizdeki targetSpeeds (Field Relative) şu an.
+            // Bunu Robot Relative'e çevirmemiz ŞART.
+            targetSpeeds = ChassisSpeeds.fromFieldRelativeSpeeds(targetSpeeds, getPose().getRotation());
+        } else {
+            // Güvenlik kapalıysa ve Field Relative isteniyorsa, Robot Relative'e çevirip
+            // gönderelim
+            // (runVelocity robot relative bekler)
+            if (fieldRelative) {
+                targetSpeeds = ChassisSpeeds.fromFieldRelativeSpeeds(targetSpeeds, getPose().getRotation());
+            }
+            // fieldRelative değilse zaten targetSpeeds (ilk atamada) robot relative idi.
+        }
+
+        runVelocity(targetSpeeds);
     }
 
     public void stop() {
@@ -415,5 +551,30 @@ public class DriveSubsystem extends SubsystemBase {
 
     public double getRoll() {
         return gyroInputs.rollDegrees;
+    }
+
+    /**
+     * Gyro açısal hızını döndürür (rad/s).
+     * Vision MegaTag 2 senkronizasyonu için gereklidir.
+     */
+    public double getGyroVelocityRadPerSec() {
+        return gyroInputs.yawVelocityRadPerSec;
+    }
+
+    /**
+     * Vision Subsystem'den gelen veriyi dinamik standart sapma (Trust Matrix) ile
+     * ekler.
+     * 
+     * @param visionPose Kameradan gelen tahmini pozisyon
+     * @param timestamp  Görüntünün alındığı zaman (Latency hesaplanmış)
+     * @param stdDevs    Güvenilirlik matrisi (x, y, theta)
+     */
+    public void addVisionMeasurement(edu.wpi.first.math.geometry.Pose2d visionPose, double timestamp,
+            edu.wpi.first.math.Matrix<edu.wpi.first.math.numbers.N3, edu.wpi.first.math.numbers.N1> stdDevs) {
+        poseEstimator.addVisionMeasurement(visionPose, timestamp, stdDevs);
+    }
+
+    public edu.wpi.first.math.geometry.Rotation2d getRotation2d() {
+        return getPose().getRotation();
     }
 }

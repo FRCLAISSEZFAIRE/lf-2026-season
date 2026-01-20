@@ -7,11 +7,11 @@ public interface ShooterIO {
     public static class ShooterIOInputs {
         // Flywheel (Fırlatıcı)
         public double flywheelVelocityRadPerSec = 0.0;
-        public double flywheelVelocityError = 0.0; // RPM Error
+        public double flywheelVelocityError = 0.0;
         public double flywheelAppliedVolts = 0.0;
         public double flywheelCurrentAmps = 0.0;
-        public double flywheelRightVelocityRadPerSec = 0.0; // Secondary Flywheel
-        public double flywheelRightAppliedVolts = 0.0; // Secondary Flywheel
+        public double flywheelRightVelocityRadPerSec = 0.0;
+        public double flywheelRightAppliedVolts = 0.0;
 
         // Turret (Yatay Döner Tabla)
         public double turretAbsolutePositionRad = 0.0;
@@ -28,7 +28,7 @@ public interface ShooterIO {
     default void updateInputs(ShooterIOInputs inputs) {
     }
 
-    // Motor Kontrolleri
+    // Flywheel Kontrolleri
     default void setFlywheelVoltage(double volts) {
     }
 
@@ -41,13 +41,21 @@ public interface ShooterIO {
     default void setFlywheelRightVelocity(double velocityRPM) {
     }
 
+    // Turret Kontrolleri (Closed-Loop Position)
+    /** Turret'i hedef açıya döndürür (radyan) - SparkMax closed-loop */
+    default void setTurretPosition(double angleRad) {
+    }
+
+    /** Turret voltage control (manuel/test için) */
     default void setTurretVoltage(double volts) {
     }
 
-    // Hood (Atış açısı) kontrolü
+    // Hood Kontrolleri (Closed-Loop Position)
+    /** Hood'u hedef açıya döndürür (derece) - SparkMax closed-loop */
     default void setHoodAngle(double angleDegrees) {
     }
 
+    /** Hood voltage control (manuel/test için) */
     default void setHoodVoltage(double volts) {
     }
 }

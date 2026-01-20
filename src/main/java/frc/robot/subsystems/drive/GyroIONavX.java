@@ -1,49 +1,62 @@
 package frc.robot.subsystems.drive;
 
-import com.studica.frc.Navx;
+import com.kauailabs.navx.frc.AHRS;
+import edu.wpi.first.wpilibj.SPI;
 import edu.wpi.first.math.util.Units;
 import frc.robot.constants.DriveConstants;
 
 /**
  * NavX2-MXP IMU için GyroIO implementasyonu.
- * StudicaLib Navx sınıfını kullanır (WPILib 2026beta uyumlu).
+ * Kauai Labs AHRS sınıfını kullanır (NavX 2024.1.0 - kararlı versiyon).
  * 
- * Constructor parametresi (integer):
- * - 0: USB
- * - 1: MXP SPI (NavX2-MXP için varsayılan)
- * - 2: I2C
+ * <h2>Bağlantı:</h2>
+ * <ul>
+ * <li>MXP SPI Portu (Varsayılan)</li>
+ * </ul>
  */
 public class GyroIONavX implements GyroIO {
-    // Port 1 = MXP SPI (NavX2-MXP için varsayılan)
-    private final Navx navx = new Navx(1);
+    private final AHRS navx;
 
     public GyroIONavX() {
-        // Başlangıçta gerekirse sıfırlama yapılabilir
+        // MXP SPI portu üzerinden bağlan
+        navx = new AHRS(SPI.Port.kMXP);
+
+        // Başlangıç kalibrasyonu bekleniyor mu?
+        // NavX otomatik kalibre olur, ancak isCalibrating() kontrol edilebilir.
+        System.out.println("[NavX] Initializing on SPI MXP...");
+
+        // Stabilizasyon için kısa bir bekleme (opsiyonel)
+        try {
+            Thread.sleep(100);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
     }
 
     @Override
     public void updateInputs(GyroIOInputs inputs) {
-        // Navx class varsayılan olarak bağlı kabul edilir
-        inputs.connected = true;
+        inputs.connected = navx.isConnected();
 
-        // Yaw (dönme)
-        // Yaw (dönme)
-        double angleDeg = 0.0; // navx.getYaw(); // StudicaLib API sorunu nedeniyle devre dışı
+        // Bağlı değilse güncelleme yapma
+        if (!inputs.connected)
+            return;
+
+        // Yaw (Z ekseni - Dönüş)
+        double angleDeg = navx.getYaw();
         if (DriveConstants.kGyroReversed) {
             angleDeg *= -1;
         }
         inputs.yawPositionRad = Units.degreesToRadians(angleDeg);
-        inputs.yawVelocityRadPerSec = 0.0;
+        inputs.yawVelocityRadPerSec = Units.degreesToRadians(navx.getRate());
 
-        // Pitch (öne/arkaya eğme)
-        inputs.pitchDegrees = 0.0; // navx.getPitch(); // StudicaLib API kontrol edilmeli
-
-        // Roll (sağa/sola eğme)
-        inputs.rollDegrees = 0.0; // navx.getRoll(); // StudicaLib API kontrol edilmeli
+        // Pitch & Roll (Eğim)
+        inputs.pitchDegrees = navx.getPitch();
+        inputs.rollDegrees = navx.getRoll();
     }
 
     @Override
     public void zeroHeading() {
-        // Navx sıfırlama - API'de reset yoksa, varsayılan değer kullan
+        navx.zeroYaw();
+        System.out.println("[NavX] Yaw zeroed.");
     }
 }

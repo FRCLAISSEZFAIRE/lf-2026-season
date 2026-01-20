@@ -5,76 +5,52 @@ import java.util.function.Supplier;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import org.littletonrobotics.junction.Logger;
 import frc.robot.constants.ClimberConstants;
+import frc.robot.util.TunableNumber;
 
 /**
  * Tırmanma (Climber) alt sistemi.
  * 
- * <p>
- * Robotun Tower'a tırmanmasını sağlayan dikey hareket mekanizması.
- * </p>
- * 
- * <h2>Özellikler:</h2>
- * <ul>
- * <li>Motion Magic ile yumuşak hareket</li>
- * <li>Güvenlik limitleri (Soft limits)</li>
- * <li>Gyro tabanlı eğim uyarısı</li>
- * </ul>
- * 
- * <h2>Donanım:</h2>
- * <ul>
- * <li>Sol Motor: Kraken X60 (CAN ID: 20)</li>
- * <li>Sağ Motor: Kraken X60 (CAN ID: 23)</li>
- * </ul>
- * 
- * @author FRC Team
- * @see ClimberIO
- * @see ClimberConstants
+ * TunableNumber ile runtime'da ayarlanabilen parametreler:
+ * - Preset pozisyonları
+ * - Manuel hızlar
  */
 public class ClimberSubsystem extends SubsystemBase {
 
-    /**
-     * Tırmanma pozisyon presetleri.
-     */
     public enum ClimberPreset {
-        HOME(ClimberConstants.kHomePosition),
-        EXTEND(ClimberConstants.kClimbExtendPosition),
-        RETRACT(ClimberConstants.kClimbRetractPosition),
-        HOLD(ClimberConstants.kClimbHoldPosition);
-
-        public final double position;
-
-        ClimberPreset(double position) {
-            this.position = position;
-        }
+        HOME, EXTEND, RETRACT, HOLD
     }
 
     private final ClimberIO io;
     private final ClimberIOInputsAutoLogged inputs = new ClimberIOInputsAutoLogged();
 
-    /** Mevcut hedef preset */
     private ClimberPreset currentPreset = ClimberPreset.HOME;
-
-    /** Gyro pitch verisi için supplier */
     private Supplier<Double> pitchSupplier = () -> 0.0;
-
-    /** Gyro roll verisi için supplier */
     private Supplier<Double> rollSupplier = () -> 0.0;
 
-    /**
-     * Yeni bir ClimberSubsystem oluşturur.
-     * 
-     * @param io Climber IO implementasyonu (Kraken, Sim veya Replay)
-     */
+    // ===========================================================================
+    // TUNABLE PARAMETERS - Kalıcı olarak kaydedilir
+    // ===========================================================================
+    private final TunableNumber tunableHomePosition;
+    private final TunableNumber tunableExtendPosition;
+    private final TunableNumber tunableRetractPosition;
+    private final TunableNumber tunableHoldPosition;
+    private final TunableNumber tunableManualUpVelocity;
+    private final TunableNumber tunableManualDownVelocity;
+
     public ClimberSubsystem(ClimberIO io) {
         this.io = io;
+
+        // TunableNumber oluştur
+        tunableHomePosition = new TunableNumber("Climber", "Home Position", ClimberConstants.kHomePosition);
+        tunableExtendPosition = new TunableNumber("Climber", "Extend Position", ClimberConstants.kClimbExtendPosition);
+        tunableRetractPosition = new TunableNumber("Climber", "Retract Position",
+                ClimberConstants.kClimbRetractPosition);
+        tunableHoldPosition = new TunableNumber("Climber", "Hold Position", ClimberConstants.kClimbHoldPosition);
+        tunableManualUpVelocity = new TunableNumber("Climber", "Manual Up Vel", ClimberConstants.kManualUpVelocity);
+        tunableManualDownVelocity = new TunableNumber("Climber", "Manual Down Vel",
+                ClimberConstants.kManualDownVelocity);
     }
 
-    /**
-     * Gyro verilerini bağlar.
-     * 
-     * @param pitchSupplier Pitch açısı sağlayıcı (derece)
-     * @param rollSupplier  Roll açısı sağlayıcı (derece)
-     */
     public void setGyroSuppliers(Supplier<Double> pitchSupplier, Supplier<Double> rollSupplier) {
         this.pitchSupplier = pitchSupplier;
         this.rollSupplier = rollSupplier;
@@ -85,19 +61,16 @@ public class ClimberSubsystem extends SubsystemBase {
         io.updateInputs(inputs);
         Logger.processInputs("Climber", inputs);
 
-        // Pozisyon ve durum logları
         double avgPosition = getPosition();
         Logger.recordOutput("Climber/AveragePosition", avgPosition);
         Logger.recordOutput("Climber/CurrentPreset", currentPreset.name());
         Logger.recordOutput("Climber/AtTarget", isAtTarget());
 
-        // Motor durumu
         double totalCurrent = inputs.leftCurrentAmps + inputs.rightCurrentAmps;
         Logger.recordOutput("Climber/TotalCurrent", totalCurrent);
         Logger.recordOutput("Climber/LeftStalling", inputs.leftCurrentAmps > ClimberConstants.kStallCurrentThreshold);
         Logger.recordOutput("Climber/RightStalling", inputs.rightCurrentAmps > ClimberConstants.kStallCurrentThreshold);
 
-        // Eğim durumu (tırmanma için önemli)
         double pitch = pitchSupplier.get();
         double roll = rollSupplier.get();
         double maxTilt = Math.max(Math.abs(pitch), Math.abs(roll));
@@ -107,123 +80,112 @@ public class ClimberSubsystem extends SubsystemBase {
         Logger.recordOutput("Climber/TiltWarning", maxTilt > ClimberConstants.kTiltWarningThreshold);
         Logger.recordOutput("Climber/TiltDanger", maxTilt > ClimberConstants.kTiltDangerThreshold);
         Logger.recordOutput("Climber/IsSeated", isSeated());
+
+        // Tunable values log
+        Logger.recordOutput("Climber/TunableExtendPos", tunableExtendPosition.get());
+        Logger.recordOutput("Climber/TunableRetractPos", tunableRetractPosition.get());
     }
 
-    // ==================== KONTROL METOTLARI ====================
+    // ===========================================================================
+    // PRESET POSITIONS (Tunable)
+    // ===========================================================================
 
-    /**
-     * Belirtilen preset pozisyonuna hareket eder.
-     * 
-     * @param preset Hedef preset
-     */
+    private double getPresetPosition(ClimberPreset preset) {
+        switch (preset) {
+            case HOME:
+                return tunableHomePosition.get();
+            case EXTEND:
+                return tunableExtendPosition.get();
+            case RETRACT:
+                return tunableRetractPosition.get();
+            case HOLD:
+                return tunableHoldPosition.get();
+            default:
+                return 0.0;
+        }
+    }
+
     private void goToPreset(ClimberPreset preset) {
         currentPreset = preset;
-        io.setPosition(preset.position);
+        io.setPosition(getPresetPosition(preset));
     }
 
-    /**
-     * Tırmanma kancalarını yukarı uzatır (Tırmanmaya hazırlık).
-     */
     public void extend() {
         goToPreset(ClimberPreset.EXTEND);
     }
 
-    /**
-     * Robotu yukarı çeker (Kancaları aşağı çeker).
-     */
     public void retract() {
         goToPreset(ClimberPreset.RETRACT);
     }
 
-    /**
-     * Tutma pozisyonuna gider.
-     */
     public void hold() {
         goToPreset(ClimberPreset.HOLD);
     }
-    
-    /**
-     * Başlangıç (kapalı) pozisyonuna döner.
-     */
+
     public void home() {
         goToPreset(ClimberPreset.HOME);
     }
 
-    /**
-     * Manuel yukarı hareket (Hız kontrolü).
-     */
+    // ===========================================================================
+    // MANUAL CONTROL (Tunable velocities)
+    // ===========================================================================
+
     public void manualUp() {
-        io.setVelocity(ClimberConstants.kManualUpVelocity);
+        io.setVelocity(tunableManualUpVelocity.get());
     }
 
-    /**
-     * Manuel aşağı hareket (Hız kontrolü).
-     */
     public void manualDown() {
-        io.setVelocity(ClimberConstants.kManualDownVelocity);
+        io.setVelocity(tunableManualDownVelocity.get());
     }
 
-    /**
-     * Durdur.
-     */
     public void stop() {
         io.stop();
     }
 
-    /**
-     * Voltaj uygular (Test veya acil durum için).
-     * 
-     * @param volts Voltaj (-12 ile +12 arası)
-     */
     public void setVoltage(double volts) {
         io.setVoltage(volts);
     }
 
-    // ==================== DURUM SORGULAMA ====================
+    // ===========================================================================
+    // STATUS
+    // ===========================================================================
 
-    /**
-     * Hedef pozisyona ulaşılıp ulaşılmadığını kontrol eder.
-     * 
-     * @return {@code true} eğer tolerans içinde ise
-     */
     public boolean isAtTarget() {
         double avgPosition = getPosition();
-        return Math.abs(avgPosition - currentPreset.position) < ClimberConstants.kPositionTolerance;
+        return Math.abs(avgPosition - getPresetPosition(currentPreset)) < ClimberConstants.kPositionTolerance;
     }
 
-    /**
-     * Tırmanma kancasındaki sensörün (Seat Sensor) durumunu döndürür.
-     * 
-     * @return {@code true} eğer kanca tam oturmuşsa
-     */
     public boolean isSeated() {
         return inputs.isSeated;
     }
 
-    /**
-     * Ortalama pozisyonu döndürür.
-     * 
-     * @return Pozisyon (rotor rotasyonları)
-     */
     public double getPosition() {
         return (inputs.leftPositionRotations + inputs.rightPositionRotations) / 2.0;
     }
 
-    /**
-     * Herhangi bir motorun zorlanıp zorlanmadığını kontrol eder.
-     * 
-     * @return {@code true} eğer herhangi bir motor zorlanıyorsa
-     */
     public boolean isStalling() {
         return inputs.leftCurrentAmps > ClimberConstants.kStallCurrentThreshold ||
                 inputs.rightCurrentAmps > ClimberConstants.kStallCurrentThreshold;
     }
 
-    /**
-     * Encoder pozisyonunu sıfırlar.
-     */
     public void resetPosition() {
         io.resetPosition();
         currentPreset = ClimberPreset.HOME;
+    }
+
+    // ===========================================================================
+    // TUNABLE GETTERS
+    // ===========================================================================
+
+    public double getTunableExtendPosition() {
+        return tunableExtendPosition.get();
+    }
+
+    public double getTunableRetractPosition() {
+        return tunableRetractPosition.get();
+    }
+
+    public double getTunableHoldPosition() {
+        return tunableHoldPosition.get();
     }
 }

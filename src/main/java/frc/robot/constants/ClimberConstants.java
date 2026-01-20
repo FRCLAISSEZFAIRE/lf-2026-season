@@ -3,12 +3,13 @@ package frc.robot.constants;
 /**
  * Climber alt sistemi için sabitler.
  * 2 Kraken X60 motor ile Motion Magic position control.
+ * NOT: CAN ID'leri RobotMap'ten alınır.
  */
 public final class ClimberConstants {
 
-    // --- MOTOR IDs ---
-    public static final int kLeftMotorID = 20;
-    public static final int kRightMotorID = 23;
+    // --- MOTOR IDs (RobotMap'ten) ---
+    public static final int kLeftMotorID = RobotMap.kClimberLeftMotorID;
+    public static final int kRightMotorID = RobotMap.kClimberRightMotorID;
 
     // --- SOFT LIMITS (Rotor rotasyonu cinsinden) ---
     public static final double kForwardSoftLimit = 100.0;

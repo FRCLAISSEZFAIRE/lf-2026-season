@@ -2,56 +2,39 @@ package frc.robot.subsystems.feeder;
 
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import org.littletonrobotics.junction.Logger;
-import frc.robot.constants.FeederConstants;
+import frc.robot.util.TunableNumber;
 
 /**
  * Besleyici alt sistemi.
+ * Intake'ten alınan oyun parçalarını Shooter'a transfer eder.
  * 
- * <p>
- * Intake'ten alınan oyun parçalarını Shooter'a transfer eden mekanizmadır.
- * </p>
- * 
- * <h2>Özellikler:</h2>
- * <ul>
- * <li>İleri besleme (Intake → Shooter)</li>
- * <li>Geri çıkarma</li>
- * <li>Voltaj tabanlı kontrol</li>
- * </ul>
- * 
- * <h2>Donanım:</h2>
- * <ul>
- * <li>Motor: NEO (SparkMax)</li>
- * <li>CAN ID: {@link frc.robot.constants.RobotMap#kFeederMotorID}</li>
- * </ul>
- * 
- * @author FRC Team
- * @see FeederIO
- * @see FeederConstants
+ * TunableNumber ile runtime'da ayarlanabilen parametreler.
  */
 public class FeederSubsystem extends SubsystemBase {
 
     private final FeederIO io;
     private final FeederIOInputsAutoLogged inputs = new FeederIOInputsAutoLogged();
 
-    /**
-     * Yeni bir FeederSubsystem oluşturur.
-     * 
-     * @param io Besleyici IO implementasyonu (Real, Sim veya Replay)
-     */
+    // ===========================================================================
+    // TUNABLE PARAMETERS - Kalıcı olarak kaydedilir
+    // ===========================================================================
+    private final TunableNumber tunableFeedVoltage;
+    private final TunableNumber tunableReverseVoltage;
+
     public FeederSubsystem(FeederIO io) {
         this.io = io;
+
+        // TunableNumber oluştur
+        tunableFeedVoltage = new TunableNumber("Feeder", "Feed Voltage", 8.0);
+        tunableReverseVoltage = new TunableNumber("Feeder", "Reverse Voltage", -6.0);
     }
 
-    /**
-     * Periyodik güncelleme metodu.
-     * Her robot döngüsünde (20ms) çağrılır.
-     */
     @Override
     public void periodic() {
         io.updateInputs(inputs);
         Logger.processInputs("Feeder", inputs);
 
-        // Yakıt Durumu Mantığı
+        // Yakıt Durumu
         String status = "Boş";
         if (inputs.fuelPresentTop) {
             status = "Dolu";
@@ -60,82 +43,56 @@ public class FeederSubsystem extends SubsystemBase {
         }
 
         Logger.recordOutput("Feeder/Status", status);
-        edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.putString("Feeder Status", status);
-        
-        // Diğer lojikler
         Logger.recordOutput("Feeder/ItemCount", getFuelLevel());
         Logger.recordOutput("Feeder/IsFull", isFuelSystemFull());
+        Logger.recordOutput("Feeder/TunableFeedVoltage", tunableFeedVoltage.get());
+        Logger.recordOutput("Feeder/TunableReverseVoltage", tunableReverseVoltage.get());
+
+        edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.putString("Feeder Status", status);
     }
 
-    // ==================== AKSİYONLAR ====================
+    // ===========================================================================
+    // ACTIONS
+    // ===========================================================================
 
-    /**
-     * İleri besleme başlatır (Intake → Shooter).
-     * 
-     * <p>
-     * {@link FeederConstants#kFeedVoltage} voltaj uygular.
-     * </p>
-     */
+    /** İleri besleme (Tunable voltaj ile) */
     public void feed() {
-        io.setVoltage(FeederConstants.kFeedVoltage);
+        io.setVoltage(tunableFeedVoltage.get());
     }
 
-    /**
-     * Geri çıkarma başlatır.
-     * 
-     * <p>
-     * {@link FeederConstants#kReverseVoltage} voltaj uygular.
-     * </p>
-     */
+    /** Geri çıkarma (Tunable voltaj ile) */
     public void reverse() {
-        io.setVoltage(FeederConstants.kReverseVoltage);
+        io.setVoltage(tunableReverseVoltage.get());
     }
 
-    /**
-     * Motora doğrudan voltaj uygular.
-     * 
-     * @param volts Uygulanacak voltaj (-12 ile +12 arası)
-     */
+    /** Manuel voltaj */
     public void setVoltage(double volts) {
         io.setVoltage(volts);
     }
 
-    /**
-     * Besleyiciyi durdurur.
-     */
+    /** Durdur */
     public void stop() {
         io.stop();
     }
 
-    // ==================== DURUM SORGULAMA ====================
+    // ===========================================================================
+    // STATUS
+    // ===========================================================================
 
-    /**
-     * Motorun dönüp dönmediğini kontrol eder.
-     * 
-     * @return {@code true} eğer RPM > 50 ise
-     */
     public boolean isRunning() {
         return Math.abs(inputs.velocityRPM) > 50;
     }
 
-    /**
-     * Mevcut hızı döndürür.
-     * 
-     * @return Hız (RPM)
-     */
     public double getVelocityRPM() {
         return inputs.velocityRPM;
     }
 
-    // ==================== FUEL TANK LOGIC ====================
+    // ===========================================================================
+    // FUEL TANK LOGIC
+    // ===========================================================================
 
     private boolean isLoading = false;
 
-    /**
-     * Yükleme modunu ayarlar.
-     * Yükleme yaparken (Intake -> Feeder), feeder sensörlere bakmaksızın çalışabilir veya durabilir.
-     * Shooter çalışırken bu mod aktifse besleme yapılmaz.
-     */
     public void setLoading(boolean loading) {
         this.isLoading = loading;
     }
@@ -144,29 +101,32 @@ public class FeederSubsystem extends SubsystemBase {
         return isLoading;
     }
 
-    /**
-     * Yakıt tankında yakıt (fuel) var mı?
-     * En alt sensör (Bottom) görüyorsa yakıt vardır.
-     */
     public boolean isFuelSystemEmpty() {
         return !inputs.fuelPresentBottom;
     }
 
-    /**
-     * Yakıt seviyesini döndürür (0-2).
-     */
     public int getFuelLevel() {
         int level = 0;
-        if (inputs.fuelPresentBottom) level++;
-        if (inputs.fuelPresentTop) level++;
+        if (inputs.fuelPresentBottom)
+            level++;
+        if (inputs.fuelPresentTop)
+            level++;
         return level;
     }
 
-    /**
-     * Tank tamamen dolu mu?
-     * En üst sensör (Top) 'var' okuyorsa dolu demektir.
-     */
     public boolean isFuelSystemFull() {
         return inputs.fuelPresentTop;
+    }
+
+    // ===========================================================================
+    // TUNABLE GETTERS
+    // ===========================================================================
+
+    public double getTunableFeedVoltage() {
+        return tunableFeedVoltage.get();
+    }
+
+    public double getTunableReverseVoltage() {
+        return tunableReverseVoltage.get();
     }
 }

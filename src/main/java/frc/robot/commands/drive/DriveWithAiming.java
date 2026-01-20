@@ -6,13 +6,11 @@ import java.util.function.Supplier;
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.controller.PIDController;
 import edu.wpi.first.math.geometry.Pose2d;
-import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.wpilibj2.command.Command;
 import frc.robot.constants.DriveConstants;
 import frc.robot.constants.OIConstants;
-import frc.robot.constants.ShooterConstants;
 import frc.robot.subsystems.drive.DriveSubsystem;
 
 /**
@@ -33,10 +31,11 @@ public class DriveWithAiming extends Command {
             DriveConstants.kTurnD);
 
     /**
-     * @param driveSubsystem   Sürüş alt sistemi
-     * @param xSpeedSupplier   İleri/Geri hız supplier'ı
-     * @param ySpeedSupplier   Sol/Sağ hız supplier'ı
-     * @param targetLocationSupplier Hedef konumu (Shooter'dan veya FieldConstants'tan alınabilir)
+     * @param driveSubsystem         Sürüş alt sistemi
+     * @param xSpeedSupplier         İleri/Geri hız supplier'ı
+     * @param ySpeedSupplier         Sol/Sağ hız supplier'ı
+     * @param targetLocationSupplier Hedef konumu (Shooter'dan veya
+     *                               FieldConstants'tan alınabilir)
      */
     public DriveWithAiming(
             DriveSubsystem driveSubsystem,
@@ -73,12 +72,13 @@ public class DriveWithAiming extends Command {
                 target.getX() - robotPose.getX());
 
         double currentRotationRad = robotPose.getRotation().getRadians();
-        
+
         // PID Çıktısı (Açısal Hız)
         double rotSpeed = rotationPID.calculate(currentRotationRad, targetAngleRad);
-        
+
         // Clamp (Max dönüş hızını aşma)
-        rotSpeed = MathUtil.clamp(rotSpeed, -DriveConstants.kMaxAngularSpeedRadPerSec, DriveConstants.kMaxAngularSpeedRadPerSec);
+        rotSpeed = MathUtil.clamp(rotSpeed, -DriveConstants.kMaxAngularSpeedRadPerSec,
+                DriveConstants.kMaxAngularSpeedRadPerSec);
 
         // 3. Drive uygula
         driveSubsystem.runVelocity(
