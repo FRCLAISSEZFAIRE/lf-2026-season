@@ -508,16 +508,6 @@ public class RobotContainer {
                 driveSubsystem.showTargetPose(FieldConstants.kTowerClimbPoses[selectedClimbIndex]);
         }
 
-        // ==================== AUTO CHOOSER SETUP ====================
-        private void setupAutoChooser() {
-                // PathPlanner deploy klasöründen tüm otonomları otomatik yükle
-                // Bu metod RobotContainer constructor'ının sonunda çağrılmalı
-        }
-
-        // ==================== PATHFIND TO POSE ====================
-        // Sabit hedef pozisyonlar
-        public static final Pose2d SPEAKER_POSE = new Pose2d(14.0, 5.5, Rotation2d.fromDegrees(180));
-        public static final Pose2d AMP_POSE = new Pose2d(1.8, 7.5, Rotation2d.fromDegrees(90));
 
         /**
          * Dinamik olarak belirtilen hedefe pathfinding ile gider.
@@ -541,19 +531,6 @@ public class RobotContainer {
                 );
         }
 
-        /**
-         * Speaker önüne giden komut (kısayol).
-         */
-        public Command driveToSpeaker() {
-                return driveToPose(SPEAKER_POSE);
-        }
-
-        /**
-         * Amp'a giden komut (kısayol).
-         */
-        public Command driveToAmp() {
-                return driveToPose(AMP_POSE);
-        }
 
         // ==================== SHOOTING POSE ====================
 
@@ -589,7 +566,7 @@ public class RobotContainer {
 
         /**
          * İdeal atış pozisyonuna giden komut.
-         * Alliance'a göre otomatik olarak doğru Speaker'ı hedef alır.
+         * Alliance'a göre otomatik olarak doğru Hub'ı hedef alır.
          */
         public Command driveToShootingPose() {
                 return driveToPose(getShootingPose());

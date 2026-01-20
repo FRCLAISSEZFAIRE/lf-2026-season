@@ -7,7 +7,7 @@
         {
           "type": "named",
           "data": {
-            "name": "shoot_auto"
+            "name": "Shoot"
           }
         },
         {
@@ -19,7 +19,7 @@
         {
           "type": "named",
           "data": {
-            "name": "intake_auto"
+            "name": "AutoIntake"
           }
         },
         {
@@ -31,7 +31,7 @@
         {
           "type": "named",
           "data": {
-            "name": "shoot_auto"
+            "name": "Shoot"
           }
         },
         {
@@ -43,7 +43,7 @@
         {
           "type": "named",
           "data": {
-            "name": "intake_auto"
+            "name": "AutoIntake"
           }
         },
         {
@@ -55,7 +55,7 @@
         {
           "type": "named",
           "data": {
-            "name": "shoot_auto"
+            "name": "Shoot"
           }
         }
       ]
