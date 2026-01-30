@@ -7,7 +7,6 @@ public final class MechanismConstants {
 
     // --- SHOOTER IDs (RobotMap'ten) ---
     public static final int kShooterMasterID = RobotMap.kShooterMasterID;
-    public static final int kShooterFollowerID = RobotMap.kShooterFollowerID;
     public static final int kTurretID = RobotMap.kTurretMotorID;
     public static final int kHoodID = RobotMap.kHoodMotorID;
 

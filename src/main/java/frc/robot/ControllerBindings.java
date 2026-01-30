@@ -1,85 +1,67 @@
 package frc.robot;
 
+import edu.wpi.first.math.MathUtil;
+import edu.wpi.first.math.controller.PIDController;
+import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 
 import frc.robot.subsystems.drive.DriveSubsystem;
-import frc.robot.subsystems.intake.IntakeSubsystem;
+import frc.robot.subsystems.vision.VisionSubsystem;
 import frc.robot.subsystems.shooter.ShooterSubsystem;
-import frc.robot.subsystems.climber.ClimberSubsystem;
 import frc.robot.subsystems.feeder.FeederSubsystem;
+import frc.robot.constants.ShooterConstants;
 import frc.robot.subsystems.led.LEDSubsystem;
-
-import frc.robot.commands.intake.RunIntakeCommand;
-import frc.robot.commands.intake.AutoIntakeCommand;
-import frc.robot.commands.shooter.ShootCommand;
-
-import frc.robot.commands.climber.ClimberExtendCommand;
-import frc.robot.commands.climber.ClimberRetractCommand;
+import frc.robot.subsystems.intake.IntakeSubsystem;
+import frc.robot.subsystems.climber.ClimberSubsystem;
+import frc.robot.util.TunableNumber;
 
 /**
  * Controller binding'lerini yöneten sınıf.
- * 
- * <p>
- * RobotContainer'ı temiz tutmak için tüm buton atamaları bu sınıfta
- * toplanmıştır.
- * </p>
- * 
- * <h2>Controller Dağılımı:</h2>
- * <ul>
- * <li><b>Driver Controller (Port 0):</b> Sürüş, Gyro, X-Stance</li>
- * <li><b>Operator Controller (Port 1):</b> Tüm mekanizmalar</li>
- * </ul>
- * 
- * <h2>Operator Buton Grupları:</h2>
- * <ul>
- * <li><b>Intake/Feeder:</b> Sağ/Sol Tetik</li>
- * <li><b>Shooter:</b> Sağ Bumper</li>
- * <li><b>Climber:</b> Y (Extend), A (Retract), POV (Manuel)</li>
- * <li><b>Acil:</b> Start butonu</li>
- * </ul>
- * 
- * @author FRC Team
- * @see RobotContainer
  */
 public class ControllerBindings {
 
         private final CommandXboxController driverController;
         private final CommandXboxController operatorController;
 
-        // Subsystem referansları
-        // Subsystem referansları
         private final DriveSubsystem driveSubsystem;
-        private final IntakeSubsystem intakeSubsystem;
+        private final VisionSubsystem visionSubsystem;
         private final ShooterSubsystem shooterSubsystem;
-        private final ClimberSubsystem climberSubsystem;
         private final FeederSubsystem feederSubsystem;
+        private final IntakeSubsystem intakeSubsystem;
+        private final ClimberSubsystem climberSubsystem;
         private final LEDSubsystem ledSubsystem;
-        private final frc.robot.subsystems.vision.VisionSubsystem visionSubsystem;
-        private final java.util.function.Consumer<Integer> climbPosChanger;
+
+        // Vision Aiming PID Tunable Numbers
+        private final TunableNumber visionkP = new TunableNumber("Vision", "FuelAimkP", 0.045);
+        private final TunableNumber visionkI = new TunableNumber("Vision", "FuelAimkI", 0.0);
+        private final TunableNumber visionkD = new TunableNumber("Vision", "FuelAimkD", 0.001);
+
+        // PID Controller instance
+        private final PIDController fuelAimPID = new PIDController(visionkP.get(), visionkI.get(), visionkD.get());
 
         public ControllerBindings(
                         CommandXboxController driverController,
                         CommandXboxController operatorController,
                         DriveSubsystem driveSubsystem,
-                        IntakeSubsystem intakeSubsystem,
+                        VisionSubsystem visionSubsystem,
                         ShooterSubsystem shooterSubsystem,
-                        ClimberSubsystem climberSubsystem,
                         FeederSubsystem feederSubsystem,
-                        LEDSubsystem ledSubsystem,
-                        frc.robot.subsystems.vision.VisionSubsystem visionSubsystem,
-                        java.util.function.Consumer<Integer> climbPosChanger) {
+                        IntakeSubsystem intakeSubsystem,
+                        ClimberSubsystem climberSubsystem,
+                        LEDSubsystem ledSubsystem) {
 
                 this.driverController = driverController;
                 this.operatorController = operatorController;
                 this.driveSubsystem = driveSubsystem;
-                this.intakeSubsystem = intakeSubsystem;
-                this.shooterSubsystem = shooterSubsystem;
-                this.climberSubsystem = climberSubsystem;
-                this.feederSubsystem = feederSubsystem;
-                this.ledSubsystem = ledSubsystem;
                 this.visionSubsystem = visionSubsystem;
-                this.climbPosChanger = climbPosChanger;
+                this.shooterSubsystem = shooterSubsystem;
+                this.feederSubsystem = feederSubsystem;
+                this.intakeSubsystem = intakeSubsystem;
+                this.climberSubsystem = climberSubsystem;
+                this.ledSubsystem = ledSubsystem;
+
+                fuelAimPID.setTolerance(1.0);
         }
 
         /** Tüm binding'leri yapılandır */
@@ -88,124 +70,96 @@ public class ControllerBindings {
                 configureOperatorBindings();
         }
 
-        // ==================== DRIVER BINDINGS ====================
+        // =========================================================================
+        // DRIVER BINDINGS
+        // =========================================================================
         private void configureDriverBindings() {
-                // Driver Controller Temizlendi.
-                // Yeni bindingler RobotContainer içinde tanımlanıyor:
-                // POV: Skor Seçimi
-                // X: Pathfinding
+
+                // [A Tuşu] AUTO-CENTER ON NOTE (Limelight 3A)
+                driverController.a().whileTrue(
+                                Commands.run(() -> {
+                                        // PID katsayılarını güncelle (Dashboard'dan değişirse)
+                                        if (visionkP.hasChanged() || visionkI.hasChanged() || visionkD.hasChanged()) {
+                                                fuelAimPID.setPID(visionkP.get(), visionkI.get(), visionkD.get());
+                                        }
+
+                                        double xVelocity = -MathUtil.applyDeadband(driverController.getLeftY(), 0.1)
+                                                        * 4.5;
+                                        double yVelocity = -MathUtil.applyDeadband(driverController.getLeftX(), 0.1)
+                                                        * 4.5;
+                                        double rotVelocity;
+
+                                        if (visionSubsystem.hasFuel()) {
+                                                double tx = visionSubsystem.getFuelYaw();
+                                                double pidOutput = fuelAimPID.calculate(tx, 0.0);
+                                                rotVelocity = MathUtil.clamp(pidOutput, -1.0, 1.0) * 4.0;
+                                        } else {
+                                                rotVelocity = -MathUtil.applyDeadband(driverController.getRightX(), 0.1)
+                                                                * 4.5;
+                                        }
+
+                                        driveSubsystem.drive(
+                                                        new Translation2d(xVelocity, yVelocity),
+                                                        rotVelocity,
+                                                        true);
+
+                                }, driveSubsystem));
+
+                // [Y Tuşu] TOGGLE AUTO-AIM
+                driverController.y().onTrue(Commands.runOnce(() -> {
+                        if (shooterSubsystem.isAutoAimActive()) {
+                                shooterSubsystem.disableAutoAim();
+                        } else {
+                                shooterSubsystem.enableAutoAim();
+                        }
+                }));
         }
 
+        // =========================================================================
+        // OPERATOR BINDINGS
+        // =========================================================================
         private void configureOperatorBindings() {
-                configureIntakeBindings();
-                configureShooterBindings();
-                configureClimberBindings();
-                configureEmergencyBindings();
-        }
 
-        // --- INTAKE / FEEDER ---
-        private void configureIntakeBindings() {
-                // Right Trigger: Intake + Feeder (Normal Alma)
-                operatorController.rightTrigger(0.5)
-                                .whileTrue(Commands.parallel(
-                                                new RunIntakeCommand(intakeSubsystem, 12.0),
-                                                Commands.run(() -> feederSubsystem.feed(), feederSubsystem),
-                                                Commands.runOnce(() -> ledSubsystem.setIntaking())))
-                                .onFalse(Commands.parallel(
-                                                Commands.runOnce(feederSubsystem::stop, feederSubsystem),
-                                                Commands.runOnce(() -> ledSubsystem.setIdle())));
+                // [A Tuşu] AUTOMATIC SHOOT
+                operatorController.a().whileTrue(
+                                Commands.run(() -> shooterSubsystem.setFlywheelRPM(ShooterConstants.kFarFlywheelRPM),
+                                                shooterSubsystem)
+                                                .alongWith(
+                                                                Commands.waitUntil(shooterSubsystem::isFlywheelAtTarget)
+                                                                                .andThen(Commands.run(
+                                                                                                feederSubsystem::feed,
+                                                                                                feederSubsystem)))
+                                                .beforeStarting(() -> ledSubsystem.setShooting(true))
+                                                .finallyDo(() -> {
+                                                        shooterSubsystem.stopShooter();
+                                                        feederSubsystem.stop();
+                                                        ledSubsystem.setShooting(false);
+                                                }));
 
-                // Left Trigger: SADECE Intake Ters (Çıkarma) - Feeder durur
-                operatorController.leftTrigger(0.5)
-                                .whileTrue(new RunIntakeCommand(intakeSubsystem, -12.0))
-                                .onFalse(Commands.runOnce(() -> intakeSubsystem.runRoller(0), intakeSubsystem));
+                // [B Tuşu] REVERSE / UNJAM
+                operatorController.b().whileTrue(
+                                Commands.parallel(
+                                                Commands.run(() -> shooterSubsystem
+                                                                .setFlywheelRPM(-ShooterConstants.kFarFlywheelRPM),
+                                                                shooterSubsystem),
+                                                Commands.run(feederSubsystem::reverse, feederSubsystem)))
+                                .onFalse(
+                                                Commands.runOnce(() -> {
+                                                        shooterSubsystem.stopShooter();
+                                                        feederSubsystem.stop();
+                                                }, shooterSubsystem, feederSubsystem));
 
-                // X Button: Auto-Intake (Sürücüdeki gibi kamera takibi)
-                operatorController.x()
-                                .whileTrue(new AutoIntakeCommand(driveSubsystem, intakeSubsystem, feederSubsystem,
-                                                visionSubsystem))
-                                .onFalse(Commands.runOnce(() -> ledSubsystem.setIdle()));
-        }
+                // [X Tuşu] EMERGENCY STOP
+                operatorController.x().onTrue(
+                                Commands.runOnce(() -> {
+                                        shooterSubsystem.stopShooter();
+                                        feederSubsystem.stop();
+                                }, shooterSubsystem, feederSubsystem));
 
-        // --- SHOOTER ---
-        private void configureShooterBindings() {
-                // Right Bumper: Atış (Manuel)
-                operatorController.rightBumper()
-                                .whileTrue(Commands.sequence(
-                                                Commands.runOnce(() -> ledSubsystem
-                                                                .setState(LEDSubsystem.LEDState.SHOOTING)),
-                                                new ShootCommand(shooterSubsystem, feederSubsystem)))
-                                .onFalse(Commands.parallel(
-                                                Commands.runOnce(shooterSubsystem::stopShooter),
-                                                Commands.runOnce(feederSubsystem::stop, feederSubsystem),
-                                                Commands.runOnce(() -> ledSubsystem.setIdle())));
+                // [POV Sol] Aim Offset -1.0 derece (Sağa kaydır)
+                operatorController.povLeft().onTrue(Commands.runOnce(() -> shooterSubsystem.adjustAutoAimOffset(-1.0)));
 
-                // Left Bumper: Flywheel Ters (Sıkışma Giderme)
-                operatorController.leftBumper()
-                                .whileTrue(Commands.run(shooterSubsystem::reverse, shooterSubsystem))
-                                .onFalse(Commands.runOnce(shooterSubsystem::stopMotorTotal, shooterSubsystem));
-
-                // Y Button: Auto Aim & Shoot
-                // Robotu hedefe döndürür (DriveWithAiming) VE Atış yapar (ShootCommand)
-                operatorController.y()
-                                .whileTrue(Commands.parallel(
-                                                new frc.robot.commands.drive.DriveWithAiming(
-                                                                driveSubsystem,
-                                                                () -> 0.0, // X hızı yok (Sabit)
-                                                                () -> 0.0, // Y hızı yok (Sabit)
-                                                                () -> new edu.wpi.first.math.geometry.Translation2d(
-                                                                                16.5, 5.55) // Hedef
-                                                ),
-                                                Commands.sequence(
-                                                                Commands.runOnce(() -> ledSubsystem.setState(
-                                                                                LEDSubsystem.LEDState.SHOOTING)),
-                                                                new ShootCommand(shooterSubsystem, feederSubsystem))))
-                                .onFalse(Commands.parallel(
-                                                Commands.runOnce(driveSubsystem::stop),
-                                                Commands.runOnce(shooterSubsystem::stopShooter),
-                                                Commands.runOnce(feederSubsystem::stop, feederSubsystem),
-                                                Commands.runOnce(() -> ledSubsystem.setIdle())));
-        }
-
-        // --- CLIMBER ---
-        private void configureClimberBindings() {
-                // B Button: Extend (Yukarı)
-                operatorController.b()
-                                .onTrue(new ClimberExtendCommand(climberSubsystem));
-
-                // A Button: Retract (Aşağı - Tırmanma)
-                operatorController.a()
-                                .onTrue(new ClimberRetractCommand(climberSubsystem));
-
-                // POV Up: Manuel Yukarı
-                operatorController.povUp()
-                                .whileTrue(Commands.run(climberSubsystem::manualUp, climberSubsystem))
-                                .onFalse(Commands.runOnce(climberSubsystem::stop, climberSubsystem));
-
-                // POV Down: Manuel Aşağı
-                operatorController.povDown()
-                                .whileTrue(Commands.run(climberSubsystem::manualDown, climberSubsystem))
-                                .onFalse(Commands.runOnce(climberSubsystem::stop, climberSubsystem));
-
-                // POV Left: Kule Seçimi (Önceki)
-                operatorController.povLeft()
-                                .onTrue(Commands.runOnce(() -> climbPosChanger.accept(-1)));
-
-                // POV Right: Kule Seçimi (Sonraki)
-                operatorController.povRight()
-                                .onTrue(Commands.runOnce(() -> climbPosChanger.accept(1)));
-        }
-
-        // --- EMERGENCY ---
-        private void configureEmergencyBindings() {
-
-                // Start: Tüm mekanizmaları sıfırla (acil)
-                operatorController.start()
-                                .onTrue(Commands.parallel(
-                                                Commands.runOnce(climberSubsystem::stop),
-                                                Commands.runOnce(feederSubsystem::stop),
-                                                Commands.runOnce(shooterSubsystem::stopShooter),
-                                                Commands.runOnce(() -> ledSubsystem
-                                                                .setState(LEDSubsystem.LEDState.ERROR))));
+                // [POV Sağ] Aim Offset +1.0 derece (Sola kaydır)
+                operatorController.povRight().onTrue(Commands.runOnce(() -> shooterSubsystem.adjustAutoAimOffset(1.0)));
         }
 }

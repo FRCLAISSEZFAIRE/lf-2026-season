@@ -2,164 +2,113 @@ package frc.robot.subsystems.led;
 
 import edu.wpi.first.wpilibj.AddressableLED;
 import edu.wpi.first.wpilibj.AddressableLEDBuffer;
+import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.util.Color;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
-import frc.robot.constants.LEDConstants;
+import frc.robot.constants.RobotMap;
+import frc.robot.subsystems.feeder.FeederSubsystem;
 
 /**
  * LED alt sistemi.
- * AddressableLED (WS2812B) kontrol eder.
+ * (15 Sol + 15 Sağ = 30 LED)
  */
 public class LEDSubsystem extends SubsystemBase {
 
     private final AddressableLED led;
     private final AddressableLEDBuffer buffer;
+    private final FeederSubsystem feeder;
 
-    // Mevcut durum
-    private LEDState currentState = LEDState.IDLE;
+    private static final int STRIP_LENGTH = 15;
+    private static final int TOTAL_LENGTH = RobotMap.kLEDLength; // 30
 
-    // Animasyon için
+    // Durumlar
     private int rainbowFirstPixelHue = 0;
-    private boolean blinkOn = true;
-    private double lastBlinkTime = 0;
+    private boolean isShooting = false;
 
-    public enum LEDState {
-        OFF,
-        IDLE,
-        INTAKING,
-        HAS_GAME_PIECE,
-        SHOOTING,
-        CLIMBING,
-        ERROR,
-        RAINBOW,
-        TEAM_COLOR
-    }
+    public LEDSubsystem(FeederSubsystem feeder) {
+        this.feeder = feeder;
 
-    public LEDSubsystem() {
-        led = new AddressableLED(LEDConstants.kLEDPort);
-        buffer = new AddressableLEDBuffer(LEDConstants.kLEDLength);
+        led = new AddressableLED(RobotMap.kLEDPort);
+        buffer = new AddressableLEDBuffer(TOTAL_LENGTH);
+
         led.setLength(buffer.getLength());
         led.setData(buffer);
         led.start();
     }
 
+    public void setShooting(boolean shooting) {
+        this.isShooting = shooting;
+    }
+
     @Override
     public void periodic() {
-        switch (currentState) {
-            case OFF:
-                setAllColor(LEDConstants.kColorOff);
-                break;
-            case IDLE:
-                setAllColor(LEDConstants.kColorIdle);
-                break;
-            case INTAKING:
-                blinkColor(LEDConstants.kColorIntaking);
-                break;
-            case HAS_GAME_PIECE:
-                setAllColor(LEDConstants.kColorHasGamePiece);
-                break;
-            case SHOOTING:
-                blinkColor(LEDConstants.kColorShooting);
-                break;
-            case CLIMBING:
-                blinkColor(LEDConstants.kColorClimbing);
-                break;
-            case ERROR:
-                blinkColor(LEDConstants.kColorError);
-                break;
-            case RAINBOW:
-                applyRainbow();
-                break;
-            case TEAM_COLOR:
-                setAllColor(LEDConstants.kColorTeam);
-                break;
+        if (isShooting) {
+            // ATIŞ MODU -> GÖKKUŞAĞI ANİMASYONU
+            rainbow();
+        } else {
+            // Otomatik Durum Kontrolü (Feeder)
+            updateBasedOnFeeder();
         }
+
+        // Veriyi gönder
         led.setData(buffer);
     }
 
-    // ==================== STATE CONTROL ====================
+    /**
+     * Feeder durumuna göre LED'leri güncelle
+     */
+    private void updateBasedOnFeeder() {
+        if (feeder == null)
+            return;
 
-    public void setState(LEDState state) {
-        this.currentState = state;
-    }
-
-    public LEDState getState() {
-        return currentState;
-    }
-
-    // ==================== PATTERNS ====================
-
-    private void setAllColor(int[] rgb) {
-        for (int i = 0; i < buffer.getLength(); i++) {
-            buffer.setRGB(i, rgb[0], rgb[1], rgb[2]);
-        }
-    }
-
-    private void blinkColor(int[] rgb) {
-        double currentTime = edu.wpi.first.wpilibj.Timer.getFPGATimestamp();
-        if (currentTime - lastBlinkTime > LEDConstants.kBlinkIntervalSeconds) {
-            blinkOn = !blinkOn;
-            lastBlinkTime = currentTime;
-        }
-
-        if (blinkOn) {
-            setAllColor(rgb);
+        if (feeder.isFuelSystemFull()) {
+            // DOLU -> YEŞİL
+            setAll(Color.kGreen);
+        } else if (feeder.getFuelLevel() > 0) {
+            // KISMEN DOLU -> SARI (Yanıp sönme efekti eklenebilir)
+            setAll(Color.kYellow);
         } else {
-            setAllColor(LEDConstants.kColorOff);
+            // BOŞ -> ALLIANCE RENGİ veya KAPALI
+            var alliance = DriverStation.getAlliance();
+            if (alliance.isPresent()) {
+                if (alliance.get() == DriverStation.Alliance.Red) {
+                    setAll(Color.kRed);
+                } else {
+                    setAll(Color.kBlue);
+                }
+            } else {
+                setAll(Color.kBlack); // Off
+            }
         }
     }
 
-    private void applyRainbow() {
+    /** Tüm şeridi aynı renge boya */
+    public void setAll(Color color) {
+        for (int i = 0; i < buffer.getLength(); i++) {
+            buffer.setLED(i, color);
+        }
+    }
+
+    /** Sol şeridi boya (0-14) */
+    public void setLeft(Color color) {
+        for (int i = 0; i < STRIP_LENGTH; i++) {
+            buffer.setLED(i, color);
+        }
+    }
+
+    /** Sağ şeridi boya (15-29) */
+    public void setRight(Color color) {
+        for (int i = STRIP_LENGTH; i < TOTAL_LENGTH; i++) {
+            buffer.setLED(i, color);
+        }
+    }
+
+    /** Gökkuşağı Efekti */
+    public void rainbow() {
         for (int i = 0; i < buffer.getLength(); i++) {
             int hue = (rainbowFirstPixelHue + (i * 180 / buffer.getLength())) % 180;
             buffer.setHSV(i, hue, 255, 128);
         }
         rainbowFirstPixelHue = (rainbowFirstPixelHue + 3) % 180;
-    }
-
-    // ==================== CONVENIENCE METHODS ====================
-
-    public void off() {
-        setState(LEDState.OFF);
-    }
-
-    public void setIdle() {
-        setState(LEDState.IDLE);
-    }
-
-    public void setIntaking() {
-        setState(LEDState.INTAKING);
-    }
-
-    public void hasGamePiece() {
-        setState(LEDState.HAS_GAME_PIECE);
-    }
-
-    public void shooting() {
-        setState(LEDState.SHOOTING);
-    }
-
-    public void climbing() {
-        setState(LEDState.CLIMBING);
-    }
-
-    public void error() {
-        setState(LEDState.ERROR);
-    }
-
-    public void rainbow() {
-        setState(LEDState.RAINBOW);
-    }
-
-    public void teamColor() {
-        setState(LEDState.TEAM_COLOR);
-    }
-
-    /** Manuel renk ayarlama */
-    public void setColor(Color color) {
-        for (int i = 0; i < buffer.getLength(); i++) {
-            buffer.setLED(i, color);
-        }
-        led.setData(buffer);
     }
 }

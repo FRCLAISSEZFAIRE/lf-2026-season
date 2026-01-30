@@ -1,0 +1,38 @@
+{
+    "wheelDiameter": 0.0762,
+    "driveGearRatio": 5.0769,
+    "angleGearRatio": 1.0,
+    "driveMotor": {
+        "type": "sparkflex",
+        "driveMotorInverted": false,
+        "canbus": null
+    },
+    "angleMotor": {
+        "type": "sparkmax",
+        "angleMotorInverted": false,
+        "canbus": null
+    },
+    "angleEncoder": {
+        "type": "sparkmax_analog",
+        "invert": false,
+        "canbus": null
+    },
+    "rampRate": {
+        "drive": 0.25,
+        "angle": 0.25
+    },
+    "conversionFactors": {
+        "drive": {
+            "factor": 0.047152445,
+            "velocity": 0.000785874
+        },
+        "angle": {
+            "factor": 360.0,
+            "velocity": 6.0
+        }
+    },
+    "currentLimit": {
+        "drive": 60,
+        "angle": 20
+    }
+}

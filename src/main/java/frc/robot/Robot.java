@@ -13,8 +13,10 @@ import org.littletonrobotics.junction.LoggedRobot;
 import org.littletonrobotics.junction.Logger;
 
 /**
- * The methods in this class are called automatically corresponding to each mode, as described in
- * the TimedRobot documentation. If you change the name of this class or the package after creating
+ * The methods in this class are called automatically corresponding to each
+ * mode, as described in
+ * the TimedRobot documentation. If you change the name of this class or the
+ * package after creating
  * this project, you must also update the Main.java file in the project.
  */
 public class Robot extends LoggedRobot {
@@ -26,7 +28,8 @@ public class Robot extends LoggedRobot {
   private final Set<Command> activeCommands = new HashSet<>();
 
   /**
-   * This function is run when the robot is first started up and should be used for any
+   * This function is run when the robot is first started up and should be used
+   * for any
    * initialization code.
    */
   public Robot() {
@@ -34,18 +37,22 @@ public class Robot extends LoggedRobot {
     Logger.recordMetadata("ProjectName", "foxyCode2026");
 
     if (isReal()) {
-        Logger.addDataReceiver(new org.littletonrobotics.junction.wpilog.WPILOGWriter());
-        Logger.addDataReceiver(new org.littletonrobotics.junction.networktables.NT4Publisher());
+      Logger.addDataReceiver(new org.littletonrobotics.junction.wpilog.WPILOGWriter());
+      Logger.addDataReceiver(new org.littletonrobotics.junction.networktables.NT4Publisher());
     } else {
-        Logger.addDataReceiver(new org.littletonrobotics.junction.networktables.NT4Publisher());
+      Logger.addDataReceiver(new org.littletonrobotics.junction.networktables.NT4Publisher());
     }
+
+    // Silence joystick connection warnings to reduce log spam and lag
+    edu.wpi.first.wpilibj.DriverStation.silenceJoystickConnectionWarning(true);
 
     Logger.start();
 
     // CommandScheduler dinleyicileri (Listener) ekle
     setupCommandListeners();
 
-    // Instantiate our RobotContainer.  This will perform all our button bindings, and put our
+    // Instantiate our RobotContainer. This will perform all our button bindings,
+    // and put our
     // autonomous chooser on the dashboard.
     m_robotContainer = new RobotContainer();
   }
@@ -60,31 +67,40 @@ public class Robot extends LoggedRobot {
     // Komut başladığında listeye ekle
     scheduler.onCommandInitialize(command -> {
       activeCommands.add(command);
+      logCommandsOnChange();
     });
 
     // Komut bittiğinde listeden çıkar
     scheduler.onCommandFinish(command -> {
       activeCommands.remove(command);
+      logCommandsOnChange();
     });
 
     // Komut kesildiğinde listeden çıkar
     scheduler.onCommandInterrupt(command -> {
       activeCommands.remove(command);
+      logCommandsOnChange();
     });
   }
 
   /**
-   * This function is called every 20 ms, no matter the mode. Use this for items like diagnostics
+   * This function is called every 20 ms, no matter the mode. Use this for items
+   * like diagnostics
    * that you want ran during disabled, autonomous, teleoperated and test.
    *
-   * <p>This runs after the mode specific periodic functions, but before LiveWindow and
+   * <p>
+   * This runs after the mode specific periodic functions, but before LiveWindow
+   * and
    * SmartDashboard integrated updating.
    */
   @Override
   public void robotPeriodic() {
-    // Runs the Scheduler.  This is responsible for polling buttons, adding newly-scheduled
-    // commands, running already-scheduled commands, removing finished or interrupted commands,
-    // and running subsystem periodic() methods.  This must be called from the robot's periodic
+    // Runs the Scheduler. This is responsible for polling buttons, adding
+    // newly-scheduled
+    // commands, running already-scheduled commands, removing finished or
+    // interrupted commands,
+    // and running subsystem periodic() methods. This must be called from the
+    // robot's periodic
     // block in order for anything in the Command-based framework to work.
     CommandScheduler.getInstance().run();
 
@@ -96,24 +112,37 @@ public class Robot extends LoggedRobot {
    * O an aktif olarak çalışan tüm komutları AdvantageKit Logger ile loglar.
    */
   private void logActiveCommands() {
-    // Set'teki komutların isimlerini String array'e çevir
+    // Sadece komut seti değiştiyse logla
+    // Note: commandListeners listens for changes, so we could theoretically just
+    // log
+    // there, but periodic logging is safer to ensure it catches everything.
+    // Optimization: Check for changes is expensive if we copy set every time.
+    // Better Optimization: Update on listener events.
+  }
+
+  // New method to log immediately when changed
+  private void logCommandsOnChange() {
     String[] commandNames = activeCommands.stream()
         .map(Command::getName)
         .toArray(String[]::new);
 
-    // AdvantageKit Logger ile logla (hem .wpilog hem NT4 üzerinden Dashboard)
     Logger.recordOutput("ActiveCommands", commandNames);
     Logger.recordOutput("ActiveCommandCount", commandNames.length);
   }
 
   /** This function is called once each time the robot enters Disabled mode. */
   @Override
-  public void disabledInit() {}
+  public void disabledInit() {
+  }
 
   @Override
-  public void disabledPeriodic() {}
+  public void disabledPeriodic() {
+  }
 
-  /** This autonomous runs the autonomous command selected by your {@link RobotContainer} class. */
+  /**
+   * This autonomous runs the autonomous command selected by your
+   * {@link RobotContainer} class.
+   */
   @Override
   public void autonomousInit() {
     m_autonomousCommand = m_robotContainer.getAutonomousCommand();
@@ -126,7 +155,8 @@ public class Robot extends LoggedRobot {
 
   /** This function is called periodically during autonomous. */
   @Override
-  public void autonomousPeriodic() {}
+  public void autonomousPeriodic() {
+  }
 
   @Override
   public void teleopInit() {
@@ -141,23 +171,72 @@ public class Robot extends LoggedRobot {
 
   /** This function is called periodically during operator control. */
   @Override
-  public void teleopPeriodic() {}
+  public void teleopPeriodic() {
+  }
 
   @Override
   public void testInit() {
     // Cancels all running commands at the start of test mode.
     CommandScheduler.getInstance().cancelAll();
+
+    // Reset Pose for convenience
+    resetPoseToAllianceStart();
+
+    // Flywheel PID Tuning komutu başlat
+    CommandScheduler.getInstance().schedule(
+        new frc.robot.commands.shooter.ShooterTestCommand(m_robotContainer.getShooterSubsystem()));
+    System.out.println("[Test Mode] ShooterTestCommand başlatıldı - Flywheel/Turret/Hood PID tuning aktif");
   }
 
   /** This function is called periodically during test mode. */
   @Override
-  public void testPeriodic() {}
+  public void testPeriodic() {
+  }
 
   /** This function is called once when the robot is first started up. */
   @Override
-  public void simulationInit() {}
+  public void simulationInit() {
+    resetPoseToAllianceStart();
+  }
 
   /** This function is called periodically whilst in sim. */
   @Override
-  public void simulationPeriodic() {}
+  public void simulationPeriodic() {
+  }
+
+  /**
+   * Helper method to reset odometry to the correct alliance starting pose.
+   * Useful for Simulation and Test modes.
+   */
+  private void resetPoseToAllianceStart() {
+    // Get Alliance
+    var alliance = edu.wpi.first.wpilibj.DriverStation.getAlliance();
+    edu.wpi.first.math.geometry.Pose2d startPose;
+
+    if (alliance.isPresent() && alliance.get() == edu.wpi.first.wpilibj.DriverStation.Alliance.Red) {
+      startPose = frc.robot.constants.FieldConstants.kRedStartPose;
+    } else {
+      startPose = frc.robot.constants.FieldConstants.kBlueStartPose;
+    }
+
+    // DriveSubsystem'i container üzerinden al ve resetle
+    if (m_robotContainer != null) {
+      frc.robot.subsystems.drive.DriveSubsystem drive = m_robotContainer.getDriveSubsystem();
+      if (drive != null) {
+        drive.resetOdometry(startPose);
+        System.out.println("[Simulation] Reset Pose to "
+            + alliance.orElse(edu.wpi.first.wpilibj.DriverStation.Alliance.Blue) + " Start: " + startPose);
+      }
+      // getDriveSubsystem wrapper methodu container'da olmayabilir, public field veya
+      // getter eklenmeli.
+      // Mevcut kodda DriveSubsystem getter yok mu? Kontrol edelim.
+      // RobotContainer'a bakmadık ama getShooterSubsystem var.
+      // Güvenli erişim için RobotContainer'a getter eklemek gerekebilir.
+      // Şimdilik varsayım: public access veya getter var.
+      // Kontrol: RobotContainer.java'yı okuduk mu? Evet.
+      // RobotContainer koduna tekrar bakıp getter var mı emin olalım.
+      // getShooterSubsystem var. getDriveSubsystem yoksa ekleyelim.
+      // Şimdilik bu metodu burada bırakıp RobotContainer düzenlemesi yapacağım.
+    }
+  }
 }

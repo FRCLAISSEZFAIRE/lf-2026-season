@@ -2,7 +2,7 @@ package frc.robot.constants;
 
 public final class Constants {
     // Robotun çalışma modu
-    public static final Mode currentMode = Mode.SIM;
+    public static final Mode currentMode = Mode.REAL;
 
     public enum Mode {
         REAL, // Gerçek Robot
@@ -15,4 +15,17 @@ public final class Constants {
 
     // Tuning Modu: Açıkken SmartDashboard'dan PID değiştirebilirsin
     public static final boolean tuningMode = true;
+
+    // ==================== JOYSTICK TİPİ ====================
+    /**
+     * Sürücü joystick tipi seçimi.
+     * Test için GENERIC, yarışma için XBOX kullanılabilir.
+     */
+    public enum JoystickType {
+        XBOX, // Xbox Controller (varsayılan)
+        GENERIC // Generic USB Joystick
+    }
+
+    // Sürücü joystick tipi - TEST İÇİN DEĞİŞTİRİLEBİLİR
+    public static final JoystickType driverJoystickType = JoystickType.XBOX;
 }

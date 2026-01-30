@@ -9,15 +9,25 @@ public final class FeederConstants {
     // --- MOTOR ID (RobotMap'ten) ---
     public static final int kFeederMotorID = RobotMap.kFeederMotorID;
 
-    // --- VOLTAGES ---
-    public static final double kFeedVoltage = 8.0; // İleri besleme
-    public static final double kReverseVoltage = -6.0; // Geri çıkarma
+    // --- SENSOR IDS (MZ80 - DIO) ---
+    public static final int kSensorBottomID = RobotMap.kFeederSensorBottomID; // Hazne girişi
+    public static final int kSensorTopID = RobotMap.kFeederSensorTopID; // Hazne çıkışı
 
-    // --- CURRENT LIMIT ---
+    // --- PID CONFIG ---
+    public static final double kP = 0.0001;
+    public static final double kI = 0.0;
+    public static final double kD = 0.0;
+    public static final double kFF = 0.00017;
+    public static final double kMinOutput = -1.0;
+    public static final double kMaxOutput = 1.0;
+    public static final double kRPMTolerance = 100.0; // Tolerans
+
+    // --- SPEEDS (RPM) ---
+    public static final double kFeedRPM = 3000.0; // Shooter'a besleme hızı
+    public static final double kSlowFeedRPM = 1000.0; // Yavaş besleme (Intake için)
+    public static final double kIntakeRPM = 1500.0; // Intake'den alma hızı
+    public static final double kReverseRPM = -1000.0; // Geri kusma hızı
+
     // --- CURRENT LIMIT ---
     public static final int kCurrentLimit = 30;
-
-    // --- SENSORS (MZ-80 Digital Inputs) ---
-    public static final int kFuelSensorBottomID = RobotMap.kFeederSensorBottomID; // Giriş Sensörü (Hazne Boş değil)
-    public static final int kFuelSensorTopID = RobotMap.kFeederSensorTopID;    // Çıkış Sensörü (Hazne Dolu/Namlu Ağzı)
 }

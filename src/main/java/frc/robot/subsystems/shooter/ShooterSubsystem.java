@@ -1,31 +1,44 @@
 package frc.robot.subsystems.shooter;
 
-import java.util.function.Supplier;
+import com.ctre.phoenix6.configs.TalonFXConfiguration;
+import com.ctre.phoenix6.controls.VelocityVoltage;
+import com.ctre.phoenix6.hardware.TalonFX;
+import com.ctre.phoenix6.signals.InvertedValue;
+import com.ctre.phoenix6.signals.NeutralModeValue;
+import com.revrobotics.spark.SparkBase.ControlType;
+import com.revrobotics.spark.SparkBase.PersistMode;
+import com.revrobotics.spark.SparkBase.ResetMode;
+import com.revrobotics.spark.SparkMax;
+import com.revrobotics.spark.SparkLowLevel.MotorType;
+import com.revrobotics.spark.config.SparkMaxConfig;
+import com.revrobotics.spark.config.SparkBaseConfig.IdleMode;
 
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.geometry.Pose2d;
-import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
-import org.littletonrobotics.junction.Logger;
+
 import frc.robot.constants.FieldConstants;
+import frc.robot.constants.RobotMap;
 import frc.robot.constants.ShooterConstants;
-import frc.robot.subsystems.intake.IntakeSubsystem;
+import frc.robot.constants.Constants;
 import frc.robot.util.TunableNumber;
 
+import org.littletonrobotics.junction.Logger;
+
+import java.util.function.Supplier;
+
 /**
- * Shooter alt sistemi.
- * Turret (yatay) + Hood (dikey açı) + Flywheel kontrolü.
+ * REVLib 2026 tabanlı Shooter alt sistemi.
+ * setSetpoint API kullanılarak yapılandırılmış.
  * 
- * <h2>Turret Özellikleri:</h2>
+ * <h2>Bileşenler:</h2>
  * <ul>
- * <li>NEO motor + Harici REV Absolute Encoder</li>
- * <li>Seeding: Başlangıçta absolute encoder'dan pozisyon okuma</li>
- * <li>Continuous Wrapping: -180° ile 180° arası en kısa yol</li>
- * <li>Soft Limits: Yazılımsal güvenlik limitleri</li>
- * <li>TunableNumber: Runtime PID tuning</li>
+ * <li>Turret: NEO + Relative Encoder (REVLib Onboard PID, derece)</li>
+ * <li>Hood: NEO + Relative Encoder (REVLib Onboard PID, derece)</li>
+ * <li>Flywheel: Kraken X60 (Phoenix6 Velocity, RPM)</li>
  * </ul>
  */
 public class ShooterSubsystem extends SubsystemBase {
@@ -36,316 +49,824 @@ public class ShooterSubsystem extends SubsystemBase {
         FEEDING
     }
 
-    private final ShooterIO io;
-    private final ShooterIOInputsAutoLogged inputs = new ShooterIOInputsAutoLogged();
+    // =====================================================================
+    // MOTOR CONTROLLERS
+    // =====================================================================
+    private final SparkMax turretMotor;
+    private final SparkMax hoodMotor;
+    private final TalonFX flywheelMotor;
 
+    // Flywheel: Phoenix6 velocity control
+    private final VelocityVoltage flywheelVelocity = new VelocityVoltage(0);
+
+    // =====================================================================
+    // STATE VARIABLES
+    // =====================================================================
     private final Supplier<Pose2d> robotPoseSupplier;
-    private IntakeSubsystem intakeSubsystem;
 
-    // Target değerleri
-    private double targetFlywheelSpeed = ShooterConstants.kIdleFlywheelRPM;
-    private double targetHoodAngle = ShooterConstants.kHoodMidAngle;
-    private double targetTurretAngle = 0.0; // Derece
-
-    // Mod ve durum
     private ShooterMode currentMode = ShooterMode.IDLE;
     private boolean isAutoAimActive = false;
-    private double distanceToTarget = 0.0;
-    private boolean isInAllianceZone = false;
 
-    // Edge detection
-    private boolean lastShooterSensorState = false;
+    // Target values (HEPSİ DERECE veya RPM)
+    private double turretTargetDeg = 0;
+    private double hoodTargetDeg = ShooterConstants.kHoodMidAngle;
+    private double flywheelTargetRPM = ShooterConstants.kIdleFlywheelRPM;
+    private double autoAimOffsetDeg = 0.0;
 
-    // ===========================================================================
-    // TUNABLE PID - AdvantageScope üzerinden runtime'da değiştirilebilir
-    // ===========================================================================
-    private final TunableNumber tunableTurretP;
-    private final TunableNumber tunableTurretI;
-    private final TunableNumber tunableTurretD;
+    // =====================================================================
+    // TUNABLE NUMBERS (Dashboard Control)
+    // =====================================================================
+    // Turret PID
+    private final TunableNumber turretKP = new TunableNumber("Shooter", "Turret kP", ShooterConstants.kTurretDefaultP);
+    private final TunableNumber turretKI = new TunableNumber("Shooter", "Turret kI", ShooterConstants.kTurretDefaultI);
+    private final TunableNumber turretKD = new TunableNumber("Shooter", "Turret kD", ShooterConstants.kTurretDefaultD);
 
-    public ShooterSubsystem(ShooterIO io, Supplier<Pose2d> robotPoseSupplier) {
-        this.io = io;
+    // Hood PID
+    private final TunableNumber hoodKP = new TunableNumber("Shooter", "Hood kP", ShooterConstants.kHoodP);
+    private final TunableNumber hoodKI = new TunableNumber("Shooter", "Hood kI", ShooterConstants.kHoodI);
+    private final TunableNumber hoodKD = new TunableNumber("Shooter", "Hood kD", ShooterConstants.kHoodD);
+
+    // Flywheel PID
+    private final TunableNumber flywheelKP = new TunableNumber("Shooter", "Flywheel kP", ShooterConstants.kFlywheelP);
+    private final TunableNumber flywheelKI = new TunableNumber("Shooter", "Flywheel kI", ShooterConstants.kFlywheelI);
+    private final TunableNumber flywheelKD = new TunableNumber("Shooter", "Flywheel kD", ShooterConstants.kFlywheelD);
+    private final TunableNumber flywheelKV = new TunableNumber("Shooter", "Flywheel kV", ShooterConstants.kFlywheelkV);
+
+    // =====================================================================
+    // CONSTRUCTOR
+    // =====================================================================
+    public ShooterSubsystem(Supplier<Pose2d> robotPoseSupplier) {
         this.robotPoseSupplier = robotPoseSupplier;
 
-        // TunableNumber PID oluştur
-        tunableTurretP = new TunableNumber("Shooter", "Turret P", ShooterConstants.kTurretDefaultP);
-        tunableTurretI = new TunableNumber("Shooter", "Turret I", ShooterConstants.kTurretDefaultI);
-        tunableTurretD = new TunableNumber("Shooter", "Turret D", ShooterConstants.kTurretDefaultD);
+        // --- TURRET MOTOR (NEO + Relative Encoder + Onboard PID) ---
+        turretMotor = new SparkMax(RobotMap.kTurretMotorID, MotorType.kBrushless);
+        configureTurretMotor();
+
+        // --- HOOD MOTOR (NEO + Relative Encoder + Onboard PID) ---
+        hoodMotor = new SparkMax(RobotMap.kHoodMotorID, MotorType.kBrushless);
+        configureHoodMotor();
+
+        // --- FLYWHEEL MOTOR (Kraken X60) ---
+        flywheelMotor = new TalonFX(RobotMap.kShooterMasterID);
+        configureFlywheelMotor();
+
+        System.out.println("[Shooter] REVLib 2026 setSetpoint API ile yapılandırıldı");
     }
 
-    public void setIntakeSubsystem(IntakeSubsystem intakeSubsystem) {
-        this.intakeSubsystem = intakeSubsystem;
+    // =====================================================================
+    // MOTOR CONFIGURATION
+    // =====================================================================
+    // =====================================================================
+    // MOTOR CONFIGURATION OBJECTS (Stored for runtime updates)
+    // =====================================================================
+    private final SparkMaxConfig turretConfig = new SparkMaxConfig();
+    private final SparkMaxConfig hoodConfig = new SparkMaxConfig();
+    private final TalonFXConfiguration flywheelConfig = new TalonFXConfiguration();
+
+    // =====================================================================
+    // MOTOR CONFIGURATION
+    // =====================================================================
+    private void configureTurretMotor() {
+        // Relative encoder yapılandırması (dahili encoder)
+        // Motor:Turret oranı 40:1 → 1 motor tur = 9 derece turret
+        double degreesPerMotorRot = 360.0 / ShooterConstants.kTurretGearRatio; // 360/40 = 9 deg/motor-rot
+        turretConfig.encoder
+                .positionConversionFactor(degreesPerMotorRot)
+                .velocityConversionFactor(degreesPerMotorRot / 60.0);
+
+        // REVLib onboard PID (setSetpoint ile kullanılacak)
+        turretConfig.closedLoop
+                .p(turretKP.get())
+                .i(turretKI.get())
+                .d(turretKD.get())
+                .outputRange(-0.2, 0.2); // %50 max output (güvenlik)
+
+        // Motor ayarları
+        turretConfig.inverted(false);
+        turretConfig.idleMode(IdleMode.kBrake);
+
+        // Soft limits (derece olarak)
+        turretConfig.softLimit
+                .forwardSoftLimitEnabled(true)
+                .forwardSoftLimit((float) ShooterConstants.kTurretMaxAngle)
+                .reverseSoftLimitEnabled(true)
+                .reverseSoftLimit((float) ShooterConstants.kTurretMinAngle);
+
+        turretMotor.configure(turretConfig, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
+
+        // Encoder'ı sıfırla - TARET 0° POZİSYONUNDA BAŞLATILMALI!
+        turretMotor.getEncoder().setPosition(0);
+
+        System.out.println("[Shooter] Turret: Onboard PID, Relative Encoder, Soft Limits ±180°");
+        System.out.println("[Shooter] ⚠️ TARET 0° POZİSYONUNDA BAŞLATILMALI!");
     }
 
-    // ===========================================================================
-    // ALLIANCE-AWARE TARGETING
-    // ===========================================================================
+    private void configureHoodMotor() {
+        // Relative encoder dönüşümü (motor rotasyonu → derece)
+        double degreesPerMotorRot = 360.0 / ShooterConstants.kHoodGearRatio;
+        hoodConfig.encoder
+                .positionConversionFactor(degreesPerMotorRot)
+                .velocityConversionFactor(degreesPerMotorRot / 60.0);
 
-    public boolean isInAllianceZone() {
-        Pose2d robotPose = robotPoseSupplier.get();
-        double robotX = robotPose.getX();
+        // REVLib onboard PID
+        hoodConfig.closedLoop
+                .p(hoodKP.get())
+                .i(hoodKI.get())
+                .d(hoodKD.get())
+                .outputRange(-0.2, 0.2); // Güvenlik limiti
 
-        var alliance = DriverStation.getAlliance();
-        if (alliance.isPresent() && alliance.get() == Alliance.Red) {
-            return robotX >= FieldConstants.kRedAllianceZoneMinX;
+        // Motor ayarları
+        hoodConfig.inverted(true);
+        hoodConfig.idleMode(IdleMode.kBrake);
+
+        hoodMotor.configure(hoodConfig, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
+
+        // Encoder'ı başlangıç açısına ayarla
+        hoodMotor.getEncoder().setPosition(ShooterConstants.kHoodHomeAngle);
+
+        System.out.println("[Shooter] Hood: Onboard PID, Home=" + ShooterConstants.kHoodHomeAngle + "°");
+    }
+
+    private void configureFlywheelMotor() {
+        // Velocity PID (RPS biriminde)
+        flywheelConfig.Slot0.kP = flywheelKP.get();
+        flywheelConfig.Slot0.kI = flywheelKI.get();
+        flywheelConfig.Slot0.kD = flywheelKD.get();
+        flywheelConfig.Slot0.kV = flywheelKV.get();
+
+        // Motor ayarları
+        flywheelConfig.MotorOutput.NeutralMode = NeutralModeValue.Coast;
+        flywheelConfig.MotorOutput.Inverted = InvertedValue.Clockwise_Positive;
+        flywheelConfig.CurrentLimits.StatorCurrentLimit = 80;
+        flywheelConfig.CurrentLimits.StatorCurrentLimitEnable = true;
+
+        flywheelMotor.getConfigurator().apply(flywheelConfig);
+
+        System.out.println("[Shooter] Flywheel: Phoenix6 Velocity Control");
+    }
+
+    /**
+     * Tuning modunda çalışırken PID değerlerini kontrol eder ve değişirse
+     * günceller.
+     */
+    private void checkAndApplyTunables() {
+        // --- TURRET PID UPDATE ---
+        if (turretKP.hasChanged() || turretKI.hasChanged() || turretKD.hasChanged()) {
+            turretConfig.closedLoop
+                    .p(turretKP.get())
+                    .i(turretKI.get())
+                    .d(turretKD.get());
+            turretMotor.configure(turretConfig, ResetMode.kNoResetSafeParameters, PersistMode.kNoPersistParameters);
+            System.out.println("[Shooter] Turret PID Updated: P=" + turretKP.get() + ", I=" + turretKI.get() + ", D="
+                    + turretKD.get());
         }
-        return robotX <= FieldConstants.kBlueAllianceZoneMaxX;
-    }
 
-    public Translation2d getCurrentTarget() {
-        var alliance = DriverStation.getAlliance();
-        boolean isRed = alliance.isPresent() && alliance.get() == Alliance.Red;
+        // --- HOOD PID UPDATE ---
+        if (hoodKP.hasChanged() || hoodKI.hasChanged() || hoodKD.hasChanged()) {
+            hoodConfig.closedLoop
+                    .p(hoodKP.get())
+                    .i(hoodKI.get())
+                    .d(hoodKD.get());
+            hoodMotor.configure(hoodConfig, ResetMode.kNoResetSafeParameters, PersistMode.kNoPersistParameters);
+            System.out.println(
+                    "[Shooter] Hood PID Updated: P=" + hoodKP.get() + ", I=" + hoodKI.get() + ", D=" + hoodKD.get());
+        }
 
-        if (isInAllianceZone) {
-            return isRed ? FieldConstants.kRedHubPose.getTranslation()
-                    : FieldConstants.kBlueHubPose.getTranslation();
-        } else {
-            return isRed ? FieldConstants.kRedFeedingTarget
-                    : FieldConstants.kBlueFeedingTarget;
+        // --- FLYWHEEL PID UPDATE ---
+        if (flywheelKP.hasChanged() || flywheelKI.hasChanged() || flywheelKD.hasChanged() || flywheelKV.hasChanged()) {
+            flywheelConfig.Slot0.kP = flywheelKP.get();
+            flywheelConfig.Slot0.kI = flywheelKI.get();
+            flywheelConfig.Slot0.kD = flywheelKD.get();
+            flywheelConfig.Slot0.kV = flywheelKV.get();
+            flywheelMotor.getConfigurator().apply(flywheelConfig);
+            System.out.println("[Shooter] Flywheel PID Updated");
         }
     }
 
-    public Translation2d getHubLocation() {
-        var alliance = DriverStation.getAlliance();
-        if (alliance.isPresent() && alliance.get() == Alliance.Red) {
-            return FieldConstants.kRedHubPose.getTranslation();
-        }
-        return FieldConstants.kBlueHubPose.getTranslation();
-    }
-
-    public double getDistanceToTarget() {
-        Pose2d robotPose = robotPoseSupplier.get();
-        return robotPose.getTranslation().getDistance(getCurrentTarget());
-    }
-
-    // ===========================================================================
+    // =====================================================================
     // PERIODIC
-    // ===========================================================================
-
+    // =====================================================================
     @Override
     public void periodic() {
-        io.updateInputs(inputs);
-        Logger.processInputs("Shooter", inputs);
+        // Auto-Aim Logic
+        updateAutoAim();
 
-        // --- TUNABLE PID CHECK ---
-        // PID değerleri değiştiyse motor sürücüyü güncelle
-        if (tunableTurretP.hasChanged() || tunableTurretI.hasChanged() || tunableTurretD.hasChanged()) {
-            if (io instanceof ShooterIOReal) {
-                ((ShooterIOReal) io).configureTurret(
-                        tunableTurretP.get(),
-                        tunableTurretI.get(),
-                        tunableTurretD.get());
-                System.out.println("[Turret] PID Updated: P=" + tunableTurretP.get() +
-                        " I=" + tunableTurretI.get() +
-                        " D=" + tunableTurretD.get());
+        // Tuning Mode Logic
+        if (Constants.tuningMode) {
+            checkAndApplyTunables();
+
+            // Dashboard Toggle Check
+            boolean dashboardAutoAim = edu.wpi.first.wpilibj.smartdashboard.SmartDashboard
+                    .getBoolean("Shooter/EnableAutoAim", isAutoAimActive);
+            if (dashboardAutoAim != isAutoAimActive) {
+                if (dashboardAutoAim) {
+                    enableAutoAim();
+                } else {
+                    disableAutoAim();
+                }
             }
         }
 
-        // Edge detection for shooter sensor
-        if (inputs.shooterSensorTriggered && !lastShooterSensorState) {
-            if (intakeSubsystem != null) {
-                intakeSubsystem.decrementItemCount();
-            }
-        }
-        lastShooterSensorState = inputs.shooterSensorTriggered;
+        // AdvantageKit Logging
+        logTelemetry();
+    }
 
-        // Zone ve mesafe hesapla
-        isInAllianceZone = isInAllianceZone();
-        Translation2d currentTarget = getCurrentTarget();
-        distanceToTarget = getDistanceToTarget();
+    // =====================================================================
+    // TURRET CONTROL (Derece) - setSetpoint API
+    // =====================================================================
+    /**
+     * Turret hedef açısını ayarlar (derece).
+     * REVLib onboard PID kullanır.
+     * 
+     * @param angleDeg Hedef açı (-180 ile +180 arası)
+     */
+    public void setTurretAngle(double angleDeg) {
+        turretTargetDeg = MathUtil.clamp(angleDeg,
+                ShooterConstants.kTurretMinAngle,
+                ShooterConstants.kTurretMaxAngle);
 
-        // Mod belirle
-        if (isAutoAimActive) {
-            currentMode = isInAllianceZone ? ShooterMode.SCORING : ShooterMode.FEEDING;
-        } else {
-            currentMode = ShooterMode.IDLE;
-        }
+        // setSetpoint ile onboard PID'e hedef gönder
+        turretMotor.getClosedLoopController().setSetpoint(turretTargetDeg, ControlType.kPosition);
+    }
 
-        // --- AUTO-AIM HOOD & FLYWHEEL ---
-        if (isAutoAimActive) {
-            if (currentMode == ShooterMode.SCORING) {
-                targetHoodAngle = ShooterConstants.getHoodAngleForDistance(distanceToTarget);
-                targetFlywheelSpeed = ShooterConstants.getFlywheelRPMForDistance(distanceToTarget);
-            } else {
-                targetHoodAngle = ShooterConstants.kFeedingHoodAngle;
-                targetFlywheelSpeed = ShooterConstants.kFeedingFlywheelRPM;
-            }
-        }
+    /**
+     * Turret'in mevcut açısını döndürür (derece).
+     */
+    public double getTurretAngle() {
+        return turretMotor.getEncoder().getPosition();
+    }
 
-        // --- TURRET AUTO-AIM ---
-        if (ShooterConstants.kIsTurreted) {
-            Pose2d robotPose = robotPoseSupplier.get();
-            double targetAngleRad = Math.atan2(
-                    currentTarget.getY() - robotPose.getY(),
-                    currentTarget.getX() - robotPose.getX());
-            Rotation2d robotHeading = robotPose.getRotation();
-            // Robot heading'i çıkar -> turret'in robot gövdesine göre açısı
-            double turretAngleRad = MathUtil.angleModulus(targetAngleRad - robotHeading.getRadians());
-            targetTurretAngle = Math.toDegrees(turretAngleRad);
+    /**
+     * Turret hedefe ulaştı mı?
+     */
+    public boolean isTurretAtTarget() {
+        return turretMotor.getClosedLoopController().isAtSetpoint();
+    }
 
-            // SparkMax closed-loop position control (radyan olarak gönder - IO içinde
-            // dereceye çevrilir)
-            io.setTurretPosition(turretAngleRad);
-        }
-
-        // --- HOOD CONTROL ---
-        double clampedHoodAngle = MathUtil.clamp(
-                targetHoodAngle,
+    // =====================================================================
+    // HOOD CONTROL (Derece) - setSetpoint API
+    // =====================================================================
+    /**
+     * Hood hedef açısını ayarlar (derece).
+     * REVLib onboard PID kullanır.
+     * 
+     * @param angleDeg Hedef açı (min-max arası)
+     */
+    public void setHoodAngle(double angleDeg) {
+        hoodTargetDeg = MathUtil.clamp(angleDeg,
                 ShooterConstants.kHoodMinAngle,
                 ShooterConstants.kHoodMaxAngle);
-        io.setHoodAngle(clampedHoodAngle);
 
-        // --- FLYWHEEL CONTROL ---
-        io.setFlywheelVelocity(targetFlywheelSpeed);
-        if (ShooterConstants.kHasDualFlywheels) {
-            io.setFlywheelRightVelocity(targetFlywheelSpeed);
-        }
-
-        // --- LOGGING ---
-        Logger.recordOutput("Shooter/Mode", currentMode.toString());
-        Logger.recordOutput("Shooter/InAllianceZone", isInAllianceZone);
-        Logger.recordOutput("Shooter/CurrentTarget", currentTarget);
-        Logger.recordOutput("Shooter/DistanceToTarget", distanceToTarget);
-        Logger.recordOutput("Shooter/TurretGoalDeg", targetTurretAngle);
-        Logger.recordOutput("Shooter/TurretActualDeg", Math.toDegrees(inputs.turretAbsolutePositionRad));
-        Logger.recordOutput("Shooter/HoodTarget", clampedHoodAngle);
-        Logger.recordOutput("Shooter/HoodActual", inputs.hoodPositionDegrees);
-        Logger.recordOutput("Shooter/FlywheelTargetRPM", targetFlywheelSpeed);
-        Logger.recordOutput("Shooter/FlywheelActualRPM", inputs.flywheelVelocityRadPerSec * 60.0 / (2 * Math.PI));
-        Logger.recordOutput("Shooter/AutoAimActive", isAutoAimActive);
-        Logger.recordOutput("Shooter/IsReadyToShoot", isReadyToShoot());
-
-        // Tunable PID log
-        Logger.recordOutput("Shooter/TunableTurretP", tunableTurretP.get());
-        Logger.recordOutput("Shooter/TunableTurretI", tunableTurretI.get());
-        Logger.recordOutput("Shooter/TunableTurretD", tunableTurretD.get());
+        // setSetpoint ile onboard PID'e hedef gönder
+        hoodMotor.getClosedLoopController().setSetpoint(hoodTargetDeg, ControlType.kPosition);
     }
 
-    // ===========================================================================
-    // COMMANDS
-    // ===========================================================================
+    /**
+     * Hood'un mevcut açısını döndürür (derece).
+     */
+    public double getHoodAngle() {
+        return hoodMotor.getEncoder().getPosition();
+    }
 
+    /**
+     * Hood hedefe ulaştı mı?
+     */
+    public boolean isHoodAtTarget() {
+        return hoodMotor.getClosedLoopController().isAtSetpoint();
+    }
+
+    // =====================================================================
+    // FLYWHEEL CONTROL (RPM)
+    // =====================================================================
+    /**
+     * Flywheel hedef hızını ayarlar (RPM).
+     * 
+     * @param rpm Hedef hız
+     */
+    public void setFlywheelRPM(double rpm) {
+        flywheelTargetRPM = Math.max(0, rpm);
+
+        // RPM → RPS dönüşümü (Phoenix6 RPS kullanır)
+        double rps = flywheelTargetRPM / 60.0;
+        flywheelMotor.setControl(flywheelVelocity.withVelocity(rps));
+    }
+
+    /**
+     * Flywheel'in mevcut hızını döndürür (RPM).
+     */
+    public double getFlywheelRPM() {
+        return flywheelMotor.getVelocity().getValueAsDouble() * 60.0;
+    }
+
+    /**
+     * Flywheel hedefe ulaştı mı?
+     */
+    public boolean isFlywheelAtTarget() {
+        return Math.abs(getFlywheelRPM() - flywheelTargetRPM) < ShooterConstants.kFlywheelTolerance;
+    }
+
+    /**
+     * Flywheel'i durdurur.
+     */
+    public void stopFlywheel() {
+        flywheelTargetRPM = 0;
+        flywheelMotor.stopMotor();
+    }
+
+    // =====================================================================
+    // AUTO-AIM SYSTEM
+    // =====================================================================
+
+    /**
+     * Auto-aim'i etkinleştirir.
+     * Turret ve hood otomatik olarak hub'a yönelir.
+     */
     public void enableAutoAim() {
         isAutoAimActive = true;
+        edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.putBoolean("Shooter/EnableAutoAim", true);
+        System.out.println("[Shooter] Auto-aim ENABLED - Alliance: " + getAllianceString());
     }
 
+    /**
+     * Auto-aim'i devre dışı bırakır.
+     */
     public void disableAutoAim() {
         isAutoAimActive = false;
-        targetFlywheelSpeed = ShooterConstants.kIdleFlywheelRPM;
-        currentMode = ShooterMode.IDLE;
+        edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.putBoolean("Shooter/EnableAutoAim", false);
+        System.out.println("[Shooter] Auto-aim DISABLED");
     }
 
-    public void shoot() {
-        enableAutoAim();
-    }
-
-    public void stopShooter() {
-        disableAutoAim();
-    }
-
-    public void stopMotorTotal() {
-        isAutoAimActive = false;
-        targetFlywheelSpeed = 0.0;
-        currentMode = ShooterMode.IDLE;
-    }
-
-    public void reverse() {
-        isAutoAimActive = false;
-        targetFlywheelSpeed = -1000.0;
-    }
-
-    // ===========================================================================
-    // MANUEL HOOD KONTROL
-    // ===========================================================================
-
-    public void setHoodAngle(double angleDegrees) {
-        if (!isAutoAimActive) {
-            targetHoodAngle = MathUtil.clamp(angleDegrees, ShooterConstants.kHoodMinAngle,
-                    ShooterConstants.kHoodMaxAngle);
-        }
-    }
-
-    public void setHoodClose() {
-        setHoodAngle(ShooterConstants.kHoodCloseAngle);
-    }
-
-    public void setHoodMid() {
-        setHoodAngle(ShooterConstants.kHoodMidAngle);
-    }
-
-    public void setHoodFar() {
-        setHoodAngle(ShooterConstants.kHoodFarAngle);
-    }
-
-    // ===========================================================================
-    // STATUS
-    // ===========================================================================
-
-    public ShooterMode getCurrentMode() {
-        return currentMode;
-    }
-
+    /**
+     * Auto-aim aktif mi?
+     */
     public boolean isAutoAimActive() {
         return isAutoAimActive;
     }
 
-    public boolean isAimingAtTarget() {
-        if (ShooterConstants.kIsTurreted) {
-            double turretActualDeg = Math.toDegrees(inputs.turretAbsolutePositionRad);
-            double turretError = MathUtil.angleModulus(Math.toRadians(targetTurretAngle - turretActualDeg));
-            return Math.abs(Math.toDegrees(turretError)) < ShooterConstants.kTurretTolerance;
+    /**
+     * Mevcut ittifakın hedef hub pozisyonunu döndürür.
+     * Blue alliance → Blue Hub (sol taraf)
+     * Red alliance → Red Hub (sağ taraf)
+     */
+    public Translation2d getTargetHub() {
+        var alliance = DriverStation.getAlliance();
+        if (alliance.isPresent() && alliance.get() == Alliance.Red) {
+            return FieldConstants.kRedSpeakerPosition;
+        }
+        return FieldConstants.kBlueSpeakerPosition;
+    }
+
+    /**
+     * Mevcut ittifakı string olarak döndürür.
+     */
+    private String getAllianceString() {
+        var alliance = DriverStation.getAlliance();
+        if (alliance.isPresent()) {
+            return alliance.get().toString();
+        }
+        return "Unknown (defaulting to Blue)";
+    }
+
+    /**
+     * Robot pozisyonundan hub'a olan mesafeyi hesaplar (metre).
+     */
+    public double getDistanceToHub() {
+        return getDistanceToPoint(getTargetHub());
+    }
+
+    /**
+     * Hub'ı hedeflemek için gereken turret açısını hesaplar (derece).
+     */
+    public double calculateTurretAngleToHub() {
+        return calculateTurretAngleToPoint(getTargetHub());
+    }
+
+    /**
+     * Mesafeye göre hood açısını hesaplar (derece).
+     * Daha uzak = daha düşük açı (düz atış)
+     * Daha yakın = daha yüksek açı (parabolik atış)
+     */
+    public double calculateHoodAngleFromDistance(double distanceMeters) {
+        // Lineer interpolasyon
+        // Yakın (1m) → yüksek açı (55°)
+        // Uzak (5m) → düşük açı (25°)
+        double minDistance = 1.0;
+        double maxDistance = 5.0;
+        double closeAngle = 55.0; // 1m için (yüksek açı)
+        double farAngle = 25.0; // 5m için (düşük açı)
+
+        // Mesafeyi sınırla
+        distanceMeters = MathUtil.clamp(distanceMeters, minDistance, maxDistance);
+
+        // Lineer interpolasyon: yakın = yüksek açı, uzak = düşük açı
+        double t = (distanceMeters - minDistance) / (maxDistance - minDistance);
+        return closeAngle + t * (farAngle - closeAngle);
+    }
+
+    /**
+     * Mesafeye göre flywheel RPM hesaplar.
+     * Daha uzak = daha yüksek RPM
+     */
+    public double calculateFlywheelRPMFromDistance(double distanceMeters) {
+        // Basit lineer interpolasyon
+        // 1m → 2500 RPM
+        // 5m → 5000 RPM
+        double minDistance = 1.0;
+        double maxDistance = 5.0;
+        double minRPM = 2500;
+        double maxRPM = 5000;
+
+        distanceMeters = MathUtil.clamp(distanceMeters, minDistance, maxDistance);
+        double t = (distanceMeters - minDistance) / (maxDistance - minDistance);
+        return minRPM + t * (maxRPM - minRPM);
+    }
+
+    /**
+     * Auto-aim güncelleme metodu.
+     * Aktifse turret, hood ve flywheel'i otomatik hedefler.
+     * Her periodic döngüsünde veya command'dan çağrılabilir.
+     */
+    public void updateAutoAim() {
+        if (!isAutoAimActive) {
+            return;
+        }
+
+        // 1. Hedef Belirleme (Scoring vs Feeding)
+        Translation2d targetPoint;
+        double hoodAngle;
+        double flywheelRPM;
+
+        boolean inZone = isInAllianceZone();
+
+        if (inZone) {
+            // --- SCORING MODE (Alliance Zone İçinde) ---
+            targetPoint = getTargetHub();
+            double distance = getDistanceToPoint(targetPoint);
+
+            hoodAngle = calculateHoodAngleFromDistance(distance);
+            flywheelRPM = calculateFlywheelRPMFromDistance(distance);
+
+            if (Constants.tuningMode) {
+                Logger.recordOutput("Shooter/AutoAim/Mode", "SCORING");
+                Logger.recordOutput("Shooter/AutoAim/Distance", distance);
+            }
         } else {
-            Pose2d robotPose = robotPoseSupplier.get();
-            Translation2d target = getCurrentTarget();
-            double targetAngleRad = Math.atan2(target.getY() - robotPose.getY(), target.getX() - robotPose.getX());
-            double errorRad = MathUtil.angleModulus(targetAngleRad - robotPose.getRotation().getRadians());
-            return Math.abs(Math.toDegrees(errorRad)) < ShooterConstants.kTurretTolerance;
+            // --- FEEDING MODE (Alliance Zone Dışında) ---
+            targetPoint = getFeedingTarget();
+            // Feeding için sabit değerler (veya mesafeye göre ayarlanabilir, şimdilik
+            // sabit)
+            hoodAngle = ShooterConstants.kFeedingHoodAngle;
+            flywheelRPM = ShooterConstants.kFeedingFlywheelRPM;
+
+            if (Constants.tuningMode) {
+                Logger.recordOutput("Shooter/AutoAim/Mode", "FEEDING");
+                Logger.recordOutput("Shooter/AutoAim/Distance", getDistanceToPoint(targetPoint));
+            }
+        }
+
+        // 2. Turret Açısı Hesaplama
+        double turretAngle = calculateTurretAngleToPoint(targetPoint);
+
+        // 3. Hedefleri Uygula
+        double rawTargetAngle = turretAngle + autoAimOffsetDeg;
+
+        // Wrap Optimization Logic:
+        // [-200, 200] aralığında en verimli açıyı (mevcut açıya en yakın) seç.
+        double optimizedTurretAngle = optimizeTurretAngle(getTurretAngle(), rawTargetAngle);
+
+        setTurretAngle(optimizedTurretAngle);
+        setHoodAngle(hoodAngle);
+        setFlywheelRPM(flywheelRPM);
+
+        // Debug log (AdvantageKit)
+        if (Constants.tuningMode) {
+            Logger.recordOutput("Shooter/AutoAim/RawTargetAngle", rawTargetAngle); // Debug için raw
+            Logger.recordOutput("Shooter/AutoAim/OptimizedTargetAngle", optimizedTurretAngle);
+            Logger.recordOutput("Shooter/AutoAim/CalculatedHoodAngle", hoodAngle);
+            Logger.recordOutput("Shooter/AutoAim/CalculatedRPM", flywheelRPM);
+            Logger.recordOutput("Shooter/AutoAim/TargetX", targetPoint.getX());
+            Logger.recordOutput("Shooter/AutoAim/TargetY", targetPoint.getY());
+
+            // CONSOLE LOG (For explicit Sim debugging)
+            // Sadece her 50 döngüde bir yaz ki konsol dolmasın (yaklaşık 1 sn)
+            if (edu.wpi.first.wpilibj.Timer.getFPGATimestamp() % 1.0 < 0.02) {
+                Pose2d p = robotPoseSupplier.get();
+                System.out.printf(
+                        "[AutoAim] %s | Pose: (%.2f, %.2f) | Target: (%.2f, %.2f) | Turret: %.2f -> %.2f%n",
+                        inZone ? "SCORING" : "FEEDING",
+                        p.getX(), p.getY(),
+                        targetPoint.getX(), targetPoint.getY(),
+                        getTurretAngle(), optimizedTurretAngle);
+            }
         }
     }
 
-    public boolean isHoodAtTarget() {
-        return Math.abs(inputs.hoodPositionDegrees - targetHoodAngle) < ShooterConstants.kHoodTolerance;
+    /**
+     * Robotun Alliance Zone içinde olup olmadığını kontrol eder.
+     */
+    public boolean isInAllianceZone() {
+        Pose2d robotPose = robotPoseSupplier.get();
+        var alliance = DriverStation.getAlliance();
+
+        if (alliance.isPresent() && alliance.get() == Alliance.Red) {
+            // Red Alliance: X > MinX (12.49)
+            return robotPose.getX() >= FieldConstants.kRedAllianceZoneMinX;
+        } else {
+            // Blue Alliance: X < MaxX (4.0)
+            return robotPose.getX() <= FieldConstants.kBlueAllianceZoneMaxX;
+        }
     }
 
-    public boolean isFlywheelAtSpeed() {
-        double currentRPM = inputs.flywheelVelocityRadPerSec * 60.0 / (2 * Math.PI);
-        return Math.abs(currentRPM - targetFlywheelSpeed) < ShooterConstants.kFlywheelToleranceRPM;
+    /**
+     * Feeding için hedef noktayı döndürür.
+     */
+    public Translation2d getFeedingTarget() {
+        var alliance = DriverStation.getAlliance();
+        if (alliance.isPresent() && alliance.get() == Alliance.Red) {
+            return FieldConstants.kRedFeedingTarget;
+        }
+        return FieldConstants.kBlueFeedingTarget;
     }
 
-    public boolean isReadyToShoot() {
-        return isAutoAimActive && isAimingAtTarget() && isHoodAtTarget() && isFlywheelAtSpeed();
+    /**
+     * Robot pozisyonundan belirli bir noktaya olan mesafeyi hesaplar.
+     */
+    public double getDistanceToPoint(Translation2d point) {
+        return robotPoseSupplier.get().getTranslation().getDistance(point);
     }
 
-    public boolean isInShootingRange() {
-        return isInAllianceZone && distanceToTarget >= ShooterConstants.kMinShootingDistance
-                && distanceToTarget <= ShooterConstants.kMaxShootingDistance;
+    /**
+     * Belirli bir noktaya dönmek için gereken turret açısını hesaplar.
+     */
+    public double calculateTurretAngleToPoint(Translation2d targetPoint) {
+        Pose2d robotPose = robotPoseSupplier.get();
+
+        // Robot'tan hedefe vektör
+        double dx = targetPoint.getX() - robotPose.getX();
+        double dy = targetPoint.getY() - robotPose.getY();
+
+        // Hedefe olan açı (saha koordinatlarında)
+        double fieldAngleRad = Math.atan2(dy, dx);
+
+        // Robot yönelimi
+        double robotAngleRad = robotPose.getRotation().getRadians();
+
+        // Turret açısı = Hedef açı - Robot açısı
+        double turretAngleRad = MathUtil.angleModulus(fieldAngleRad - robotAngleRad);
+
+        return Math.toDegrees(turretAngleRad);
     }
 
-    // ===========================================================================
-    // GETTERS
-    // ===========================================================================
+    /**
+     * Turret için en uygun hedef açıyı hesaplar.
+     * Hedef açı [-180, 180] aralığında gelir, ancak turret [-200, 200] dönebilir.
+     * Eğer mevcut konumdan diğer tarafa (`wrap`) dönmek daha kısaysa ve limitler
+     * içindeyse, onu seçer.
+     * 
+     * @param currentDeg    Mevcut turret açısı
+     * @param targetDegBase Hedef açı (genellikle -180 ile 180 arası normalize
+     *                      edilmiş)
+     * @return Optimize edilmiş hedef açı
+     */
+    private double optimizeTurretAngle(double currentDeg, double targetDegBase) {
+        // Hedefi -180 ile 180 arasına normalize et (emin olmak için)
+        double normalizedTarget = MathUtil.angleModulus(Math.toRadians(targetDegBase));
+        normalizedTarget = Math.toDegrees(normalizedTarget);
 
-    public double getHoodAngle() {
-        return inputs.hoodPositionDegrees;
+        // Adaylar:
+        // 1. Normal hedef (örn: 170)
+        // 2. +360 fazı (örn: 170 + 360 = 530 -> Limit dışı)
+        // 3. -360 fazı (örn: 170 - 360 = -190 -> Limit içi olabilir)
+
+        double[] candidates = {
+                normalizedTarget,
+                normalizedTarget + 360.0,
+                normalizedTarget - 360.0
+        };
+
+        double bestTarget = currentDeg; // Varsayılan (hareket yok)
+        double minError = Double.MAX_VALUE;
+        boolean foundValid = false;
+
+        for (double cand : candidates) {
+            // Limit kontrolü
+            if (cand >= ShooterConstants.kTurretMinAngle && cand <= ShooterConstants.kTurretMaxAngle) {
+                double error = Math.abs(cand - currentDeg);
+                if (error < minError) {
+                    minError = error;
+                    bestTarget = cand;
+                    foundValid = true;
+                }
+            }
+        }
+
+        // Eğer geçerli bir aday bulunamazsa (nadiren olur, aralık 400 derece total),
+        // en yakın sınıra clamp'le veya base target'ı kullan.
+        if (!foundValid) {
+            // Fallback: Clamp directly
+            return MathUtil.clamp(normalizedTarget, ShooterConstants.kTurretMinAngle, ShooterConstants.kTurretMaxAngle);
+        }
+
+        return bestTarget;
     }
 
-    public double getTargetHoodAngle() {
-        return targetHoodAngle;
+    /**
+     * Auto-aim offset değerini ayarlar (derece).
+     * Pozitif: Sola kaydır, Negatif: Sağa kaydır (veya tam tersi, deneme ile
+     * belirlenir)
+     */
+    public void setAutoAimOffset(double offsetDeg) {
+        this.autoAimOffsetDeg = offsetDeg;
     }
 
-    public double getDistanceToTargetCached() {
-        return distanceToTarget;
+    /**
+     * Auto-aim offset değerini artırır/azaltır.
+     */
+    public void adjustAutoAimOffset(double deltaDeg) {
+        this.autoAimOffsetDeg += deltaDeg;
     }
 
-    public double getTargetFlywheelSpeed() {
-        return targetFlywheelSpeed;
+    /**
+     * Mevcut auto-aim offset değerini döndürür.
+     */
+    public double getAutoAimOffset() {
+        return autoAimOffsetDeg;
     }
 
-    public boolean getIsInAllianceZone() {
-        return isInAllianceZone;
+    /**
+     * Eski metod ismi için alias (geriye uyumluluk)
+     */
+    public Translation2d getCurrentTarget() {
+        return getTargetHub();
     }
 
-    public double getTargetTurretAngle() {
-        return targetTurretAngle;
+    /**
+     * Eski metod ismi için alias (geriye uyumluluk)
+     */
+    public double calculateTurretAngleToTarget() {
+        return calculateTurretAngleToHub();
+    }
+
+    // =====================================================================
+    // TELEMETRY (AdvantageKit)
+    // =====================================================================
+    private void logTelemetry() {
+        // Core state - sadece önemli değerler
+        Logger.recordOutput("Shooter/Turret/ActualDeg", getTurretAngle());
+        Logger.recordOutput("Shooter/Hood/ActualDeg", getHoodAngle());
+        Logger.recordOutput("Shooter/Flywheel/ActualRPM", getFlywheelRPM());
+        Logger.recordOutput("Shooter/AutoAimActive", isAutoAimActive);
+        Logger.recordOutput("Shooter/AutoAim/OffsetDeg", autoAimOffsetDeg);
+
+        if (Constants.tuningMode) {
+            Logger.recordOutput("Shooter/Turret/TargetDeg", turretTargetDeg);
+            Logger.recordOutput("Shooter/Hood/TargetDeg", hoodTargetDeg);
+            Logger.recordOutput("Shooter/Flywheel/TargetRPM", flywheelTargetRPM);
+        }
+    }
+
+    // =====================================================================
+    // MODE SETTERS
+    // =====================================================================
+    public void setMode(ShooterMode mode) {
+        this.currentMode = mode;
+    }
+
+    public ShooterMode getMode() {
+        return currentMode;
+    }
+
+    // =====================================================================
+    // TEST MODE METHODS
+    // =====================================================================
+    /**
+     * Test modunda turret açısını ayarlar.
+     */
+    public void setTurretAngleTest(double angleDeg) {
+        setTurretAngle(angleDeg);
+    }
+
+    /**
+     * Test modunda hood açısını ayarlar.
+     */
+    public void setHoodAngleTest(double angleDeg) {
+        setHoodAngle(angleDeg);
+    }
+
+    // =====================================================================
+    // COMPATIBILITY METHODS
+    // =====================================================================
+
+    public double getFlywheelActualRPM() {
+        return getFlywheelRPM();
+    }
+
+    public double getTurretActualAngle() {
+        return getTurretAngle();
+    }
+
+    public double getHoodActualAngle() {
+        return getHoodAngle();
+    }
+
+    public void stopShooter() {
+        stopFlywheel();
+        currentMode = ShooterMode.IDLE;
+    }
+
+    public void shoot() {
+        currentMode = ShooterMode.SCORING;
+    }
+
+    public boolean isAimingAtTarget() {
+        return isTurretAtTarget() && isHoodAtTarget() && isFlywheelAtTarget();
+    }
+
+    public void logSensorTelemetry() {
+        logTelemetry();
+    }
+
+    // =====================================================================
+    // SIMULATION
+    // =====================================================================
+    private edu.wpi.first.wpilibj.simulation.FlywheelSim flySim;
+    private edu.wpi.first.wpilibj.simulation.SingleJointedArmSim turretSim;
+    private edu.wpi.first.wpilibj.simulation.SingleJointedArmSim hoodSim;
+
+    // Simülasyon görselleştirme için Mechanism2d (Opsiyonel ama yararlı)
+    // Şu an sadece fiziksel değerleri güncelleyeceğiz.
+
+    @Override
+    public void simulationPeriodic() {
+        // --- 1. Initialize Sims if null ---
+        if (flySim == null) {
+            setupSimulation();
+        }
+
+        // --- 2. Update Inputs (Voltage) ---
+        // Flywheel
+        double flywheelVoltage = flywheelMotor.getSimState().getMotorVoltage();
+        flySim.setInput(flywheelVoltage);
+
+        // Turret & Hood (SparkMax)
+        // AppliedOutput -1..1 * BusVoltage assumed 12V
+        // Getting actual bus voltage might be better but 12V is standard for Sim.
+        double turretVoltage = turretMotor.getAppliedOutput() * 12.0;
+        turretSim.setInput(turretVoltage);
+
+        double hoodVoltage = hoodMotor.getAppliedOutput() * 12.0;
+        hoodSim.setInput(hoodVoltage);
+
+        // --- 3. Update Physics (0.02s dt) ---
+        flySim.update(0.02);
+        turretSim.update(0.02);
+        hoodSim.update(0.02);
+
+        // --- 4. Update Sim State (Sensors) ---
+
+        // Flywheel: Phoenix6 SimState
+        // Sim calculates RPM -> Convert to RPS
+        double flyRPS = flySim.getAngularVelocityRPM() / 60.0;
+        flywheelMotor.getSimState().setRotorVelocity(flyRPS);
+        flywheelMotor.getSimState().setSupplyVoltage(12.0);
+
+        // Turret: SparkMax Encoder
+        // Sim calculates Radians -> Convert to Degrees
+        double turretDeg = Math.toDegrees(turretSim.getAngleRads());
+        turretMotor.getEncoder().setPosition(turretDeg);
+
+        // Hood: SparkMax Encoder
+        double hoodDeg = Math.toDegrees(hoodSim.getAngleRads());
+        hoodMotor.getEncoder().setPosition(hoodDeg);
+    }
+
+    private void setupSimulation() {
+        // Flywheel
+        flySim = new edu.wpi.first.wpilibj.simulation.FlywheelSim(
+                edu.wpi.first.math.system.plant.LinearSystemId.createFlywheelSystem(
+                        edu.wpi.first.math.system.plant.DCMotor.getKrakenX60Foc(1), 0.001, 1.0),
+                edu.wpi.first.math.system.plant.DCMotor.getKrakenX60Foc(1), 1.0);
+
+        // Turret
+        turretSim = new edu.wpi.first.wpilibj.simulation.SingleJointedArmSim(
+                edu.wpi.first.math.system.plant.LinearSystemId.createSingleJointedArmSystem(
+                        edu.wpi.first.math.system.plant.DCMotor.getNEO(1), 0.1, ShooterConstants.kTurretGearRatio),
+                edu.wpi.first.math.system.plant.DCMotor.getNEO(1), ShooterConstants.kTurretGearRatio, 0.2,
+                Math.toRadians(ShooterConstants.kTurretMinAngle), Math.toRadians(ShooterConstants.kTurretMaxAngle),
+                false, 0.0);
+
+        // Hood
+        hoodSim = new edu.wpi.first.wpilibj.simulation.SingleJointedArmSim(
+                edu.wpi.first.math.system.plant.LinearSystemId.createSingleJointedArmSystem(
+                        edu.wpi.first.math.system.plant.DCMotor.getNEO(1), 0.05, ShooterConstants.kHoodGearRatio),
+                edu.wpi.first.math.system.plant.DCMotor.getNEO(1), ShooterConstants.kHoodGearRatio, 0.1,
+                Math.toRadians(ShooterConstants.kHoodMinAngle), Math.toRadians(ShooterConstants.kHoodMaxAngle),
+                false, Math.toRadians(ShooterConstants.kHoodHomeAngle));
+    }
+
+    public void stopAll() {
+        turretMotor.set(0);
+        hoodMotor.set(0);
+        stopFlywheel();
     }
 }

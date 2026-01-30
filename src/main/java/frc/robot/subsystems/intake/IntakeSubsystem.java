@@ -1,190 +1,183 @@
 package frc.robot.subsystems.intake;
 
+import com.ctre.phoenix6.configs.TalonFXConfiguration;
+import com.ctre.phoenix6.controls.VelocityVoltage;
+import com.ctre.phoenix6.controls.VoltageOut;
+import com.ctre.phoenix6.hardware.TalonFX;
+import com.ctre.phoenix6.signals.InvertedValue;
+import com.ctre.phoenix6.signals.NeutralModeValue;
+
+import com.revrobotics.spark.SparkMax;
+import com.revrobotics.spark.SparkLowLevel.MotorType;
+import com.revrobotics.spark.SparkBase.PersistMode;
+import com.revrobotics.spark.SparkBase.ResetMode;
+import com.revrobotics.spark.config.SparkMaxConfig;
+import com.revrobotics.spark.config.SparkBaseConfig.IdleMode;
+import com.revrobotics.spark.SparkClosedLoopController;
+
+import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
-import org.littletonrobotics.junction.Logger;
-import frc.robot.constants.MechanismConstants;
-import frc.robot.constants.GamePieceConstants;
-import frc.robot.constants.GamePieceConstants.GamePiece;
-import frc.robot.util.TunableNumber;
+import frc.robot.constants.IntakeConstants;
+import frc.robot.constants.RobotMap;
+import frc.robot.LimelightHelpers;
+import frc.robot.constants.VisionConstants;
+import frc.robot.constants.Constants;
 
 /**
- * Intake alt sistemi.
- * TunableNumber ile runtime'da ayarlanabilen parametreler.
+ * Intake Subsystem (Modernized)
+ * Roller: TalonFX (Kraken) with Velocity Control
+ * Pivot: SparkMax (NEO) with Position Control
  */
 public class IntakeSubsystem extends SubsystemBase {
-    private final IntakeIO io;
-    private final IntakeIOInputsAutoLogged inputs = new IntakeIOInputsAutoLogged();
 
-    // Pivot Constants
-    private static final double kPivotToleranceRad = 0.1;
+    private final TalonFX rollerMotor;
+    private final SparkMax pivotMotor;
+    private final SparkClosedLoopController pivotPID;
 
-    private GamePiece activeGamePiece = GamePieceConstants.DEFAULT_GAME_PIECE;
+    // Control Requests
+    private final VelocityVoltage velocityRequest = new VelocityVoltage(0);
+    private final VoltageOut voltageRequest = new VoltageOut(0);
 
-    // ===========================================================================
-    // TUNABLE PARAMETERS - Kalıcı olarak kaydedilir
-    // ===========================================================================
-    private final TunableNumber tunablePivotDeployed;
-    private final TunableNumber tunablePivotRetracted;
-    private final TunableNumber tunablePivotP;
-    private final TunableNumber tunablePivotI;
-    private final TunableNumber tunablePivotD;
-    private final TunableNumber tunableRollerSpeed;
+    // Vision
+    private final String cameraName = VisionConstants.kLimelightName;
+    private boolean hasGamePiece = false;
+    private double targetTx = 0.0;
 
-    public IntakeSubsystem(IntakeIO io) {
-        this.io = io;
+    public IntakeSubsystem() {
+        // --- ROLLER (Kraken X60) ---
+        rollerMotor = new TalonFX(RobotMap.kIntakeMotorID);
 
-        // TunableNumber oluştur - Preferences'ta kalıcı
-        tunablePivotDeployed = new TunableNumber("Intake", "Pivot Deployed Rad", 1.5);
-        tunablePivotRetracted = new TunableNumber("Intake", "Pivot Retracted Rad", 0.0);
-        tunablePivotP = new TunableNumber("Intake", "Pivot P", 1.0);
-        tunablePivotI = new TunableNumber("Intake", "Pivot I", 0.0);
-        tunablePivotD = new TunableNumber("Intake", "Pivot D", 0.0);
-        tunableRollerSpeed = new TunableNumber("Intake", "Roller Speed V", 8.0);
+        TalonFXConfiguration rollerConfig = new TalonFXConfiguration();
+
+        // Motor Output
+        rollerConfig.MotorOutput.NeutralMode = NeutralModeValue.Coast;
+        rollerConfig.MotorOutput.Inverted = InvertedValue.CounterClockwise_Positive; // Yönü kontrol et
+
+        // Current Limit
+        rollerConfig.CurrentLimits.SupplyCurrentLimit = IntakeConstants.kRollerCurrentLimit;
+        rollerConfig.CurrentLimits.SupplyCurrentLimitEnable = true;
+
+        // PID (Slot 0)
+        rollerConfig.Slot0.kV = IntakeConstants.kRollerkV;
+        rollerConfig.Slot0.kP = IntakeConstants.kRollerkP;
+        rollerConfig.Slot0.kI = IntakeConstants.kRollerkI;
+        rollerConfig.Slot0.kD = IntakeConstants.kRollerkD;
+
+        rollerMotor.getConfigurator().apply(rollerConfig);
+
+        // --- PIVOT (NEO) ---
+        pivotMotor = new SparkMax(RobotMap.kIntakePivotMotorID, MotorType.kBrushless);
+        pivotPID = pivotMotor.getClosedLoopController();
+
+        SparkMaxConfig pivotConfig = new SparkMaxConfig();
+        pivotConfig.idleMode(IdleMode.kBrake);
+        pivotConfig.smartCurrentLimit(IntakeConstants.kPivotCurrentLimit);
+
+        // PID
+        pivotConfig.closedLoop.pid(IntakeConstants.kPivotP, IntakeConstants.kPivotI, IntakeConstants.kPivotD);
+
+        // Conversion: 1 Rot = 2pi Rad (Direct Drive)
+        pivotConfig.encoder.positionConversionFactor(2 * Math.PI);
+        pivotConfig.encoder.velocityConversionFactor(2 * Math.PI / 60.0);
+
+        pivotConfig.softLimit.forwardSoftLimit(IntakeConstants.kPivotMaxRad);
+        pivotConfig.softLimit.forwardSoftLimitEnabled(true);
+        pivotConfig.softLimit.reverseSoftLimit(IntakeConstants.kPivotMinRad);
+        pivotConfig.softLimit.reverseSoftLimitEnabled(true);
+
+        pivotMotor.configure(pivotConfig, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
+
+        // Başlangıçta encoder'ı sıfırla (Retracted varsayımı)
+        pivotMotor.getEncoder().setPosition(IntakeConstants.kPivotRetractedRad);
     }
 
     @Override
     public void periodic() {
-        io.updateInputs(inputs);
-        Logger.processInputs("Intake", inputs);
-
-        // Tunable PID değişiklik kontrolü
-        if (tunablePivotP.hasChanged() || tunablePivotI.hasChanged() || tunablePivotD.hasChanged()) {
-            if (io instanceof IntakeIOReal) {
-                ((IntakeIOReal) io).configurePivotPID(
-                        tunablePivotP.get(),
-                        tunablePivotI.get(),
-                        tunablePivotD.get());
-            }
-        }
-
-        // Logging
-        Logger.recordOutput("Intake/PivotPosition", inputs.pivotPositionRad);
-        Logger.recordOutput("Intake/TunablePivotP", tunablePivotP.get());
-        Logger.recordOutput("Intake/TunableRollerSpeed", tunableRollerSpeed.get());
-
-        // Dashboard
-        edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.putBoolean("Fuel Present", seesGamePiece());
+        updateVision();
+        logTelemetry();
     }
 
-    // ===========================================================================
-    // ROLLER CONTROL
-    // ===========================================================================
+    private void updateVision() {
+        if (LimelightHelpers.getTV(cameraName)) {
+            hasGamePiece = true;
+            targetTx = LimelightHelpers.getTX(cameraName);
+        } else {
+            hasGamePiece = false;
+            targetTx = 0.0;
+        }
+    }
+
+    private void logTelemetry() {
+        if (Constants.tuningMode) {
+            org.littletonrobotics.junction.Logger.recordOutput("Intake/PivotPosition", getPivotPosition());
+            org.littletonrobotics.junction.Logger.recordOutput("Intake/RollerVelocity",
+                    rollerMotor.getVelocity().getValueAsDouble());
+            org.littletonrobotics.junction.Logger.recordOutput("Intake/HasGamePiece", hasGamePiece);
+        }
+    }
+
+    // =========================================================================
+    // ROLLER COMMANDS
+    // =========================================================================
 
     public void runRoller(double volts) {
-        io.setVoltage(volts);
+        // Legacy support: Run on voltage
+        rollerMotor.setControl(voltageRequest.withOutput(volts));
     }
 
-    /** Tunable hızla roller çalıştır */
-    public void runRollerDefault() {
-        io.setVoltage(tunableRollerSpeed.get());
+    public void runRollerVelocity(double rps) {
+        rollerMotor.setControl(velocityRequest.withVelocity(rps));
     }
 
-    /** Roller'ı ters çalıştır */
-    public void reverseRoller() {
-        io.setVoltage(-tunableRollerSpeed.get());
+    /**
+     * Runs roller using Velocity Control (Target RPM/RPS).
+     */
+    public Command runRollerCommand() {
+        return run(() -> runRollerVelocity(IntakeConstants.kRollerTargetRPS));
     }
 
-    public void stopRoller() {
-        io.setVoltage(0);
+    public Command reverseRollerCommand() {
+        return run(() -> runRoller(-IntakeConstants.kRollerVoltage)); // Ters voltaj (kusma genelde max voltaj olur)
     }
 
-    // ===========================================================================
-    // PIVOT CONTROL
-    // ===========================================================================
-
-    public void setPivotPosition(double rad) {
-        io.setPivotPosition(rad);
+    public Command stopRollerCommand() {
+        return runOnce(() -> rollerMotor.stopMotor());
     }
 
-    public void deploy() {
-        setPivotPosition(tunablePivotDeployed.get());
+    // =========================================================================
+    // PIVOT COMMANDS
+    // =========================================================================
+
+    public void setPivotPosition(double radians) {
+        // Standard PID Control
+        pivotPID.setReference(radians, com.revrobotics.spark.SparkBase.ControlType.kPosition);
     }
 
-    public void retract() {
-        setPivotPosition(tunablePivotRetracted.get());
+    public double getPivotPosition() {
+        return pivotMotor.getEncoder().getPosition();
     }
 
-    public boolean isDeployed() {
-        return Math.abs(inputs.pivotPositionRad - tunablePivotDeployed.get()) < kPivotToleranceRad;
+    public Command deployCommand() {
+        return runOnce(() -> setPivotPosition(IntakeConstants.kPivotDeployedRad));
     }
 
-    public boolean isRetracted() {
-        return Math.abs(inputs.pivotPositionRad - tunablePivotRetracted.get()) < kPivotToleranceRad;
+    public Command retractCommand() {
+        return runOnce(() -> setPivotPosition(IntakeConstants.kPivotRetractedRad));
     }
 
-    // ===========================================================================
-    // CAPACITY & ITEM COUNT
-    // ===========================================================================
-
-    public boolean isFull() {
-        return false;
-    }
-
-    public int getItemCount() {
-        return 0;
-    }
-
-    public void decrementItemCount() {
-    }
-
-    // ===========================================================================
-    // ALIGNMENT & VISION
-    // ===========================================================================
-
-    public double getAlignmentError() {
-        return seesActiveGamePiece() ? inputs.targetTx : 0.0;
-    }
+    // =========================================================================
+    // HELPERS
+    // =========================================================================
 
     public boolean seesGamePiece() {
-        return inputs.hasGamePiece;
+        return hasGamePiece;
     }
 
-    public void setActiveGamePiece(GamePiece piece) {
-        this.activeGamePiece = piece;
-        Logger.recordOutput("Intake/ActiveGamePiece", piece.name());
+    public double getAlignmentError() {
+        return hasGamePiece ? targetTx : 0.0;
     }
 
-    public GamePiece getActiveGamePiece() {
-        return activeGamePiece;
-    }
-
-    public boolean seesActiveGamePiece() {
-        return inputs.hasGamePiece && inputs.targetClassId == activeGamePiece.id();
-    }
-
-    public boolean hasGamePieceInIntake() {
-        return inputs.tofDistanceMm < GamePieceConstants.kTofDetectionThresholdMm;
-    }
-
-    public double getTargetTx() {
-        return inputs.targetTx;
-    }
-
-    public double getTargetTy() {
-        return inputs.targetTy;
-    }
-
-    public double getTargetArea() {
-        return inputs.targetArea;
-    }
-
-    public double getActiveIntakeSpeed() {
-        return activeGamePiece.intakeSpeed();
-    }
-
-    // ===========================================================================
-    // TUNABLE GETTERS
-    // ===========================================================================
-
-    public double getTunableRollerSpeed() {
-        return tunableRollerSpeed.get();
-    }
-
-    public double getTunablePivotDeployed() {
-        return tunablePivotDeployed.get();
-    }
-
-    public double getTunablePivotRetracted() {
-        return tunablePivotRetracted.get();
+    public boolean hasGamePiece() {
+        return hasGamePiece;
     }
 }

@@ -28,13 +28,13 @@ public class AutoIntakeCommand extends Command {
     private final Timer lostTargetTimer = new Timer();
     private boolean hasSeenTarget = false;
 
-    public AutoIntakeCommand(DriveSubsystem drive, IntakeSubsystem intake, 
-                             FeederSubsystem feeder, VisionSubsystem vision) {
+    public AutoIntakeCommand(DriveSubsystem drive, IntakeSubsystem intake,
+            FeederSubsystem feeder, VisionSubsystem vision) {
         this.drive = drive;
         this.intake = intake;
         this.feeder = feeder;
         this.vision = vision;
-        
+
         addRequirements(drive, intake, feeder); // Vision requirement opsiyonel
     }
 
@@ -42,19 +42,19 @@ public class AutoIntakeCommand extends Command {
     public void initialize() {
         // Pipeline'ı Game Piece moduna al
         vision.setPipeline(VisionConstants.kGamePiecePipelineIndex);
-        
+
         // Timer ve durum sıfırla
         lostTargetTimer.stop();
         lostTargetTimer.reset();
         hasSeenTarget = false;
-        
+
         // PID Reset
         turnPID.reset();
     }
 
     @Override
     public void execute() {
-        boolean seesGamePiece = intake.seesGamePiece() || vision.hasGamePiece();
+        boolean seesGamePiece = intake.seesGamePiece() || vision.hasFuel();
         double rotationSpeed = 0.0;
         double forwardSpeed = 0.0;
 
@@ -66,15 +66,16 @@ public class AutoIntakeCommand extends Command {
 
             // 1. Hizalanma (PID)
             // Hata: Intake Tx veya Vision Yaw
-            double error = intake.seesGamePiece() ? intake.getAlignmentError() : vision.getGamePieceYaw();
-            // Tx derece cinsinden, PID'ye verilebilir. 
-            // Radyan'a çevirmek daha doğru olabilir ama PID katsayısı dereceye göre de ayarlanabilir.
+            double error = intake.seesGamePiece() ? intake.getAlignmentError() : vision.getFuelYaw();
+            // Tx derece cinsinden, PID'ye verilebilir.
+            // Radyan'a çevirmek daha doğru olabilir ama PID katsayısı dereceye göre de
+            // ayarlanabilir.
             // Limelight tx +/- 29.8 derece.
             // PID output rad/s olmalı (Drive runVelocity için).
             // Derece -> Output (Rad/S) dönüşümü için kP'yi ona göre seçtik.
-            // Basitçe: kP * errorDegrees. kP=0.1 dersek, 10 derece hata -> 1 rad/s dönüş.        
+            // Basitçe: kP * errorDegrees. kP=0.1 dersek, 10 derece hata -> 1 rad/s dönüş.
             rotationSpeed = turnPID.calculate(error, 0.0);
-            
+
             // 2. İleri Sürüş (Yavaşça yaklaş)
             forwardSpeed = 1.0; // m/s (Ayarlanabilir)
 
@@ -83,7 +84,7 @@ public class AutoIntakeCommand extends Command {
             if (hasSeenTarget) {
                 // Önceden görmüştük, kaybettik -> Timeout say
                 lostTargetTimer.start();
-                
+
                 if (lostTargetTimer.get() < IntakeConstants.kTargetLostTimeoutSeconds) {
                     // Kayıp ama süre bitmedi -> Aramaya devam et veya düz git
                     // '3a bir şey görmüyor ise... 4 saniye intake çalışsın'
@@ -100,18 +101,18 @@ public class AutoIntakeCommand extends Command {
                 rotationSpeed = 0.0;
             }
         }
-        
+
         // 3. Drive Uygula
         drive.runVelocity(new ChassisSpeeds(forwardSpeed, 0.0, rotationSpeed));
 
         // 4. Intake ve Feeder Çalıştır
         // Eğer target görüyor veya timeout içindeysek çalıştır
         if (seesGamePiece || (hasSeenTarget && lostTargetTimer.get() < IntakeConstants.kTargetLostTimeoutSeconds)) {
-             intake.runRoller(10.0); // 10 Volt (veya kAutoIntakeSpeed)
-             feeder.feed(); // Feeder ileri
+            intake.runRoller(10.0); // 10 Volt (veya kAutoIntakeSpeed)
+            feeder.feed(); // Feeder ileri
         } else {
-             intake.runRoller(0.0);
-             feeder.stop();
+            intake.runRoller(0.0);
+            feeder.stop();
         }
     }
 
@@ -121,7 +122,7 @@ public class AutoIntakeCommand extends Command {
         drive.stop();
         intake.runRoller(0.0);
         feeder.stop();
-        
+
         // Pipeline'ı AprilTag'e geri al
         vision.setPipeline(VisionConstants.kAprilTagPipelineIndex);
     }
@@ -132,12 +133,12 @@ public class AutoIntakeCommand extends Command {
         if (feeder.isFuelSystemFull()) {
             return true;
         }
-        
+
         // 2. Timeout doldu mu? (Hedef görülüp kaybolduysa)
         if (hasSeenTarget && lostTargetTimer.hasElapsed(IntakeConstants.kTargetLostTimeoutSeconds)) {
             return true;
         }
-        
+
         return false;
     }
 }

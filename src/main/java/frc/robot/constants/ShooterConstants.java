@@ -13,12 +13,27 @@ public final class ShooterConstants {
     public static final boolean kAutoAimEnabled = true;
 
     // ===========================================================================
-    // TURRET (NEO Motor + Harici REV Absolute Encoder)
+    // TURRET (NEO Motor + Harici REV Through Bore Absolute Encoder)
     // ===========================================================================
+    // Mekanik Yapı:
+    // Motor → [1:4 Redüksiyon] → Encoder → [1:10 Dişli] → Turret
+    // Motor 1 tur → Encoder 0.25 tur, Turret 0.025 tur
+    // Motor 40 tur → Encoder 10 tur → Turret 1 tur
+    // Encoder 1 tur → Turret 0.1 tur = 36 derece
 
     // --- TURRET MEKANIK ---
-    /** Motor:Turret dişli oranı. 1:20 = motor 20 tur döner, turret 1 tur döner */
-    public static final double kTurretGearRatio = 20.0;
+    /** Motor:Turret toplam dişli oranı (4 × 10 = 40) */
+    public static final double kTurretGearRatio = 40.0;
+
+    /** Encoder:Turret dişli oranı (encoder sonrası 1:10 dişli) */
+    public static final double kTurretEncoderToTurretRatio = 10.0;
+
+    /**
+     * Absolute encoder'dan turret açısına dönüşüm:
+     * 1 encoder tur = 1/10 turret tur = 36 derece
+     * turretAngle (degrees) = encoderRotations × 36
+     */
+    public static final double kTurretEncoderMultiplier = 360.0 / kTurretEncoderToTurretRatio; // = 36 deg/encoder-rot
 
     /** Absolute encoder zero offset (derece). Calibrasyon için ayarlanır. */
     public static final double kTurretEncoderOffset = 0.0;
@@ -33,21 +48,23 @@ public final class ShooterConstants {
 
     // --- TURRET SOFT LIMITS (Güvenlik - Derece) ---
     /** Turret minimum açısı (derece). Kablo sarma koruması. */
-    public static final double kTurretMinAngle = -180.0;
+    public static final double kTurretMinAngle = -200.0;
     /** Turret maksimum açısı (derece). Kablo sarma koruması. */
-    public static final double kTurretMaxAngle = 180.0;
+    public static final double kTurretMaxAngle = 200.0;
     /** Soft limit aktif mi? */
     public static final boolean kTurretSoftLimitsEnabled = true;
 
     // --- TURRET CONTINUOUS WRAPPING ---
     /** 0-360 arası wrap için min input (derece) */
-    public static final double kTurretWrapMinInput = -180.0;
+    public static final double kTurretWrapMinInput = -60.0;
     /** 0-360 arası wrap için max input (derece) */
-    public static final double kTurretWrapMaxInput = 180.0;
+    public static final double kTurretWrapMaxInput = 60.0;
 
     // ===========================================================================
-    // HOOD (NEO 550 + SparkMax + Absolute Encoder)
+    // HOOD (NEO 550 + SparkMax - Relative Encoder Only)
     // ===========================================================================
+    // NOT: Hood'da absolute encoder YOK, relative encoder kullanılıyor.
+    // Robot başlangıçta hood pozisyonunu bilmeli (home position).
 
     public static final double kHoodP = 2.0;
     public static final double kHoodI = 0.0;
@@ -57,20 +74,28 @@ public final class ShooterConstants {
     public static final double kHoodMaxAngle = 60.0;
     public static final double kHoodTolerance = 1.5;
 
-    public static final double kHoodGearRatio = 1.0;
-    public static final double kHoodEncoderOffset = 0.0;
+    /** Hood dişli oranı. */
+    public static final double kHoodGearRatio = 100.0;
+
+    /** Hood başlangıç açısı (robot açılışında varsayılan pozisyon) */
+    public static final double kHoodHomeAngle = 15.0;
 
     // Hood presets
-    public static final double kHoodCloseAngle = 55.0;
-    public static final double kHoodMidAngle = 40.0;
+    public static final double kHoodCloseAngle = 5.0;
+    public static final double kHoodMidAngle = 15.0;
     public static final double kHoodFarAngle = 25.0;
 
     // ===========================================================================
-    // FLYWHEEL (Kraken X60)
+    // FLYWHEEL (Kraken X60 - TEK MOTOR, FOLLOWER YOK)
     // ===========================================================================
+    // NOT: Flywheel tek motor ile çalışıyor, ikinci motor/follower yok.
+
+    /** Flywheel dişli oranı. */
+    public static final double kFlywheelGearRatio = 1.0; // Direct drive
 
     public static final double kIdleFlywheelRPM = 2000.0;
     public static final double kFlywheelToleranceRPM = 100.0;
+    public static final double kFlywheelTolerance = 100.0; // RPM tolerance for at-target check
 
     public static final double kFlywheelP = 0.2;
     public static final double kFlywheelI = 0.0;

@@ -22,6 +22,20 @@ public final class FieldConstants {
         public static final Pose2d kBlueHubPose = new Pose2d(1.0, 4.05, Rotation2d.fromDegrees(0));
         public static final Pose2d kRedHubPose = new Pose2d(15.49, 4.05, Rotation2d.fromDegrees(180));
 
+        // Speaker pozisyonları (Shooter auto-aim hedefleri)
+        public static final Translation2d kBlueSpeakerPosition = new Translation2d(1.0, 4.05);
+        public static final Translation2d kRedSpeakerPosition = new Translation2d(15.49, 4.05);
+
+        // === BAŞLANGIÇ POZİSYONLARI ===
+        // Robot başlangıçta Hub'a doğru bakar
+        // Blue: Sahanın sol tarafında, Hub'a (sağa) bakar (0°)
+        // Red: Sahanın sağ tarafında, Hub'a (sola) bakar (180°)
+        public static final Pose2d kBlueStartPose = new Pose2d(2.0, 4.05, Rotation2d.fromDegrees(0));
+        public static final Pose2d kRedStartPose = new Pose2d(14.49, 4.05, Rotation2d.fromDegrees(180));
+
+        // Test başlangıç pozisyonu (her iki ittifak için)
+        public static final Pose2d kTestStartPose = new Pose2d(8.245, 4.05, Rotation2d.fromDegrees(0));
+
         // === ALLIANCE ZONE SINIRLARI ===
         // İttifak alanı içinde atış yapılabilir
         // Blue Alliance: Sahanın sol tarafı (X < 4.0m)

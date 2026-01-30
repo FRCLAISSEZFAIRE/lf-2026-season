@@ -1,0 +1,15 @@
+{
+    "gyro": {
+        "type": "navx",
+        "id": 0,
+        "canbus": null
+    },
+    "modules": [
+        "frontleft.json",
+        "frontright.json",
+        "backleft.json",
+        "backright.json"
+    ],
+    "maximumSpeed": 4.5,
+    "optimalVoltage": 12
+}

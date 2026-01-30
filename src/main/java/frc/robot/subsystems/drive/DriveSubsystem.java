@@ -1,579 +1,421 @@
 package frc.robot.subsystems.drive;
 
-import org.littletonrobotics.junction.Logger;
+import edu.wpi.first.math.MathUtil;
+import edu.wpi.first.math.geometry.Pose2d;
+import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.math.geometry.Translation2d;
+import edu.wpi.first.math.kinematics.ChassisSpeeds;
+import edu.wpi.first.math.kinematics.SwerveDriveKinematics;
+import edu.wpi.first.math.kinematics.SwerveDriveOdometry;
+import edu.wpi.first.math.kinematics.SwerveModulePosition;
+import edu.wpi.first.math.kinematics.SwerveModuleState;
+import edu.wpi.first.wpilibj.DriverStation;
+import edu.wpi.first.wpilibj.smartdashboard.Field2d;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
+import edu.wpi.first.wpilibj2.command.SubsystemBase;
+
+import frc.robot.constants.DriveConstants;
+import frc.robot.constants.FieldConstants;
 
 import com.pathplanner.lib.auto.AutoBuilder;
 import com.pathplanner.lib.config.PIDConstants;
 import com.pathplanner.lib.config.RobotConfig;
 import com.pathplanner.lib.controllers.PPHolonomicDriveController;
 
-import edu.wpi.first.math.estimator.SwerveDrivePoseEstimator;
-import edu.wpi.first.math.geometry.Pose2d;
-import edu.wpi.first.math.geometry.Rotation2d;
-import edu.wpi.first.math.kinematics.ChassisSpeeds;
-import edu.wpi.first.math.kinematics.SwerveDriveKinematics;
-import edu.wpi.first.math.kinematics.SwerveModulePosition;
-import edu.wpi.first.math.kinematics.SwerveModuleState;
-import edu.wpi.first.wpilibj.DriverStation;
-import edu.wpi.first.wpilibj2.command.SubsystemBase;
-import edu.wpi.first.math.system.plant.DCMotor;
-import edu.wpi.first.math.geometry.Translation2d;
+import org.littletonrobotics.junction.Logger;
 
-import frc.robot.constants.DriveConstants;
-import frc.robot.constants.ModuleConstants;
-import frc.robot.constants.FieldConstants; // Added Import
+// Studica NavX Import
+import com.studica.frc.AHRS;
+import com.studica.frc.AHRS.NavXComType;
 
-import edu.wpi.first.apriltag.AprilTagFieldLayout;
-import edu.wpi.first.apriltag.AprilTagFields;
-import edu.wpi.first.wpilibj.Preferences;
+import frc.robot.util.TunableNumber;
 
 public class DriveSubsystem extends SubsystemBase {
+    // Create MAXSwerveModules
+    private final MAXSwerveModule m_frontLeft = new MAXSwerveModule(
+            DriveConstants.kFrontLeftDrivingCanId,
+            DriveConstants.kFrontLeftTurningCanId,
+            DriveConstants.kFrontLeftChassisAngularOffset);
 
-    // --- IO KATMANLARI (Inputs) ---
-    private final GyroIO gyroIO;
-    private final GyroIOInputsAutoLogged gyroInputs = new GyroIOInputsAutoLogged();
+    private final MAXSwerveModule m_frontRight = new MAXSwerveModule(
+            DriveConstants.kFrontRightDrivingCanId,
+            DriveConstants.kFrontRightTurningCanId,
+            DriveConstants.kFrontRightChassisAngularOffset);
 
-    private final ModuleIO[] moduleIOs = new ModuleIO[4]; // 4 Modül (FL, FR, BL, BR)
-    private final ModuleIOInputsAutoLogged[] moduleInputs = {
-            new ModuleIOInputsAutoLogged(), new ModuleIOInputsAutoLogged(),
-            new ModuleIOInputsAutoLogged(), new ModuleIOInputsAutoLogged()
-    };
+    private final MAXSwerveModule m_rearLeft = new MAXSwerveModule(
+            DriveConstants.kRearLeftDrivingCanId,
+            DriveConstants.kRearLeftTurningCanId,
+            DriveConstants.kRearLeftChassisAngularOffset);
 
-    // --- SAFETY LAYER FIELDS ---
+    private final MAXSwerveModule m_rearRight = new MAXSwerveModule(
+            DriveConstants.kRearRightDrivingCanId,
+            DriveConstants.kRearRightTurningCanId,
+            DriveConstants.kRearRightChassisAngularOffset);
+
+    // The gyro sensor (NavX2 via Studica lib)
+    private final AHRS m_gyro = new AHRS(NavXComType.kUSB1);
+
+    // Simulation State
+    private Rotation2d m_simRotation = new Rotation2d();
+
+    // Odometry class for tracking robot pose
+    SwerveDriveOdometry m_odometry = new SwerveDriveOdometry(
+            DriveConstants.kDriveKinematics,
+            Rotation2d.fromDegrees(-m_gyro.getAngle()),
+            new SwerveModulePosition[] {
+                    m_frontLeft.getPosition(),
+                    m_frontRight.getPosition(),
+                    m_rearLeft.getPosition(),
+                    m_rearRight.getPosition()
+            });
+
+    // Field visualization
+    private final Field2d field = new Field2d();
+
+    // Tunable Numbers
+    private final TunableNumber autoTranslationP = new TunableNumber("Drive/Auto", "Translation kP", 1.0);
+    private final TunableNumber autoRotationP = new TunableNumber("Drive/Auto", "Rotation kP", 1.0);
+
+    private final TunableNumber moduleDriveP = new TunableNumber("Drive/Module", "Drive kP", 0.04);
+    private final TunableNumber moduleTurnP = new TunableNumber("Drive/Module", "Turn kP", 1.0);
+
+    private final TunableNumber maxAccel = new TunableNumber("Drive/Limits", "Max Accel (mps2)", 3.0);
+    private final TunableNumber maxAngularAccelRad = new TunableNumber("Drive/Limits", "Max Angular Accel (radps2)",
+            12.0);
+
+    // Safety Layer Configuration
+    private static final double ROBOT_RADIUS = 0.6; // 70x65cm frame + 8cm bumpers
+    private static final double FIELD_LENGTH = 16.54;
+    private static final double FIELD_WIDTH = 8.21;
     private boolean safeDriveEnabled = true;
-    private double fieldLength = 16.54; // Fallback (Crescendo default)
-    private double fieldWidth = 8.21; // Fallback
-    private double kRobotRadius; // Constructor'da hesaplanacak
 
-    // --- ODOMETRY & KINEMATICS ---
-    private final SwerveDriveKinematics kinematics = DriveConstants.kDriveKinematics;
-    private final SwerveDrivePoseEstimator poseEstimator;
+    /** Creates a new DriveSubsystem. */
+    public DriveSubsystem() {
+        // Config PathPlanner
+        setupPathPlanner();
+
+        SmartDashboard.putData("Field", field);
+
+        // Reset Gyro on startup
+        m_gyro.reset();
+    }
 
     /**
-     * Constructor
+     * PathPlanner AutoBuilder konfigürasyonu.
      */
-    public DriveSubsystem(GyroIO gyroIO, ModuleIO fl, ModuleIO fr, ModuleIO bl, ModuleIO br) {
-        this.gyroIO = gyroIO;
-        this.moduleIOs[0] = fl;
-        this.moduleIOs[1] = fr;
-        this.moduleIOs[2] = bl;
-        this.moduleIOs[3] = br;
-
-        // Başlangıçta veri okumayı dene ki ilk pozisyon 0,0 olmasın (Encoderlar
-        // absolute ise)
-        for (int i = 0; i < 4; i++) {
-            moduleIOs[i].updateInputs(moduleInputs[i]);
-        }
-        gyroIO.updateInputs(gyroInputs);
-
-        // Odometry Başlangıç (0,0 noktası ve 0 derece açısı ile başlar)
-        poseEstimator = new SwerveDrivePoseEstimator(
-                kinematics,
-                Rotation2d.fromRadians(gyroInputs.yawPositionRad),
-                getModulePositions(),
-                new Pose2d());
-
-        // --- SAFETY LAYER INIT ---
-        // Robot Yarıçapı Hesapla (TrackWidth ve WheelBase'in hipotenüsünün yarısı +
-        // tampon payı)
-        kRobotRadius = Math.hypot(DriveConstants.kTrackWidthMeters, DriveConstants.kWheelBaseMeters) / 2.0 + 0.1;
-
-        // Saha Düzeni Yükle (2026/2024)
+    public void setupPathPlanner() {
         try {
-            // AprilTagFields.k2024Crescendo veya kDefaultField kullanıyoruz (2026 sim
-            // destekli)
-            AprilTagFieldLayout layout = AprilTagFieldLayout
-                    .loadFromResource(AprilTagFields.k2024Crescendo.m_resourceFile);
-            fieldLength = layout.getFieldLength();
-            fieldWidth = layout.getFieldWidth();
-            Logger.recordOutput("Drive/Safety/FieldLength", fieldLength);
-            Logger.recordOutput("Drive/Safety/FieldWidth", fieldWidth);
-        } catch (Exception e) {
-            DriverStation.reportError("Field Layout Yüklenemedi! Varsayılan değerler kullanılıyor.", false);
-        }
-
-        // Dashboard Toggle Oluştur (Varsayılan: True)
-        Preferences.initBoolean("SafeDriveEnabled", true);
-
-        edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.putData("Field", field);
-
-        // --- PATHPLANNER AUTO BUILDER (2025 API) ---
-        try {
-            // RobotConfig dosyadan yüklenir (pathplanner/settings/robot.json)
-            // PathPlanner AutoBuilder yapılandırması
             RobotConfig config = RobotConfig.fromGUISettings();
 
             AutoBuilder.configure(
-                    this::getPose, // Pose supplier
-                    this::resetOdometry, // Pose reset
-                    this::getChassisSpeeds, // Robot-relative speeds supplier
-                    (speeds, feedforwards) -> runVelocity(speeds), // Robot-relative output (feedforward ignore)
+                    this::getPose,
+                    this::resetOdometry,
+                    this::getRobotVelocity,
+                    this::driveRobotRelative,
                     new PPHolonomicDriveController(
-                            new PIDConstants(5.0, 0.0, 0.0), // Translation PID (agresif sim için)
-                            new PIDConstants(5.0, 0.0, 0.0) // Rotation PID (agresif sim için)
-                    ),
+                            new PIDConstants(autoTranslationP.get(), 0.0, 0.0),
+                            new PIDConstants(autoRotationP.get(), 0.0, 0.0)),
                     config,
-                    // Alliance'a göre yolu çevir (Red ise mirror)
                     () -> {
                         var alliance = DriverStation.getAlliance();
                         return alliance.isPresent() && alliance.get() == DriverStation.Alliance.Red;
                     },
                     this);
         } catch (Exception e) {
-            // RobotConfig yüklenemezse fallback oluştur
-            DriverStation.reportError(
-                    "PathPlanner RobotConfig dosyadan yüklenemedi, manuel config oluşturuluyor: " + e.getMessage(),
-                    false);
-
-            try {
-                // Manuel Config (Robota özel gerçek veriler)
-                // NOT: PathPlanner GUI'sında "0 Acceleration" hatası olduğundan,
-                // motor özelliklerini burada manuel olarak en doğru şekilde giriyoruz.
-                // NEO Vortex Gerçek Özellikleri:
-                // Stall Torque: 3.6 Nm, Stall Current: 211 A, Free Speed: 6784 RPM
-                DCMotor customMotor = new DCMotor(12.0, 3.6, 211.0, 3.6, 6784.0 / 60.0 * 2.0 * Math.PI, 1);
-
-                RobotConfig manualConfig = new RobotConfig(
-                        50.0, // Mass kg (Kullanıcının verisi)
-                        6.0, // MOI
-                        new com.pathplanner.lib.config.ModuleConfig(
-                                ModuleConstants.kWheelDiameterMeters / 2.0, // 3 inç yarıçap (0.0381m)
-                                4.5, // Max Speed
-                                1.2, // Wheel COF
-                                customMotor,
-                                60, // Current Limit (Kullanıcının verisi)
-                                1),
-                        // Modül offsetleri (0.57m x 0.57m kare şase için)
-                        // Center to module = 0.57 / 2 = 0.285
-                        new Translation2d(0.285, 0.285),
-                        new Translation2d(0.285, -0.285),
-                        new Translation2d(-0.285, 0.285),
-                        new Translation2d(-0.285, -0.285));
-
-                AutoBuilder.configure(
-                        this::getPose,
-                        this::resetOdometry,
-                        this::getChassisSpeeds,
-                        (speeds, feedforwards) -> runVelocity(speeds),
-                        new PPHolonomicDriveController(
-                                // PID Katsayıları: P, I, D
-                                // 1.0 az geldi, 3.0'a çıkarıldı.
-                                new PIDConstants(3.0, 0.0, 0.0), // Translation PID
-                                new PIDConstants(3.0, 0.0, 0.0) // Rotation PID
-                        ),
-                        manualConfig,
-                        () -> {
-                            var alliance = DriverStation.getAlliance();
-                            return alliance.isPresent() && alliance.get() == DriverStation.Alliance.Red;
-                        },
-                        this);
-            } catch (Exception ex) {
-                DriverStation.reportError("Manuel PathPlanner Config oluşturulamadı: " + ex.getMessage(),
-                        ex.getStackTrace());
-            }
+            DriverStation.reportError("Failed to load PathPlanner config: " + e.getMessage(), false);
         }
     }
 
-    // Field Visualization
-    private final edu.wpi.first.wpilibj.smartdashboard.Field2d field = new edu.wpi.first.wpilibj.smartdashboard.Field2d();
+    @Override
+    public void periodic() {
+        // Update the odometry in the periodic block
+        // Use getRotation2d() so it handles Simulation vs Real automatically
+        m_odometry.update(
+                getRotation2d(),
+                new SwerveModulePosition[] {
+                        m_frontLeft.getPosition(),
+                        m_frontRight.getPosition(),
+                        m_rearLeft.getPosition(),
+                        m_rearRight.getPosition()
+                });
 
-    /**
-     * Hedef pozisyonu sahada (Glass/SmartDashboard) gösterir.
-     * 
-     * @param target Hedef Pose
-     */
+        // Update field visualization
+        field.setRobotPose(getPose());
+
+        // Logging
+        Logger.recordOutput("Drive/Pose", getPose());
+        Logger.recordOutput("Drive/Gyro", getRotation2d());
+
+        // Module States
+        Logger.recordOutput("Drive/ModuleStates/FrontLeft", m_frontLeft.getState());
+        Logger.recordOutput("Drive/ModuleStates/FrontRight", m_frontRight.getState());
+        Logger.recordOutput("Drive/ModuleStates/RearLeft", m_rearLeft.getState());
+        Logger.recordOutput("Drive/ModuleStates/RearRight", m_rearRight.getState());
+
+        // Dynamic Updates
+        if (autoTranslationP.hasChanged() || autoRotationP.hasChanged()) {
+            setupPathPlanner();
+        }
+
+        if (moduleDriveP.hasChanged() || moduleTurnP.hasChanged()) {
+            double dP = moduleDriveP.get();
+            double tP = moduleTurnP.get();
+            m_frontLeft.updatePID(dP, tP);
+            m_frontRight.updatePID(dP, tP);
+            m_rearLeft.updatePID(dP, tP);
+            m_rearRight.updatePID(dP, tP);
+        }
+    }
+
     public void showTargetPose(Pose2d target) {
         field.getObject("Target").setPose(target);
     }
 
     /**
-     * Hedef pozisyon göstergesini temizler.
-     */
-    public void clearTargetPose() {
-        field.getObject("Target").setPoses(); // Boş liste ile temizle
-    }
-
-    @Override
-    public void periodic() {
-        // 1. VERİ OKUMA VE LOGLAMA (AdvantageKit)
-        gyroIO.updateInputs(gyroInputs);
-        Logger.processInputs("Drive/Gyro", gyroInputs);
-
-        for (int i = 0; i < 4; i++) {
-            moduleIOs[i].updateInputs(moduleInputs[i]);
-            Logger.processInputs("Drive/Module" + i, moduleInputs[i]);
-        }
-
-        // 2. ODOMETRY GÜNCELLEME (Robot Nerede?)
-        // Eğer Gyro bağlı değilse veya koptuysa, Odometry'yi sadece encoderlarla
-        // sürdürebiliriz
-        // ama Swerve için Gyro şarttır.
-        Rotation2d gyroAngle = Rotation2d.fromRadians(gyroInputs.yawPositionRad);
-
-        poseEstimator.update(gyroAngle, getModulePositions());
-        field.setRobotPose(getPose());
-
-        // 3. LOGLAMA (Görselleştirme)
-        // Robotun tahmini konumunu logla (AdvantageScope 3D sahasında görünür)
-        Logger.recordOutput("Odometry/Robot", getPose());
-
-        // Modüllerin gerçek durumunu logla
-        Logger.recordOutput("SwerveStates/Real", getModuleStates());
-
-        // --- SIMULATION PHYSICS UPDATE ---
-        if (frc.robot.constants.Constants.currentMode == frc.robot.constants.Constants.Mode.SIM) {
-            // Modüllerin o anki hız ve açılarından robotun hareketini hesapla
-            var moduleStates = getModuleStates();
-            var chassisSpeeds = kinematics.toChassisSpeeds(moduleStates);
-
-            // Gyro Simülasyonunu Güncelle (Robotun döndüğünü Gyro bilmeli)
-            // Bu sayede Odometry açısı güncellenir ve robot döner.
-            if (gyroIO instanceof GyroIOSim) {
-                ((GyroIOSim) gyroIO).setYawVelocity(chassisSpeeds.omegaRadiansPerSecond);
-            }
-        }
-    }
-
-    /**
-     * Robotu Sür (Teleop veya Otonom)
-     * 
-     * @param speeds İstenen X hızı, Y hızı ve Dönüş hızı
-     */
-    public void runVelocity(ChassisSpeeds speeds) {
-        // DEBUG: PathPlanner'dan gelen hızları logla
-        Logger.recordOutput("Drive/Debug/CommandedSpeeds/Vx", speeds.vxMetersPerSecond);
-        Logger.recordOutput("Drive/Debug/CommandedSpeeds/Vy", speeds.vyMetersPerSecond);
-        Logger.recordOutput("Drive/Debug/CommandedSpeeds/Omega", speeds.omegaRadiansPerSecond);
-
-        // Şase hızlarını modül durumlarına (State) çevir
-        ChassisSpeeds discreteSpeeds = ChassisSpeeds.discretize(speeds, 0.02);
-        SwerveModuleState[] setpointStates = kinematics.toSwerveModuleStates(discreteSpeeds);
-        SwerveDriveKinematics.desaturateWheelSpeeds(setpointStates, DriveConstants.kMaxSpeedMetersPerSecond);
-
-        // Modüllere emir gönder
-        setModuleStates(setpointStates);
-    }
-
-    /**
-     * Teleop sürüş metodu.
-     * 
-     * @param xSpeed        İleri/Geri hız (m/s)
-     * @param ySpeed        Sağ/Sol hız (m/s)
-     * @param rot           Dönüş hızı (rad/s)
-     * @param fieldRelative Saha merkezli mi?
-     * @param rateLimit     Hızlanma limiti uygulansın mı?
-     */
-    public void drive(double xSpeed, double ySpeed, double rot, boolean fieldRelative, boolean rateLimit) {
-        // --- SAFETY LAYER (SMART CLAMPING V2) ---
-        safeDriveEnabled = Preferences.getBoolean("SafeDriveEnabled", true);
-        Logger.recordOutput("Drive/Safety/Enabled", safeDriveEnabled);
-
-        // 1. Önce Hızları Analiz İçin Saha Merkezli (Field-Relative) Hale Getir
-        // Eğer sürücü zaten field relative sürüyorsa xSpeed sahanın X'i demektir.
-        // Eğer robot relative sürüyorsa, xSpeed robotun önüdür, sahada nereye denk
-        // geldiğini bulmalıyız.
-        ChassisSpeeds targetSpeeds;
-        if (fieldRelative) {
-            targetSpeeds = new ChassisSpeeds(xSpeed, ySpeed, rot);
-        } else {
-            targetSpeeds = new ChassisSpeeds(xSpeed, ySpeed, rot); // Geçici, aşağıda çevireceğiz
-            // Robot Relative hızları Saha Relative'e çevir ki sınırları kontrol edebilelim
-            Rotation2d robotHeading = getPose().getRotation();
-            // xSpeed (Forward), ySpeed (Left) -> Rotate by Heading -> Field X, Field Y
-            double c = robotHeading.getCos();
-            double s = robotHeading.getSin();
-            double fieldVx = xSpeed * c - ySpeed * s;
-            double fieldVy = xSpeed * s + ySpeed * c;
-            targetSpeeds = new ChassisSpeeds(fieldVx, fieldVy, rot);
-        }
-
-        // Güvenlik açık ise müdahale et
-        if (safeDriveEnabled) {
-            Pose2d currentPose = getPose();
-            double fieldVx = targetSpeeds.vxMetersPerSecond;
-            double fieldVy = targetSpeeds.vyMetersPerSecond;
-
-            // ---------------------------------------------------------
-            // A. DİNAMİK SAHA SINIRLARI (Field Boundaries)
-            // ---------------------------------------------------------
-            // X Ekseni Kontrolü
-            // Sol sınır (0)
-            if (currentPose.getX() < kRobotRadius && fieldVx < 0) {
-                fieldVx = 0;
-            }
-            // Sağ sınır (Length)
-            if (currentPose.getX() > (fieldLength - kRobotRadius) && fieldVx > 0) {
-                fieldVx = 0;
-            }
-
-            // Y Ekseni Kontrolü
-            // Alt sınır (0)
-            if (currentPose.getY() < kRobotRadius && fieldVy < 0) {
-                fieldVy = 0;
-            }
-            // Üst sınır (Width)
-            if (currentPose.getY() > (fieldWidth - kRobotRadius) && fieldVy > 0) {
-                fieldVy = 0;
-            }
-
-            // ---------------------------------------------------------
-            // B. YASAK BÖLGELER (Keep-Out Zones)
-            // ---------------------------------------------------------
-            for (Translation2d zoneCenter : FieldConstants.kKeepOutZones) {
-                double dist = currentPose.getTranslation().getDistance(zoneCenter);
-                // Güvenli yarıçap: Engel fiziksel boyutu (tahmini 0.5m) + Robot Yarıçapı
-                double safeZoneRadius = 0.5 + kRobotRadius;
-
-                if (dist < safeZoneRadius) {
-                    // Robot bölgeye çok yakın veya içinde!
-
-                    // Engelden robota doğru olan vektör (Kaçış vektörü)
-                    Translation2d vecRobotToZone = zoneCenter.minus(currentPose.getTranslation());
-
-                    // Hız vektörümüz engele doğru mu? (Dot Product > 0 ise engele gidiyoruz)
-                    // Hız vektörü: (fieldVx, fieldVy)
-                    // Zone vektörü: (dx, dy)
-                    double dotProduct = (fieldVx * vecRobotToZone.getX()) + (fieldVy * vecRobotToZone.getY());
-
-                    if (dotProduct > 0) {
-                        // Engele doğru gidiyoruz! Hız vektörünü durdur veya engeli teğet geçecek
-                        // şekilde yansıt.
-                        // Basitlik için: Engele doğru olan hareketi tamamen kesiyoruz.
-                        fieldVx = 0;
-                        fieldVy = 0;
-                        Logger.recordOutput("Drive/Safety/ObstacleIntervention", true);
-                    }
-                }
-            }
-
-            // Güvenli hızları geri ata
-            targetSpeeds = new ChassisSpeeds(fieldVx, fieldVy, rot);
-
-            // ---------------------------------------------------------
-            // C. KOORDİNAT SİSTEMİNİ GERİ ÇEVİR (Gerekirse)
-            // ---------------------------------------------------------
-            // Eğer kullanıcı robot-relative istemişse, ama biz field-relative üzerinde
-            // düzenleme yaptık.
-            // Şimdi bu 'güvenli' field hızlarını tekrar robot'un o anki açısına göre
-            // robot-relative'e çevirmeliyiz
-            // ki runVelocity veya sonraki adımlar doğru çalışsın.
-            // VEYA: runVelocity zaten Robot Relative istiyorsa, her halükarda Robot
-            // Relative dönmeliyiz.
-            // runVelocity metodu: setpointStates = kinematics.toSwerveModuleStates(speeds)
-            // kullanıyor.
-            // kinematics.toSwerveModuleStates her zaman ROBOT RELATIVE hız bekler!
-
-            // Dolayısıyla, elimizdeki targetSpeeds (Field Relative) şu an.
-            // Bunu Robot Relative'e çevirmemiz ŞART.
-            targetSpeeds = ChassisSpeeds.fromFieldRelativeSpeeds(targetSpeeds, getPose().getRotation());
-        } else {
-            // Güvenlik kapalıysa ve Field Relative isteniyorsa, Robot Relative'e çevirip
-            // gönderelim
-            // (runVelocity robot relative bekler)
-            if (fieldRelative) {
-                targetSpeeds = ChassisSpeeds.fromFieldRelativeSpeeds(targetSpeeds, getPose().getRotation());
-            }
-            // fieldRelative değilse zaten targetSpeeds (ilk atamada) robot relative idi.
-        }
-
-        runVelocity(targetSpeeds);
-    }
-
-    public void stop() {
-        SwerveModuleState[] states = new SwerveModuleState[] {
-                new SwerveModuleState(0, Rotation2d.fromDegrees(45)),
-                new SwerveModuleState(0, Rotation2d.fromDegrees(-45)),
-                new SwerveModuleState(0, Rotation2d.fromDegrees(-45)),
-                new SwerveModuleState(0, Rotation2d.fromDegrees(45))
-        };
-        setModuleStates(states);
-    }
-
-    private void setModuleStates(SwerveModuleState[] states) {
-        // Hedef durumu logla
-        Logger.recordOutput("Drive/Debug/SwerveStates/Setpoint", states);
-
-        for (int i = 0; i < 4; i++) {
-            SwerveModuleState optimizedState = SwerveModuleState.optimize(
-                    states[i],
-                    Rotation2d.fromRadians(moduleInputs[i].turnAbsolutePositionRad));
-
-            // 1. Dönüş (Turn) Kontrolü
-            moduleIOs[i].setTurnPosition(optimizedState.angle.getRadians());
-
-            // 2. Sürüş (Drive) Kontrolü - FeedForward (Open Loop)
-            double volts = 0.0;
-            // Daha hassas kontrol için deadband daha da düşürüldü
-            if (Math.abs(optimizedState.speedMetersPerSecond) > 0.0001) {
-                volts = (optimizedState.speedMetersPerSecond / DriveConstants.kMaxSpeedMetersPerSecond) * 12.0;
-            }
-
-            moduleIOs[i].setDriveVoltage(volts);
-
-            // DEBUG: Her modül için hesaplanan voltajı logla
-            Logger.recordOutput("Drive/Debug/Module" + i + "/TargetSpeed", optimizedState.speedMetersPerSecond);
-            Logger.recordOutput("Drive/Debug/Module" + i + "/AppliedVolts", volts);
-        }
-    }
-
-    /**
-     * Vision Subsystem'den gelen veriyi Odometry'ye ekler.
-     * Bu metod sayesinde robot zamanla kayan konumunu kamera ile düzeltir.
-     * 
-     * @param visionPose Kameradan gelen tahmini pozisyon
-     * @param timestamp  Görüntünün alındığı zaman
-     */
-    public void addVisionMeasurement(Pose2d visionPose, double timestamp) {
-        // Saha dışı kontrolü
-        if (visionPose.getX() < 0 || visionPose.getX() > 17 ||
-                visionPose.getY() < 0 || visionPose.getY() > 9) {
-            return; // Saçma veri, ekleme
-        }
-
-        // Standart sapma ile ekle (titreme önleme)
-        // Değerler: x (metre), y (metre), rotation (radyan)
-        // Daha yüksek değer = daha az güven = daha az titreme
-        poseEstimator.addVisionMeasurement(
-                visionPose,
-                timestamp,
-                edu.wpi.first.math.VecBuilder.fill(0.5, 0.5, 0.5) // Standart sapma değerleri
-        );
-    }
-
-    /**
-     * Vision Subsystem'den gelen veriyi mesafe bazlı güvenle Odometry'ye ekler.
-     * Yakın tag = yüksek güven, uzak tag = düşük güven.
-     * 
-     * @param visionPose     Kameradan gelen tahmini pozisyon
-     * @param timestamp      Görüntünün alındığı zaman
-     * @param avgTagDistance Tag'lere ortalama mesafe (metre)
-     */
-    public void addVisionMeasurement(Pose2d visionPose, double timestamp, double avgTagDistance) {
-        // Saha dışı kontrolü
-        if (visionPose.getX() < 0 || visionPose.getX() > 17 ||
-                visionPose.getY() < 0 || visionPose.getY() > 9) {
-            return; // Saçma veri, ekleme
-        }
-
-        // Mesafeye göre standart sapma hesapla
-        // Yakın (0.5m) = 0.1 std dev (yüksek güven)
-        // Uzak (4m) = 0.9 std dev (düşük güven)
-        double baseStdDev = 0.1;
-        double distanceMultiplier = avgTagDistance * 0.2; // Her metre için 0.2 ekle
-        double stdDev = Math.min(baseStdDev + distanceMultiplier, 1.0); // Max 1.0
-
-        poseEstimator.addVisionMeasurement(
-                visionPose,
-                timestamp,
-                edu.wpi.first.math.VecBuilder.fill(stdDev, stdDev, stdDev * 2) // Açı için 2x
-        );
-    }
-
-    /**
-     * Anlık Robot Konumunu Döndürür (Field Relative)
+     * Returns the currently-estimated pose of the robot.
+     *
+     * @return The pose.
      */
     public Pose2d getPose() {
-        return poseEstimator.getEstimatedPosition();
+        return m_odometry.getPoseMeters();
     }
 
     /**
-     * Gyro'yu sıfırlar (Saha Merkezli Sürüşü Resetler)
-     */
-    public void zeroHeading() {
-        gyroIO.zeroHeading();
-        // Odometry'yi sıfırlarken mevcut pozisyonu koruyup sadece açıyı sıfırlamak
-        // istersek:
-        Pose2d currentPose = getPose();
-        Pose2d newPose = new Pose2d(currentPose.getX(), currentPose.getY(), new Rotation2d());
-        resetOdometry(newPose);
-    }
-
-    /**
-     * Odometry'yi belirli bir konuma ışınlar (Otonom başlangıcı için)
+     * Resets the odometry to the specified pose.
+     *
+     * @param pose The pose to which to set the odometry.
      */
     public void resetOdometry(Pose2d pose) {
-        poseEstimator.resetPosition(
-                Rotation2d.fromRadians(gyroInputs.yawPositionRad),
-                getModulePositions(),
+        m_gyro.reset(); // Reset gyro to match pose? No, just reset odometry offset.
+        m_simRotation = pose.getRotation(); // Reset sim rotation too
+
+        m_odometry.resetPosition(
+                getRotation2d(),
+                new SwerveModulePosition[] {
+                        m_frontLeft.getPosition(),
+                        m_frontRight.getPosition(),
+                        m_rearLeft.getPosition(),
+                        m_rearRight.getPosition()
+                },
                 pose);
     }
 
     /**
-     * Modül Pozisyonlarını (Metre ve Açı) Okur
+     * Method to drive the robot using joystick info.
+     *
+     * @param xSpeed        Speed of the robot in the x direction (forward).
+     * @param ySpeed        Speed of the robot in the y direction (sideways).
+     * @param rot           Angular rate of the robot.
+     * @param fieldRelative Whether the provided x and y speeds are relative to the
+     *                      field.
      */
-    private SwerveModulePosition[] getModulePositions() {
-        SwerveModulePosition[] positions = new SwerveModulePosition[4];
-        for (int i = 0; i < 4; i++) {
-            positions[i] = new SwerveModulePosition(
-                    // Dişli oranı hesaba katılmalı: Motor Rad / Reduction * Radius = Metre
-                    (moduleInputs[i].drivePositionRad / ModuleConstants.kDrivingMotorReduction)
-                            * (ModuleConstants.kWheelDiameterMeters / 2.0),
-                    Rotation2d.fromRadians(moduleInputs[i].turnAbsolutePositionRad));
+    public void drive(double xSpeed, double ySpeed, double rot, boolean fieldRelative) {
+        drive(new Translation2d(xSpeed, ySpeed), rot, fieldRelative);
+    }
+
+    public void drive(Translation2d translation, double rotationZ, boolean fieldRelative) {
+        ChassisSpeeds targetSpeeds;
+        if (fieldRelative) {
+            targetSpeeds = ChassisSpeeds.fromFieldRelativeSpeeds(
+                    translation.getX(),
+                    translation.getY(),
+                    rotationZ,
+                    getRotation2d()); // uses odometry rotation
+        } else {
+            targetSpeeds = new ChassisSpeeds(translation.getX(), translation.getY(), rotationZ);
         }
-        return positions;
+
+        // Safety Layer
+        if (safeDriveEnabled) {
+            targetSpeeds = applySafetyLayer(targetSpeeds, fieldRelative);
+        }
+
+        driveRobotRelative(targetSpeeds);
+    }
+
+    public void driveRobotRelative(ChassisSpeeds speeds) {
+        // Convert ChassisSpeeds to ModuleStates
+        SwerveModuleState[] swerveModuleStates = DriveConstants.kDriveKinematics.toSwerveModuleStates(speeds);
+        SwerveDriveKinematics.desaturateWheelSpeeds(swerveModuleStates, DriveConstants.kMaxSpeedMetersPerSecond);
+
+        m_frontLeft.setDesiredState(swerveModuleStates[0]);
+        m_frontRight.setDesiredState(swerveModuleStates[1]);
+        m_rearLeft.setDesiredState(swerveModuleStates[2]);
+        m_rearRight.setDesiredState(swerveModuleStates[3]);
+    }
+
+    // Compatibility: runVelocity was an alias for driveRobotRelative
+    public void runVelocity(ChassisSpeeds speeds) {
+        driveRobotRelative(speeds);
+    }
+
+    // Compatibility: 5-arg drive for AutoClimbCommand (vX, vY, rot, fieldRelative,
+    // rateLimit)
+    public void drive(double xSpeed, double ySpeed, double rot, boolean fieldRelative, boolean rateLimit) {
+        // Ignoring rateLimit boolean for now or use driveManual if true?
+        if (rateLimit) {
+            driveManual(xSpeed, ySpeed, rot, fieldRelative);
+        } else {
+            drive(xSpeed, ySpeed, rot, fieldRelative);
+        }
     }
 
     /**
-     * Modül Durumlarını (Hız ve Açı) Okur
+     * Legacy Manual Drive with Rate Limiting
      */
-    private SwerveModuleState[] getModuleStates() {
-        SwerveModuleState[] states = new SwerveModuleState[4];
-        for (int i = 0; i < 4; i++) {
-            states[i] = new SwerveModuleState(
-                    // Dişli oranı hesaba katılmalı: Motor Rad/s / Reduction * Radius = m/s
-                    (moduleInputs[i].driveVelocityRadPerSec / ModuleConstants.kDrivingMotorReduction)
-                            * (ModuleConstants.kWheelDiameterMeters / 2.0),
-                    Rotation2d.fromRadians(moduleInputs[i].turnAbsolutePositionRad));
+    private double m_prevTime = edu.wpi.first.util.WPIUtilJNI.now() * 1e-6;
+    private ChassisSpeeds m_lastSpeeds = new ChassisSpeeds();
+
+    public void driveManual(double xSpeed, double ySpeed, double rot, boolean fieldRelative) {
+        // 1. Calculate Desired ChassisSpeeds
+        ChassisSpeeds desiredSpeeds;
+        if (fieldRelative) {
+            desiredSpeeds = ChassisSpeeds.fromFieldRelativeSpeeds(xSpeed, ySpeed, rot, getRotation2d());
+        } else {
+            desiredSpeeds = new ChassisSpeeds(xSpeed, ySpeed, rot);
         }
-        return states;
+
+        // 2. Limit Rates (Acceleration Control)
+        ChassisSpeeds limitedSpeeds = limitRates(desiredSpeeds);
+
+        // 3. Drive
+        driveRobotRelative(limitedSpeeds);
+    }
+
+    public ChassisSpeeds limitRates(ChassisSpeeds commandedSpeeds) {
+        double currentMaxAccel = maxAccel.get();
+        double currentMaxAngularAccelRad = maxAngularAccelRad.get();
+
+        double currentTime = edu.wpi.first.util.WPIUtilJNI.now() * 1e-6;
+        double dt = currentTime - m_prevTime;
+
+        double accelerationDif = currentMaxAccel * dt;
+        double xSpeed = MathUtil.clamp(commandedSpeeds.vxMetersPerSecond,
+                m_lastSpeeds.vxMetersPerSecond - accelerationDif,
+                m_lastSpeeds.vxMetersPerSecond + accelerationDif);
+
+        double ySpeed = MathUtil.clamp(commandedSpeeds.vyMetersPerSecond,
+                m_lastSpeeds.vyMetersPerSecond - accelerationDif,
+                m_lastSpeeds.vyMetersPerSecond + accelerationDif);
+
+        double thetaAccelDif = currentMaxAngularAccelRad * dt;
+        double thetaSpeed = MathUtil.clamp(commandedSpeeds.omegaRadiansPerSecond,
+                m_lastSpeeds.omegaRadiansPerSecond - thetaAccelDif,
+                m_lastSpeeds.omegaRadiansPerSecond + thetaAccelDif);
+
+        ChassisSpeeds limitedSpeeds = new ChassisSpeeds(xSpeed, ySpeed, thetaSpeed);
+        m_lastSpeeds = limitedSpeeds;
+        m_prevTime = currentTime;
+
+        return limitedSpeeds;
+    }
+
+    /**
+     * Sets the wheels into an X configuration to prevent movement.
+     */
+    public void stop() {
+        m_frontLeft.setDesiredState(new SwerveModuleState(0, Rotation2d.fromDegrees(45)));
+        m_frontRight.setDesiredState(new SwerveModuleState(0, Rotation2d.fromDegrees(-45)));
+        m_rearLeft.setDesiredState(new SwerveModuleState(0, Rotation2d.fromDegrees(-45)));
+        m_rearRight.setDesiredState(new SwerveModuleState(0, Rotation2d.fromDegrees(45)));
+    }
+
+    public ChassisSpeeds getRobotVelocity() {
+        // Compute robot velocity from module states
+        return DriveConstants.kDriveKinematics.toChassisSpeeds(
+                m_frontLeft.getState(),
+                m_frontRight.getState(),
+                m_rearLeft.getState(),
+                m_rearRight.getState());
+    }
+
+    public ChassisSpeeds getFieldVelocity() {
+        // Robot velocity rotated by heading
+        return ChassisSpeeds.fromRobotRelativeSpeeds(getRobotVelocity(), getRotation2d());
+    }
+
+    public Rotation2d getRotation2d() {
+        if (edu.wpi.first.wpilibj.RobotBase.isSimulation()) {
+            return m_simRotation;
+        }
+        return Rotation2d.fromDegrees(-m_gyro.getAngle());
+    }
+
+    // Compatibility for VisionSubsystem
+    public double getGyroVelocityRadPerSec() {
+        return Math.toRadians(m_gyro.getRate());
+    }
+
+    // Compatibility for VisionSubsystem
+    public void addVisionMeasurement(Pose2d pose, double timestamp,
+            edu.wpi.first.math.Matrix<edu.wpi.first.math.numbers.N3, edu.wpi.first.math.numbers.N1> stdDevs) {
+        // SwerveDriveOdometry does not imply addVisionMeasurement by default
+        // (PoseEstimator does).
+        Logger.recordOutput("Drive/VisionFusionIgnored", pose);
+    }
+
+    public void addVisionMeasurement(Pose2d pose, double timestamp) {
+        addVisionMeasurement(pose, timestamp, null);
+    }
+
+    // ===========================================================================
+    // SAFETY LAYER
+    // ===========================================================================
+    private ChassisSpeeds applySafetyLayer(ChassisSpeeds speeds, boolean fieldRelative) {
+        Pose2d currentPose = getPose();
+        ChassisSpeeds fieldSpeeds = fieldRelative ? speeds
+                : ChassisSpeeds.fromRobotRelativeSpeeds(speeds, getRotation2d());
+
+        double fieldVx = fieldSpeeds.vxMetersPerSecond;
+        double fieldVy = fieldSpeeds.vyMetersPerSecond;
+
+        // X Axis boundary
+        if (currentPose.getX() < ROBOT_RADIUS && fieldVx < 0)
+            fieldVx = 0;
+        if (currentPose.getX() > (FIELD_LENGTH - ROBOT_RADIUS) && fieldVx > 0)
+            fieldVx = 0;
+
+        // Y Axis boundary
+        if (currentPose.getY() < ROBOT_RADIUS && fieldVy < 0)
+            fieldVy = 0;
+        if (currentPose.getY() > (FIELD_WIDTH - ROBOT_RADIUS) && fieldVy > 0)
+            fieldVy = 0;
+
+        // Keep-Out Zones
+        for (Translation2d zoneCenter : FieldConstants.kKeepOutZones) {
+            double dist = currentPose.getTranslation().getDistance(zoneCenter);
+            double safeZoneRadius = 0.5 + ROBOT_RADIUS;
+
+            if (dist < safeZoneRadius) {
+                Translation2d vecToZone = zoneCenter.minus(currentPose.getTranslation());
+                double dotProduct = (fieldVx * vecToZone.getX()) + (fieldVy * vecToZone.getY());
+                if (dotProduct > 0) {
+                    fieldVx = 0;
+                    fieldVy = 0;
+                }
+            }
+        }
+        ChassisSpeeds safeSpeeds = new ChassisSpeeds(fieldVx, fieldVy, speeds.omegaRadiansPerSecond);
+        return fieldRelative ? safeSpeeds : ChassisSpeeds.fromFieldRelativeSpeeds(safeSpeeds, getRotation2d());
     }
 
     @Override
     public void simulationPeriodic() {
-        // Gyro Simülasyonu: Kinematik modelden açısal hızı alıp Gyro'ya ver
-        // Bu sayede robot simülasyonda kendi ekseni etrafında dönebilir.
-        ChassisSpeeds speeds = kinematics.toChassisSpeeds(getModuleStates());
-        gyroIO.setYawVelocity(speeds.omegaRadiansPerSecond);
-    }
+        // Kinematic Simulation
+        double dt = 0.02;
+        ChassisSpeeds speeds = getRobotVelocity(); // From module states
 
-    /**
-     * Robotun o anki hızını ChassisSpeeds olarak döndürür.
-     * PathPlanner için gerekli.
-     */
-    public ChassisSpeeds getChassisSpeeds() {
-        return kinematics.toChassisSpeeds(getModuleStates());
-    }
+        // Update Sim Rotation (Integrate angular velocity)
+        m_simRotation = m_simRotation.plus(Rotation2d.fromRadians(speeds.omegaRadiansPerSecond * dt));
 
-    public double getPitch() {
-        return gyroInputs.pitchDegrees;
-    }
+        // Update Module Simulation
+        m_frontLeft.simulationPeriodic(dt);
+        m_frontRight.simulationPeriodic(dt);
+        m_rearLeft.simulationPeriodic(dt);
+        m_rearRight.simulationPeriodic(dt);
 
-    public double getRoll() {
-        return gyroInputs.rollDegrees;
-    }
-
-    /**
-     * Gyro açısal hızını döndürür (rad/s).
-     * Vision MegaTag 2 senkronizasyonu için gereklidir.
-     */
-    public double getGyroVelocityRadPerSec() {
-        return gyroInputs.yawVelocityRadPerSec;
-    }
-
-    /**
-     * Vision Subsystem'den gelen veriyi dinamik standart sapma (Trust Matrix) ile
-     * ekler.
-     * 
-     * @param visionPose Kameradan gelen tahmini pozisyon
-     * @param timestamp  Görüntünün alındığı zaman (Latency hesaplanmış)
-     * @param stdDevs    Güvenilirlik matrisi (x, y, theta)
-     */
-    public void addVisionMeasurement(edu.wpi.first.math.geometry.Pose2d visionPose, double timestamp,
-            edu.wpi.first.math.Matrix<edu.wpi.first.math.numbers.N3, edu.wpi.first.math.numbers.N1> stdDevs) {
-        poseEstimator.addVisionMeasurement(visionPose, timestamp, stdDevs);
-    }
-
-    public edu.wpi.first.math.geometry.Rotation2d getRotation2d() {
-        return getPose().getRotation();
+        // Sim Gyro Device update (optional, usually unrelated to logic if we use
+        // m_simRotation)
+        int dev = edu.wpi.first.hal.SimDeviceJNI.createSimDevice("navX-Sensor[0]");
     }
 }

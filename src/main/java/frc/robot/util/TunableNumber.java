@@ -1,10 +1,9 @@
 package frc.robot.util;
 
-import edu.wpi.first.networktables.GenericEntry;
+import edu.wpi.first.networktables.DoubleEntry;
+import edu.wpi.first.networktables.NetworkTable;
+import edu.wpi.first.networktables.NetworkTableInstance;
 import edu.wpi.first.wpilibj.Preferences;
-import edu.wpi.first.wpilibj.shuffleboard.BuiltInWidgets;
-import edu.wpi.first.wpilibj.shuffleboard.Shuffleboard;
-import edu.wpi.first.wpilibj.shuffleboard.ShuffleboardTab;
 import frc.robot.constants.Constants;
 
 /**
@@ -13,80 +12,81 @@ import frc.robot.constants.Constants;
  * 
  * <h2>Özellikler:</h2>
  * <ul>
- * <li>Shuffleboard üzerinden değiştirilebilir</li>
+ * <li>Doğrudan NetworkTables üzerinden okunabilir/yazılabilir (Elastic,
+ * Shuffleboard, Glass ile uyumlu)</li>
  * <li>Değerler RoboRIO flash belleğinde saklanır (Preferences API)</li>
  * <li>Robot kapatılsa bile değerler korunur</li>
  * <li>PID tuning için idealdir</li>
  * </ul>
  * 
+ * <h2>Dashboard Erişimi:</h2>
+ * <p>
+ * Değerler <code>/Tuning/[tabName]/[key]</code> altında yayınlanır.
+ * </p>
+ * 
  * <h2>Kullanım:</h2>
  * 
  * <pre>
- * TunableNumber kP = new TunableNumber("Shooter", "Turret P", 0.1);
- * // Shuffleboard'dan değiştir, kalıcı olarak kaydedilir
- * double p = kP.get();
+ * TunableNumber kP = new TunableNumber("Shooter", "Turret kP", 0.1);
+ * double p = kP.get(); // Dashboard'dan veya Preferences'tan değer okur
  * </pre>
  */
 public class TunableNumber {
+    private static final NetworkTable tuningTable = NetworkTableInstance.getDefault().getTable("Tuning");
+
     private final String key;
-    private final String fullKey; // Preferences için benzersiz key
+    private final String fullKey;
     private final double defaultValue;
-    private GenericEntry entry;
+    private final DoubleEntry ntEntry;
     private double lastValue;
 
     /**
-     * @param tabName      Shuffleboard tab adı
-     * @param key          Değişken adı
+     * @param tabName      Grup adı (örn: "Shooter", "Drive")
+     * @param key          Değişken adı (örn: "Turret kP")
      * @param defaultValue Varsayılan değer (Preferences'ta yoksa kullanılır)
      */
     public TunableNumber(String tabName, String key, double defaultValue) {
         this.key = key;
-        this.fullKey = tabName + "/" + key; // Benzersiz key oluştur
+        this.fullKey = tabName + "/" + key;
         this.defaultValue = defaultValue;
 
         // Preferences'tan değer oku (varsa), yoksa default kullan
         double storedValue = Preferences.getDouble(fullKey, defaultValue);
         this.lastValue = storedValue;
 
-        // Tuning mode açıkken dashboard'a ekle
-        if (Constants.tuningMode) {
-            ShuffleboardTab tab = Shuffleboard.getTab(tabName);
-            entry = tab.add(key, storedValue)
-                    .withWidget(BuiltInWidgets.kTextView)
-                    .getEntry();
-        }
+        // NetworkTables'a entry oluştur
+        NetworkTable subTable = tuningTable.getSubTable(tabName);
+        ntEntry = subTable.getDoubleTopic(key).getEntry(storedValue);
+
+        // Her zaman NetworkTables'a yayınla (tuningMode kontrolü kaldırıldı)
+        ntEntry.set(storedValue);
     }
 
     /**
      * Mevcut değeri döndürür.
-     * Tuning mode kapalıysa Preferences'tan (kalıcı) değeri okur.
+     * Dashboard'dan değer değiştiyse günceller ve Preferences'a kaydeder.
      */
     public double get() {
-        if (Constants.tuningMode && entry != null) {
-            double current = entry.getDouble(lastValue);
-            // Preferences'a kaydet (kalıcı)
-            if (current != lastValue) {
-                Preferences.setDouble(fullKey, current);
-                lastValue = current;
-            }
-            return current;
+        double current = ntEntry.get(lastValue);
+
+        // Değer değiştiyse Preferences'a kaydet
+        if (current != lastValue) {
+            Preferences.setDouble(fullKey, current);
+            lastValue = current;
         }
-        // Tuning mode kapalıysa Preferences'tan oku
-        return Preferences.getDouble(fullKey, defaultValue);
+
+        return current;
     }
 
     /**
      * Değer değişti mi kontrolü (motor güncelleme için).
      */
     public boolean hasChanged() {
-        if (Constants.tuningMode && entry != null) {
-            double current = entry.getDouble(lastValue);
-            if (current != lastValue) {
-                // Preferences'a kaydet
-                Preferences.setDouble(fullKey, current);
-                lastValue = current;
-                return true;
-            }
+        double current = ntEntry.get(lastValue);
+        if (current != lastValue) {
+            Preferences.setDouble(fullKey, current);
+            lastValue = current;
+            return true;
         }
         return false;
     }
@@ -99,27 +99,32 @@ public class TunableNumber {
     }
 
     /**
-     * Değeri manuel olarak ayarla ve Preferences'a kaydet.
+     * Değeri manuel olarak ayarla ve hem NT hem Preferences'a kaydet.
      */
     public void set(double value) {
         lastValue = value;
         Preferences.setDouble(fullKey, value);
-        if (Constants.tuningMode && entry != null) {
-            entry.setDouble(value);
-        }
+        ntEntry.set(value);
     }
 
     /**
-     * Preferences'taki değeri sıfırla (default'a döndür).
+     * Değeri varsayılana sıfırla.
      */
     public void reset() {
         set(defaultValue);
     }
 
     /**
-     * Preferences key'ini döndürür (debug için).
+     * NetworkTables key'ini döndürür.
      */
     public String getKey() {
         return fullKey;
+    }
+
+    /**
+     * NetworkTables'taki tam yolu döndürür.
+     */
+    public String getNTPath() {
+        return "/Tuning/" + fullKey;
     }
 }

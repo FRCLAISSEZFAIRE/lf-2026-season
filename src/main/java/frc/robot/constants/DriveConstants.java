@@ -1,55 +1,18 @@
 package frc.robot.constants;
 
-import java.io.File;
-import java.io.IOException;
-
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.kinematics.SwerveDriveKinematics;
-import edu.wpi.first.wpilibj.Filesystem;
+import edu.wpi.first.math.util.Units;
 
 public final class DriveConstants {
+    // Physical Constants
+    public static final double kTrackWidth = Units.metersToInches(0.55); // 0.55m -> ~21.65 inch
+    public static final double kWheelBase = Units.metersToInches(0.58); // 0.58m -> ~22.8 inch
 
-    // --- PathPlanner Config Loader ---
-    private static final JsonNode configJson = loadConfig();
+    // Derived for Kinematics (Meters)
+    public static final double kTrackWidthMeters = Units.inchesToMeters(21.65);
+    public static final double kWheelBaseMeters = Units.inchesToMeters(22.83);
 
-    private static JsonNode loadConfig() {
-        try {
-            File configFile = new File(Filesystem.getDeployDirectory(), "pathplanner/settings.json");
-            return new ObjectMapper().readTree(configFile);
-        } catch (IOException e) {
-            e.printStackTrace();
-            throw new RuntimeException("Could not load PathPlanner settings.json from deploy directory!", e);
-        }
-    }
-
-    // Motor ID'ler -> RobotMap'ten alınıyor
-    public static final int kFrontLeftDriveID = RobotMap.kFrontLeftDriveID;
-    public static final int kFrontLeftTurnID = RobotMap.kFrontLeftTurnID;
-    public static final int kFrontRightDriveID = RobotMap.kFrontRightDriveID;
-    public static final int kFrontRightTurnID = RobotMap.kFrontRightTurnID;
-    public static final int kRearLeftDriveID = RobotMap.kRearLeftDriveID;
-    public static final int kRearLeftTurnID = RobotMap.kRearLeftTurnID;
-    public static final int kRearRightDriveID = RobotMap.kRearRightDriveID;
-    public static final int kRearRightTurnID = RobotMap.kRearRightTurnID;
-
-    // Encoder Offsets (Radyan)
-    public static final double kFrontLeftOffsetRad = 0.0;
-    public static final double kFrontRightOffsetRad = 0.0;
-    public static final double kRearLeftOffsetRad = 0.0;
-    public static final double kRearRightOffsetRad = 0.0;
-
-    // Kinematik - JSON'dan çekiliyor
-    public static final double kTrackWidthMeters = configJson.path("robotTrackwidth").asDouble();
-    // PathPlanner "robotLength" genelde bumper dahil uzunluktur. Swerve kinematik için
-    // module offsetlerini kullanmak daha doğrudur.
-    // Eğer kare ise TrackWidth kullanılabilir veya FL modül X konumundan çekilebilir.
-    public static final double kWheelBaseMeters = configJson.path("flModuleX").asDouble() * 2.0; 
-    public static final double kWheelDiameterMeters = configJson.path("driveWheelRadius").asDouble() * 2.0;
-
-    // Swerve Kinematics
     public static final SwerveDriveKinematics kDriveKinematics = new SwerveDriveKinematics(
             new Translation2d(kWheelBaseMeters / 2, kTrackWidthMeters / 2), // FL
             new Translation2d(kWheelBaseMeters / 2, -kTrackWidthMeters / 2), // FR
@@ -57,25 +20,51 @@ public final class DriveConstants {
             new Translation2d(-kWheelBaseMeters / 2, -kTrackWidthMeters / 2) // BR
     );
 
-    // Hız Limitleri - JSON'dan çekiliyor
-    public static final double kMaxSpeedMetersPerSecond = configJson.path("maxDriveSpeed").asDouble();
-    // Açısal hız genelde JSON'da derece/saniye olabilir, kontrol edelim.
-    // settings.json: "defaultMaxAngVel": 360.0 (deg/s) ? Yoksa maxAngularVelocity alanı var mı?
-    // settings.json içinde "defaultMaxAngVel" var ama bu PathPlanner'ın constraint'i.
-    // Fiziksel limit genellikle robotun max hızı / yarıçap ile ilgilidir.
-    // Şimdilik eski değeri koruyalım veya hesaplayalım:
-    public static final double kMaxAngularSpeedRadPerSec = Math.PI * 2; 
+    // Motor IDs (Fetched from RobotMap for consistency)
+    public static final int kFrontLeftDrivingCanId = RobotMap.kFrontLeftDriveID;
+    public static final int kFrontLeftTurningCanId = RobotMap.kFrontLeftTurnID;
+    public static final int kFrontRightDrivingCanId = RobotMap.kFrontRightDriveID;
+    public static final int kFrontRightTurningCanId = RobotMap.kFrontRightTurnID;
+    public static final int kRearLeftDrivingCanId = RobotMap.kRearLeftDriveID;
+    public static final int kRearLeftTurningCanId = RobotMap.kRearLeftTurnID;
+    public static final int kRearRightDrivingCanId = RobotMap.kRearRightDriveID;
+    public static final int kRearRightTurningCanId = RobotMap.kRearRightTurnID;
 
-    // Sürüş PID (Basit)
+    // Angular Offsets (Radians) - Using the fixed values (90, 0, 180, -90)
+    public static final double kFrontLeftChassisAngularOffset = Math.PI / 2; // 90 deg
+    public static final double kFrontRightChassisAngularOffset = 0; // 0 deg
+    public static final double kRearLeftChassisAngularOffset = Math.PI; // 180 deg
+    public static final double kRearRightChassisAngularOffset = -Math.PI / 2; // -90 deg
+
+    // Speed Limits
+    public static final double kMaxSpeedMetersPerSecond = 4.8;
+    public static final double kMaxAngularSpeed = 2 * Math.PI; // radians per second
+
+    // Legacy Compatibility (renaming for existing code)
+    public static final double kMaxAngularSpeedRadPerSec = kMaxAngularSpeed;
+
+    public static final boolean kGyroReversed = false;
+
+    // PID Constants (Module PID - defined in Configs.java, these are legacy or
+    // unused but kept for compatibility if needed)
+    public static final double kDrivingP = 0.04;
+    public static final double kDrivingI = 0;
+    public static final double kDrivingD = 0;
+    public static final double kDrivingFF = 1 / kMaxSpeedMetersPerSecond;
+
+    // Turning PID (Module PID - defined in Configs.java)
+    public static final double kTurningP = 1;
+    public static final double kTurningI = 0;
+    public static final double kTurningD = 0;
+
+    // Drive PID (For DriveWithAiming / PathPlanner)
     public static final double kDriveP = 0.1;
     public static final double kDriveI = 0.0;
     public static final double kDriveD = 0.0;
 
-    // Dönüş PID
-    public static final double kTurnP = 5.0;
+    public static final double kTurnP = 5.0; // Keeping this for DriveWithAiming
     public static final double kTurnI = 0.0;
     public static final double kTurnD = 0.0;
 
-    // Gyro
-    public static final boolean kGyroReversed = false;
+    public static final double kDriveDeadband = 0.05;
 }

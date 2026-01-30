@@ -1,97 +1,181 @@
 package frc.robot.subsystems.feeder;
 
+import com.revrobotics.spark.SparkBase.ControlType;
+import com.revrobotics.spark.SparkBase.PersistMode;
+import com.revrobotics.spark.SparkBase.ResetMode;
+import com.revrobotics.spark.SparkMax;
+import com.revrobotics.spark.SparkLowLevel.MotorType;
+import com.revrobotics.spark.config.SparkMaxConfig;
+import com.revrobotics.spark.config.SparkBaseConfig.IdleMode;
+
+import edu.wpi.first.wpilibj.DigitalInput;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
-import org.littletonrobotics.junction.Logger;
+
+import frc.robot.constants.FeederConstants;
+import frc.robot.constants.RobotMap;
 import frc.robot.util.TunableNumber;
 
+import org.littletonrobotics.junction.Logger;
+
 /**
- * Besleyici alt sistemi.
- * Intake'ten alınan oyun parçalarını Shooter'a transfer eder.
+ * REVLib 2026 tabanlı Feeder alt sistemi.
+ * setSetpoint velocity control kullanır.
  * 
- * TunableNumber ile runtime'da ayarlanabilen parametreler.
+ * <h2>Özellikler:</h2>
+ * <ul>
+ * <li>NEO motor + REVLib Onboard Velocity PID</li>
+ * <li>MZ-80 yakıt sensörleri</li>
+ * <li>Intake → Shooter arası transfer</li>
+ * </ul>
  */
 public class FeederSubsystem extends SubsystemBase {
 
-    private final FeederIO io;
-    private final FeederIOInputsAutoLogged inputs = new FeederIOInputsAutoLogged();
+    // =====================================================================
+    // MOTOR CONTROLLER
+    // =====================================================================
+    private final SparkMax feederMotor;
 
-    // ===========================================================================
-    // TUNABLE PARAMETERS - Kalıcı olarak kaydedilir
-    // ===========================================================================
-    private final TunableNumber tunableFeedVoltage;
-    private final TunableNumber tunableReverseVoltage;
+    // =====================================================================
+    // SENSORS
+    // =====================================================================
+    private final DigitalInput fuelSensorBottom;
+    private final DigitalInput fuelSensorTop;
 
-    public FeederSubsystem(FeederIO io) {
-        this.io = io;
+    // =====================================================================
+    // STATE
+    // =====================================================================
+    private double targetRPM = 0;
+    private boolean isLoading = false;
 
-        // TunableNumber oluştur
-        tunableFeedVoltage = new TunableNumber("Feeder", "Feed Voltage", 8.0);
-        tunableReverseVoltage = new TunableNumber("Feeder", "Reverse Voltage", -6.0);
+    // =====================================================================
+    // TUNABLE PID
+    // =====================================================================
+    private final TunableNumber kP = new TunableNumber("Feeder", "kP", FeederConstants.kP);
+    private final TunableNumber kI = new TunableNumber("Feeder", "kI", FeederConstants.kI);
+    private final TunableNumber kD = new TunableNumber("Feeder", "kD", FeederConstants.kD);
+    private final TunableNumber kFF = new TunableNumber("Feeder", "kFF", FeederConstants.kFF);
+
+    // =====================================================================
+    // CONSTRUCTOR
+    // =====================================================================
+    public FeederSubsystem() {
+        // --- FEEDER MOTOR (NEO + Velocity Control) ---
+        feederMotor = new SparkMax(FeederConstants.kFeederMotorID, MotorType.kBrushless);
+        configureMotor();
+
+        // --- FUEL SENSORS ---
+        fuelSensorBottom = new DigitalInput(RobotMap.kFeederSensorBottomID);
+        fuelSensorTop = new DigitalInput(RobotMap.kFeederSensorTopID);
+
+        System.out.println("[Feeder] REVLib 2026 Velocity Control ile yapılandırıldı");
     }
 
+    // =====================================================================
+    // MOTOR CONFIGURATION
+    // =====================================================================
+    private void configureMotor() {
+        SparkMaxConfig config = new SparkMaxConfig();
+
+        // Encoder dönüşüm faktörü (RPM olarak okumak için)
+        // NEO encoder: 42 CPR, motor shaft'ta
+        config.encoder
+                .velocityConversionFactor(1.0); // Motor RPM direkt okunur
+
+        // REVLib Onboard Velocity PID
+        config.closedLoop
+                .p(kP.get())
+                .i(kI.get())
+                .d(kD.get())
+                .velocityFF(kFF.get())
+                .outputRange(-1, 1);
+
+        // Motor ayarları
+        config.inverted(false);
+        config.idleMode(IdleMode.kBrake);
+        config.smartCurrentLimit(FeederConstants.kCurrentLimit);
+
+        feederMotor.configure(config, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
+    }
+
+    // =====================================================================
+    // PERIODIC
+    // =====================================================================
     @Override
     public void periodic() {
-        io.updateInputs(inputs);
-        Logger.processInputs("Feeder", inputs);
-
-        // Yakıt Durumu
-        String status = "Boş";
-        if (inputs.fuelPresentTop) {
-            status = "Dolu";
-        } else if (inputs.fuelPresentBottom) {
-            status = "Yarım";
-        }
-
-        Logger.recordOutput("Feeder/Status", status);
-        Logger.recordOutput("Feeder/ItemCount", getFuelLevel());
-        Logger.recordOutput("Feeder/IsFull", isFuelSystemFull());
-        Logger.recordOutput("Feeder/TunableFeedVoltage", tunableFeedVoltage.get());
-        Logger.recordOutput("Feeder/TunableReverseVoltage", tunableReverseVoltage.get());
-
-        edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.putString("Feeder Status", status);
+        logTelemetry();
     }
 
-    // ===========================================================================
-    // ACTIONS
-    // ===========================================================================
+    // =====================================================================
+    // VELOCITY CONTROL (RPM) - setSetpoint API
+    // =====================================================================
 
-    /** İleri besleme (Tunable voltaj ile) */
+    /**
+     * Feeder hızını ayarlar (RPM).
+     * 
+     * @param rpm Hedef hız (pozitif = ileri, negatif = geri)
+     */
+    public void setVelocity(double rpm) {
+        targetRPM = rpm;
+        feederMotor.getClosedLoopController().setSetpoint(rpm, ControlType.kVelocity);
+    }
+
+    /**
+     * İleri besleme (varsayılan hızda).
+     */
     public void feed() {
-        io.setVoltage(tunableFeedVoltage.get());
+        setVelocity(FeederConstants.kFeedRPM);
     }
 
-    /** Geri çıkarma (Tunable voltaj ile) */
+    /**
+     * Yavaş besleme.
+     */
+    public void feedSlow() {
+        setVelocity(FeederConstants.kSlowFeedRPM);
+    }
+
+    /**
+     * Geri çıkarma.
+     */
     public void reverse() {
-        io.setVoltage(tunableReverseVoltage.get());
+        setVelocity(FeederConstants.kReverseRPM);
     }
 
-    /** Manuel voltaj */
-    public void setVoltage(double volts) {
-        io.setVoltage(volts);
-    }
-
-    /** Durdur */
+    /**
+     * Durdur.
+     */
     public void stop() {
-        io.stop();
+        targetRPM = 0;
+        feederMotor.stopMotor();
     }
 
-    // ===========================================================================
+    // =====================================================================
     // STATUS
-    // ===========================================================================
+    // =====================================================================
 
-    public boolean isRunning() {
-        return Math.abs(inputs.velocityRPM) > 50;
-    }
-
+    /**
+     * Mevcut motor hızını döndürür (RPM).
+     */
     public double getVelocityRPM() {
-        return inputs.velocityRPM;
+        return feederMotor.getEncoder().getVelocity();
     }
 
-    // ===========================================================================
-    // FUEL TANK LOGIC
-    // ===========================================================================
+    /**
+     * Feeder hedefe ulaştı mı?
+     */
+    public boolean isAtTarget() {
+        return Math.abs(getVelocityRPM() - targetRPM) < FeederConstants.kRPMTolerance;
+    }
 
-    private boolean isLoading = false;
+    /**
+     * Feeder çalışıyor mu?
+     */
+    public boolean isRunning() {
+        return Math.abs(getVelocityRPM()) > 50;
+    }
+
+    // =====================================================================
+    // FUEL TANK LOGIC
+    // =====================================================================
 
     public void setLoading(boolean loading) {
         this.isLoading = loading;
@@ -101,32 +185,85 @@ public class FeederSubsystem extends SubsystemBase {
         return isLoading;
     }
 
-    public boolean isFuelSystemEmpty() {
-        return !inputs.fuelPresentBottom;
+    /**
+     * Alt sensör algılıyor mu? (User: False=Empty, True=Full)
+     */
+    public boolean hasFuelBottom() {
+        return fuelSensorBottom.get();
     }
 
+    /**
+     * Üst sensör algılıyor mu? (User: False=Empty, True=Full)
+     */
+    public boolean hasFuelTop() {
+        return fuelSensorTop.get();
+    }
+
+    /**
+     * Yakıt seviyesi (0-2).
+     */
     public int getFuelLevel() {
         int level = 0;
-        if (inputs.fuelPresentBottom)
+        if (hasFuelBottom())
             level++;
-        if (inputs.fuelPresentTop)
+        if (hasFuelTop())
             level++;
         return level;
     }
 
-    public boolean isFuelSystemFull() {
-        return inputs.fuelPresentTop;
+    /**
+     * Sistem boş mu?
+     */
+    public boolean isFuelSystemEmpty() {
+        return !hasFuelBottom() && !hasFuelTop();
     }
 
-    // ===========================================================================
-    // TUNABLE GETTERS
-    // ===========================================================================
+    /**
+     * Sistem dolu mu?
+     */
+    public boolean isFuelSystemFull() {
+        return hasFuelTop();
+    }
+
+    // =====================================================================
+    // TELEMETRY
+    // =====================================================================
+    private void logTelemetry() {
+        Logger.recordOutput("Feeder/TargetRPM", targetRPM);
+        Logger.recordOutput("Feeder/ActualRPM", getVelocityRPM());
+        Logger.recordOutput("Feeder/FuelBottom", hasFuelBottom());
+        Logger.recordOutput("Feeder/FuelTop", hasFuelTop());
+        Logger.recordOutput("Feeder/FuelLevel", getFuelLevel());
+        Logger.recordOutput("Feeder/IsLoading", isLoading);
+
+        // Elastic Dashboard Status
+        String status = "Unknown";
+        if (isFuelSystemEmpty())
+            status = "Empty";
+        else if (isFuelSystemFull())
+            status = "Full";
+        else
+            status = "Partial";
+        Logger.recordOutput("Feeder/Status", status);
+    }
+
+    // =====================================================================
+    // COMPATIBILITY METHODS
+    // =====================================================================
 
     public double getTunableFeedVoltage() {
-        return tunableFeedVoltage.get();
+        return FeederConstants.kFeedRPM; // RPM olarak döner artık
     }
 
     public double getTunableReverseVoltage() {
-        return tunableReverseVoltage.get();
+        return FeederConstants.kReverseRPM;
+    }
+
+    /**
+     * Manuel voltaj kontrolü (legacy uyumluluk için).
+     * Tercih edilen: setVelocity()
+     */
+    public void setVoltage(double volts) {
+        feederMotor.setVoltage(volts);
     }
 }
