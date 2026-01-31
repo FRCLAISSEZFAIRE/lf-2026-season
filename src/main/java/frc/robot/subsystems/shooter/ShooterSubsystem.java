@@ -14,6 +14,7 @@ import com.revrobotics.spark.config.SparkMaxConfig;
 import com.revrobotics.spark.config.SparkBaseConfig.IdleMode;
 
 import edu.wpi.first.math.MathUtil;
+import edu.wpi.first.math.interpolation.InterpolatingDoubleTreeMap;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.wpilibj.DriverStation;
@@ -74,6 +75,12 @@ public class ShooterSubsystem extends SubsystemBase {
     private double autoAimOffsetDeg = 0.0;
 
     // =====================================================================
+    // CALIBRATION MAPS
+    // =====================================================================
+    private final InterpolatingDoubleTreeMap hoodCalibrationMap = new InterpolatingDoubleTreeMap();
+    private final InterpolatingDoubleTreeMap flywheelCalibrationMap = new InterpolatingDoubleTreeMap();
+
+    // =====================================================================
     // TUNABLE NUMBERS (Dashboard Control)
     // =====================================================================
     // Turret PID
@@ -91,6 +98,8 @@ public class ShooterSubsystem extends SubsystemBase {
     private final TunableNumber flywheelKI = new TunableNumber("Shooter", "Flywheel kI", ShooterConstants.kFlywheelI);
     private final TunableNumber flywheelKD = new TunableNumber("Shooter", "Flywheel kD", ShooterConstants.kFlywheelD);
     private final TunableNumber flywheelKV = new TunableNumber("Shooter", "Flywheel kV", ShooterConstants.kFlywheelkV);
+    private final TunableNumber flywheelTolerance = new TunableNumber("Shooter", "Flywheel Tolerance",
+            ShooterConstants.kFlywheelTolerance);
 
     // =====================================================================
     // CONSTRUCTOR
@@ -111,6 +120,9 @@ public class ShooterSubsystem extends SubsystemBase {
         configureFlywheelMotor();
 
         System.out.println("[Shooter] REVLib 2026 setSetpoint API ile yapılandırıldı");
+
+        // --- CALIBRATION INITIALIZATION ---
+        initializeCalibration();
     }
 
     // =====================================================================
@@ -122,6 +134,28 @@ public class ShooterSubsystem extends SubsystemBase {
     private final SparkMaxConfig turretConfig = new SparkMaxConfig();
     private final SparkMaxConfig hoodConfig = new SparkMaxConfig();
     private final TalonFXConfiguration flywheelConfig = new TalonFXConfiguration();
+
+    // =====================================================================
+    // MOTOR CONFIGURATION
+    // =====================================================================
+    // =====================================================================
+    // CALIBRATION INITIALIZATION
+    // =====================================================================
+    private void initializeCalibration() {
+        // --- HOOD CALIBRATION (Distance (m) -> Angle (deg)) ---
+        hoodCalibrationMap.put(0.0, 48.0); // Min mesafe (maksimum açı)
+        hoodCalibrationMap.put(1.0, 48.0); // 1m -> 48 derece (maksimum sınır)
+        hoodCalibrationMap.put(3.0, 35.0); // Ara mesafe tahmini
+        hoodCalibrationMap.put(5.0, 25.0); // 5m -> 25 derece
+        hoodCalibrationMap.put(8.0, 10.0); // Uzak mesafe (daha düşük açı)
+
+        // --- FLYWHEEL CALIBRATION (Distance (m) -> RPM) ---
+        flywheelCalibrationMap.put(0.0, 2000.0); // Min mesafe
+        flywheelCalibrationMap.put(1.0, 2500.0); // 1m -> 2500 RPM
+        flywheelCalibrationMap.put(3.0, 3750.0); // Ara mesafe tahmini
+        flywheelCalibrationMap.put(5.0, 5000.0); // 5m -> 5000 RPM
+        flywheelCalibrationMap.put(8.0, 6000.0); // Uzak mesafe
+    }
 
     // =====================================================================
     // MOTOR CONFIGURATION
@@ -362,7 +396,7 @@ public class ShooterSubsystem extends SubsystemBase {
      * Flywheel hedefe ulaştı mı?
      */
     public boolean isFlywheelAtTarget() {
-        return Math.abs(getFlywheelRPM() - flywheelTargetRPM) < ShooterConstants.kFlywheelTolerance;
+        return Math.abs(getFlywheelRPM() - flywheelTargetRPM) < flywheelTolerance.get();
     }
 
     /**
@@ -447,20 +481,8 @@ public class ShooterSubsystem extends SubsystemBase {
      * Daha yakın = daha yüksek açı (parabolik atış)
      */
     public double calculateHoodAngleFromDistance(double distanceMeters) {
-        // Lineer interpolasyon
-        // Yakın (1m) → yüksek açı (55°)
-        // Uzak (5m) → düşük açı (25°)
-        double minDistance = 1.0;
-        double maxDistance = 5.0;
-        double closeAngle = 55.0; // 1m için (yüksek açı)
-        double farAngle = 25.0; // 5m için (düşük açı)
-
-        // Mesafeyi sınırla
-        distanceMeters = MathUtil.clamp(distanceMeters, minDistance, maxDistance);
-
-        // Lineer interpolasyon: yakın = yüksek açı, uzak = düşük açı
-        double t = (distanceMeters - minDistance) / (maxDistance - minDistance);
-        return closeAngle + t * (farAngle - closeAngle);
+        // Interpolasyon tablosundan al
+        return hoodCalibrationMap.get(distanceMeters);
     }
 
     /**
@@ -468,17 +490,8 @@ public class ShooterSubsystem extends SubsystemBase {
      * Daha uzak = daha yüksek RPM
      */
     public double calculateFlywheelRPMFromDistance(double distanceMeters) {
-        // Basit lineer interpolasyon
-        // 1m → 2500 RPM
-        // 5m → 5000 RPM
-        double minDistance = 1.0;
-        double maxDistance = 5.0;
-        double minRPM = 2500;
-        double maxRPM = 5000;
-
-        distanceMeters = MathUtil.clamp(distanceMeters, minDistance, maxDistance);
-        double t = (distanceMeters - minDistance) / (maxDistance - minDistance);
-        return minRPM + t * (maxRPM - minRPM);
+        // Interpolasyon tablosundan al
+        return flywheelCalibrationMap.get(distanceMeters);
     }
 
     /**

@@ -70,8 +70,8 @@ public final class ShooterConstants {
     public static final double kHoodI = 0.0;
     public static final double kHoodD = 0.05;
 
-    public static final double kHoodMinAngle = 15.0;
-    public static final double kHoodMaxAngle = 60.0;
+    public static final double kHoodMinAngle = 0.0;
+    public static final double kHoodMaxAngle = 48.0;
     public static final double kHoodTolerance = 1.5;
 
     /** Hood dişli oranı. */
@@ -95,7 +95,7 @@ public final class ShooterConstants {
 
     public static final double kIdleFlywheelRPM = 2000.0;
     public static final double kFlywheelToleranceRPM = 100.0;
-    public static final double kFlywheelTolerance = 100.0; // RPM tolerance for at-target check
+    public static final double kFlywheelTolerance = 200.0; // RPM tolerance for at-target check
 
     public static final double kFlywheelP = 0.2;
     public static final double kFlywheelI = 0.0;
