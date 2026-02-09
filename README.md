@@ -58,17 +58,18 @@ src/main/java/frc/robot/
 
 Proje **Command-Based** mimari ile geliştirilmiştir ve modern vendor kütüphanelerini kullanır (REVLib 2026, Phoenix 6).
 
-| Alt Sistem  | Açıklama                  | Motor                     | Altyapı |
-| ----------- | ------------------------- | ------------------------- | ------- |
-| **Drive**   | Swerve sürüş (4 modül)    | SparkMax Vortex + NEO 550 | **YAGSL** |
-| **Vision**  | LL3 (Pose) + LL3A (GamePiece) | -                     | **Native** |
-| **Intake**  | Roller (Vel) + Pivot (Pos)| Kraken + NEO              | **Phoenix6 + REVLib** |
-| **Shooter** | Flywheel + Turret + Hood  | Kraken + 2x NEO           | **Phoenix6 + REVLib** |
-| **Climber** | Tırmanma Mekanizması      | 2x NEO (SparkMax)         | **REVLib 2026** |
-| **Feeder**  | Intake → Shooter transfer | NEO (SparkMax)            | **REVLib 2026** |
-| **LED**     | Durum gösterimi           | AddressableLED            | **Native** |
+| Alt Sistem  | Açıklama                      | Motor                     | Altyapı               |
+| ----------- | ----------------------------- | ------------------------- | --------------------- |
+| **Drive**   | Swerve sürüş (4 modül)        | SparkMax Vortex + NEO 550 | **YAGSL**             |
+| **Vision**  | LL3 (Pose) + LL3A (GamePiece) | -                         | **Native**            |
+| **Intake**  | Roller (Vel) + Pivot (Pos)    | Kraken + NEO              | **Phoenix6 + REVLib** |
+| **Shooter** | Flywheel + Turret + Hood      | Kraken + 2x NEO           | **Phoenix6 + REVLib** |
+| **Climber** | Tırmanma Mekanizması          | 2x NEO (SparkMax)         | **REVLib 2026**       |
+| **Feeder**  | Intake → Shooter transfer     | NEO (SparkMax)            | **REVLib 2026**       |
+| **LED**     | Durum gösterimi               | AddressableLED            | **Native**            |
 
 ### Vision Sistemi
+
 - **Limelight 3 (limelight):** MegaTag 2 teknolojisi ile hassas robot pose estimation (NavX sync ile).
 - **Limelight 3A (limelight-3a):** Neural network ile Game Piece algılama (Auto-Intake için).
 
@@ -80,21 +81,45 @@ Proje **Command-Based** mimari ile geliştirilmiştir ve modern vendor kütüpha
 
 Shooter sistemi robot konumuna göre **otomatik** çalışır:
 
-| Mod         | Koşul             | Davranış                          |
-| ----------- | ----------------- | --------------------------------- |
-| **IDLE**    | Butona basılmamış | Flywheel idle (2000 RPM)          |
-| **SCORING** | İttifak alanında  | Hub'a tam güç atış                |
-| **FEEDING** | İttifak dışında   | İttifak alanına top besleme (lob) |
+| Mod         | Koşul             | Davranış                            |
+| ----------- | ----------------- | ----------------------------------- |
+| **IDLE**    | Butona basılmamış | Flywheel idle (2000 RPM)            |
+| **SCORING** | İttifak alanında  | Hub'a tam güç atış (Oto. Hedefleme) |
+| **FEEDING** | İttifak dışında   | Feeding Station (Pass) Atışı        |
 
-### 📊 Shooting Parameters
+### 📊 Shooting Parameters & Calibration
 
-Sadece **CLOSE** ve **FAR** noktası tanımlı, ara değerler **otomatik lineer interpolasyon** ile hesaplanır:
+Sistem **InterpolatingDoubleTreeMap** kullanarak mesafe bazlı lineer interpolasyon yapar.
 
-| Parametre  | CLOSE (Yakın) | FAR (Uzak) |
-| ---------- | ------------- | ---------- |
-| Mesafe     | 1.5 m         | 7.0 m      |
-| Hood Açısı | 55° (dik)     | 17° (düz)  |
-| Flywheel   | 4500 RPM      | 7000 RPM   |
+- **Hub Shooting:** 0.5m - 4.5m arası 5 nokta.
+- **Alliance Pass:** 4m - 8m arası 5 nokta.
+
+> **NOT:** Tüm değerler **Test Modu**'nda `Tuning/` tablosu üzerinden canlı olarak değiştirilebilir.
+
+| Parametre  | CLOSE (Yakın) | FAR (Uzak) | PASS (4m-8m) |
+| ---------- | ------------- | ---------- | ------------ |
+| Mesafe     | 0.5 m         | 4.5 m      | 4.0 - 8.0 m  |
+| Hood Açısı | 65° (dik)     | 20° (düz)  | Tunable      |
+| Flywheel   | 2000 RPM      | 5500 RPM   | Tunable      |
+
+---
+
+## 🎛️ Tuning ve Kalibrasyon
+
+Tüm alt sistemler **NetworkTables** üzerinden `Tuning/` tablosu altında canlı olarak ayarlanabilir.
+
+### Nasıl Kullanılır?
+
+1. Robotu **Test Modu**'na alın (Driver Station).
+2. Shuffleboard veya Glass üzerinden `Tuning` tablosunu açın.
+3. Değerleri değiştirin (Robot anlık tepki verir).
+
+### Tablo Yapısı
+
+- **`Tuning/Shooter/Hub/`**: Hub atış kalibrasyonu (RPM/Hood @ Distance).
+- **`Tuning/Shooter/ToAlliance/`**: Alliance Pass kalibrasyonu.
+- **`Tuning/Shooter/Test/`**: Manuel motor testleri.
+- **`Tuning/Drive/`**, **`Tuning/Intake/`**, vs.: Diğer sistem PID'leri.
 
 ---
 
@@ -107,7 +132,7 @@ Sadece **CLOSE** ve **FAR** noktası tanımlı, ara değerler **otomatik lineer 
 | 1-8 | Swerve Modules         | Drive      |
 | 10  | Intake Roller (Kraken) | Intake     |
 | 11  | Intake Pivot (NEO)     | Intake     |
-| 12  | Shooter (Kraken)| Shooter    |
+| 12  | Shooter (Kraken)       | Shooter    |
 | 14  | Turret (NEO)           | Shooter    |
 | 15  | Hood (NEO 550)         | Shooter    |
 | 16  | Feeder (NEO)           | Feeder     |
@@ -131,16 +156,16 @@ Sadece **CLOSE** ve **FAR** noktası tanımlı, ara değerler **otomatik lineer 
 
 ### Operator Controller (Port 1)
 
-| Buton                | Aksiyon                             |
-| -------------------- | ----------------------------------- |
-| **A**                | **ATIŞ** (Shooting + LED Animasyon) |
-| **Sağ Tetik**        | Intake + Feeder (Normal Alma)       |
-| **Sol Tetik**        | Sadece Intake Ters (Kusma)          |
-| **Sağ Bumper**       | Hazırlık (Prep Shot)                |
-| **Sol Bumper**       | Flywheel Ters (Sıkışma Giderme)     |
-| **X**                | Climb Retract (Robotu Yukarı Çeker) |
-| **Y**                | Climb Extend (Kancaları Uzatır)     |
-| **Start**            | ACİL DURDUR                         |
+| Buton          | Aksiyon                             |
+| -------------- | ----------------------------------- |
+| **A**          | **ATIŞ** (Shooting + LED Animasyon) |
+| **Sağ Tetik**  | Intake + Feeder (Normal Alma)       |
+| **Sol Tetik**  | Sadece Intake Ters (Kusma)          |
+| **Sağ Bumper** | Hazırlık (Prep Shot)                |
+| **Sol Bumper** | Flywheel Ters (Sıkışma Giderme)     |
+| **X**          | Climb Retract (Robotu Yukarı Çeker) |
+| **Y**          | Climb Extend (Kancaları Uzatır)     |
+| **Start**      | ACİL DURDUR                         |
 
 ---
 
@@ -165,14 +190,14 @@ Sadece **CLOSE** ve **FAR** noktası tanımlı, ara değerler **otomatik lineer 
 
 ## 📊 Durum
 
-| Özellik | Durum |
-| --- | --- |
-| Swerve Drive | ✅ Tamamlandı (YAGSL 2026) |
-| Vision | ✅ Tamamlandı (MT2 + Object Det.) |
-| Shooter | ✅ Tamamlandı (Modernized) |
-| Climber | ✅ Tamamlandı (Modernized) |
-| Feeder & Intake | ✅ Tamamlandı (Modernized) |
-| Otonom | 🚧 Entegre Edildi |
+| Özellik         | Durum                             |
+| --------------- | --------------------------------- |
+| Swerve Drive    | ✅ Tamamlandı (YAGSL 2026)        |
+| Vision          | ✅ Tamamlandı (MT2 + Object Det.) |
+| Shooter         | ✅ Tamamlandı (Modernized)        |
+| Climber         | ✅ Tamamlandı (Modernized)        |
+| Feeder & Intake | ✅ Tamamlandı (Modernized)        |
+| Otonom          | 🚧 Entegre Edildi                 |
 
 ---
 
