@@ -5,11 +5,10 @@ import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
 import frc.robot.constants.IntakeConstants;
-import frc.robot.constants.VisionConstants;
+
 import frc.robot.subsystems.drive.DriveSubsystem;
 import frc.robot.subsystems.feeder.FeederSubsystem;
 import frc.robot.subsystems.intake.IntakeSubsystem;
-import frc.robot.subsystems.vision.VisionSubsystem;
 
 /**
  * Limelight 3A kullanarak otomatik game piece toplama komutu.
@@ -22,27 +21,22 @@ public class AutoIntakeCommand extends Command {
     private final DriveSubsystem drive;
     private final IntakeSubsystem intake;
     private final FeederSubsystem feeder;
-    private final VisionSubsystem vision;
 
     private final PIDController turnPID = new PIDController(2.0, 0.0, 0.0); // Tuning gerekebilir
     private final Timer lostTargetTimer = new Timer();
     private boolean hasSeenTarget = false;
 
     public AutoIntakeCommand(DriveSubsystem drive, IntakeSubsystem intake,
-            FeederSubsystem feeder, VisionSubsystem vision) {
+            FeederSubsystem feeder) {
         this.drive = drive;
         this.intake = intake;
         this.feeder = feeder;
-        this.vision = vision;
 
-        addRequirements(drive, intake, feeder); // Vision requirement opsiyonel
+        addRequirements(drive, intake, feeder);
     }
 
     @Override
     public void initialize() {
-        // Pipeline'ı Game Piece moduna al
-        vision.setPipeline(VisionConstants.kGamePiecePipelineIndex);
-
         // Timer ve durum sıfırla
         lostTargetTimer.stop();
         lostTargetTimer.reset();
@@ -54,7 +48,7 @@ public class AutoIntakeCommand extends Command {
 
     @Override
     public void execute() {
-        boolean seesGamePiece = intake.seesGamePiece() || vision.hasFuel();
+        boolean seesGamePiece = intake.seesGamePiece();
         double rotationSpeed = 0.0;
         double forwardSpeed = 0.0;
 
@@ -65,8 +59,7 @@ public class AutoIntakeCommand extends Command {
             lostTargetTimer.reset();
 
             // 1. Hizalanma (PID)
-            // Hata: Intake Tx veya Vision Yaw
-            double error = intake.seesGamePiece() ? intake.getAlignmentError() : vision.getFuelYaw();
+            double error = intake.getAlignmentError();
             // Tx derece cinsinden, PID'ye verilebilir.
             // Radyan'a çevirmek daha doğru olabilir ama PID katsayısı dereceye göre de
             // ayarlanabilir.
@@ -122,9 +115,6 @@ public class AutoIntakeCommand extends Command {
         drive.stop();
         intake.runRoller(0.0);
         feeder.stop();
-
-        // Pipeline'ı AprilTag'e geri al
-        vision.setPipeline(VisionConstants.kAprilTagPipelineIndex);
     }
 
     @Override

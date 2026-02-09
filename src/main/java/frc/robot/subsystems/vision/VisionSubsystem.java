@@ -23,8 +23,7 @@ import frc.robot.subsystems.drive.DriveSubsystem;
  * MegaTag 2</li>
  * <li><b>limelight-right:</b> Limelight 3, rear-right corner, 45° outward -
  * MegaTag 2</li>
- * <li><b>intake-cam:</b> Near intake - Game Piece Detection (Color
- * Pipeline)</li>
+ * 
  * </ul>
  * 
  * <h2>Features:</h2>
@@ -256,59 +255,6 @@ public class VisionSubsystem extends SubsystemBase {
         return Math.max(0.1, stdev);
     }
 
-    // ==================== GAME PIECE DETECTION ====================
-
-    /**
-     * Check if the intake camera sees a game piece (Note/Coral).
-     * 
-     * @return true if a game piece is detected
-     */
-    public boolean hasGamePiece() {
-        return LimelightHelpers.getTV(VisionConstants.kIntakeCamera);
-    }
-
-    /**
-     * Get the horizontal angle (yaw) to the detected game piece.
-     * Positive = target is to the right of center.
-     * 
-     * @return yaw angle in degrees, 0 if no target
-     */
-    public double getGamePieceYaw() {
-        if (!hasGamePiece())
-            return 0.0;
-        return LimelightHelpers.getTX(VisionConstants.kIntakeCamera);
-    }
-
-    /**
-     * Get the vertical angle (pitch) to the detected game piece.
-     * 
-     * @return pitch angle in degrees
-     */
-    public double getGamePiecePitch() {
-        return LimelightHelpers.getTY(VisionConstants.kIntakeCamera);
-    }
-
-    /**
-     * Get the area of the detected game piece (proximity indicator).
-     * Larger area = closer target.
-     * 
-     * @return target area as percentage of image (0-100)
-     */
-    public double getGamePieceArea() {
-        return LimelightHelpers.getTA(VisionConstants.kIntakeCamera);
-    }
-
-    /**
-     * Set the pipeline for the intake camera.
-     * 
-     * @param pipelineIndex pipeline index to activate
-     */
-    public void setIntakePipeline(int pipelineIndex) {
-        LimelightHelpers.setPipelineIndex(VisionConstants.kIntakeCamera, pipelineIndex);
-    }
-
-    // ==================== GETTERS ====================
-
     /**
      * Check if vision is currently enabled via dashboard.
      */
@@ -351,26 +297,5 @@ public class VisionSubsystem extends SubsystemBase {
 
     public double getAverageTagDistance() {
         return (leftAvgTagDistance + rightAvgTagDistance) / 2.0;
-    }
-
-    // Legacy fuel methods (renamed to gamepiece but keeping for compatibility)
-    public boolean hasFuel() {
-        return hasGamePiece();
-    }
-
-    public double getFuelYaw() {
-        return getGamePieceYaw();
-    }
-
-    public double getFuelPitch() {
-        return getGamePiecePitch();
-    }
-
-    public double getFuelArea() {
-        return getGamePieceArea();
-    }
-
-    public void setPipeline(int pipelineIndex) {
-        setIntakePipeline(pipelineIndex);
     }
 }

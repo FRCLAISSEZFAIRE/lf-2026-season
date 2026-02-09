@@ -5,8 +5,6 @@ import com.revrobotics.spark.config.SparkFlexConfig;
 import com.revrobotics.spark.FeedbackSensor;
 import com.revrobotics.spark.config.AbsoluteEncoderConfig;
 import com.revrobotics.spark.config.SparkBaseConfig.IdleMode;
-
-import frc.robot.constants.DriveConstants;
 import frc.robot.constants.ModuleConstants;
 
 public final class Configs {

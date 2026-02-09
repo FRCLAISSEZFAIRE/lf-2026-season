@@ -89,8 +89,8 @@ public class ControllerBindings {
                                                         * 4.5;
                                         double rotVelocity;
 
-                                        if (visionSubsystem.hasFuel()) {
-                                                double tx = visionSubsystem.getFuelYaw();
+                                        if (intakeSubsystem.seesGamePiece()) {
+                                                double tx = intakeSubsystem.getAlignmentError();
                                                 double pidOutput = fuelAimPID.calculate(tx, 0.0);
                                                 rotVelocity = MathUtil.clamp(pidOutput, -1.0, 1.0) * 4.0;
                                         } else {
