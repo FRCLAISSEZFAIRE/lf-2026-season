@@ -29,6 +29,9 @@ import frc.robot.util.TunableNumber;
 
 import org.littletonrobotics.junction.Logger;
 
+import edu.wpi.first.networktables.NetworkTable;
+import edu.wpi.first.networktables.NetworkTableInstance;
+
 import java.util.function.Supplier;
 
 /**
@@ -43,6 +46,8 @@ import java.util.function.Supplier;
  * </ul>
  */
 public class ShooterSubsystem extends SubsystemBase {
+
+    private final NetworkTable tuningTable = NetworkTableInstance.getDefault().getTable("Tuning");
 
     public enum ShooterMode {
         IDLE,
@@ -79,6 +84,8 @@ public class ShooterSubsystem extends SubsystemBase {
     // =====================================================================
     private final InterpolatingDoubleTreeMap hoodCalibrationMap = new InterpolatingDoubleTreeMap();
     private final InterpolatingDoubleTreeMap flywheelCalibrationMap = new InterpolatingDoubleTreeMap();
+    private final InterpolatingDoubleTreeMap hoodAlliancePassMap = new InterpolatingDoubleTreeMap();
+    private final InterpolatingDoubleTreeMap flywheelAlliancePassMap = new InterpolatingDoubleTreeMap();
 
     // =====================================================================
     // TUNABLE NUMBERS (Dashboard Control)
@@ -142,19 +149,160 @@ public class ShooterSubsystem extends SubsystemBase {
     // CALIBRATION INITIALIZATION
     // =====================================================================
     private void initializeCalibration() {
-        // --- HOOD CALIBRATION (Distance (m) -> Angle (deg)) ---
-        hoodCalibrationMap.put(0.0, 48.0); // Min mesafe (maksimum açı)
-        hoodCalibrationMap.put(1.0, 48.0); // 1m -> 48 derece (maksimum sınır)
-        hoodCalibrationMap.put(3.0, 35.0); // Ara mesafe tahmini
-        hoodCalibrationMap.put(5.0, 25.0); // 5m -> 25 derece
-        hoodCalibrationMap.put(8.0, 10.0); // Uzak mesafe (daha düşük açı)
+        // Clear existing maps
+        hoodCalibrationMap.clear();
+        flywheelCalibrationMap.clear();
 
-        // --- FLYWHEEL CALIBRATION (Distance (m) -> RPM) ---
-        flywheelCalibrationMap.put(0.0, 2000.0); // Min mesafe
-        flywheelCalibrationMap.put(1.0, 2500.0); // 1m -> 2500 RPM
-        flywheelCalibrationMap.put(3.0, 3750.0); // Ara mesafe tahmini
-        flywheelCalibrationMap.put(5.0, 5000.0); // 5m -> 5000 RPM
-        flywheelCalibrationMap.put(8.0, 6000.0); // Uzak mesafe
+        // --- HUB MAPS ---
+        for (int i = 0; i < ShooterConstants.HUB_DISTANCES.length; i++) {
+            double dist = ShooterConstants.HUB_DISTANCES[i];
+            double rpm = ShooterConstants.DEFAULT_HUB_RPMS[i];
+            double hood = ShooterConstants.DEFAULT_HUB_HOOD_ANGLES[i];
+
+            hoodCalibrationMap.put(dist, hood);
+            flywheelCalibrationMap.put(dist, rpm);
+
+            // Publish default values to Tuning table for live tuning
+            tuningTable.getEntry("Shooter/Hub/RPM @ " + dist + "m").setDouble(rpm);
+            tuningTable.getEntry("Shooter/Hub/Hood @ " + dist + "m").setDouble(hood);
+        }
+
+        // --- ALLIANCE PASS MAPS ---
+        flywheelAlliancePassMap.clear();
+        hoodAlliancePassMap.clear();
+
+        for (int i = 0; i < ShooterConstants.ALLIANCE_PASS_DISTANCES.length; i++) {
+            double dist = ShooterConstants.ALLIANCE_PASS_DISTANCES[i];
+            double rpm = ShooterConstants.DEFAULT_ALLIANCE_PASS_RPMS[i];
+            double hood = ShooterConstants.DEFAULT_ALLIANCE_PASS_HOOD_ANGLES[i];
+
+            flywheelAlliancePassMap.put(dist, rpm);
+            hoodAlliancePassMap.put(dist, hood);
+
+            // Publish defaults
+            tuningTable.getEntry("Shooter/ToAlliance/RPM @ " + dist + "m").setDouble(rpm);
+            tuningTable.getEntry("Shooter/ToAlliance/Hood @ " + dist + "m").setDouble(hood);
+        }
+
+        System.out.println("[Shooter] Calibration maps initialized from Constants");
+    }
+
+    /**
+     * Live tuning: Read calibration values from SmartDashboard and update maps.
+     * ONLY called in Test Mode (see periodic()).
+     */
+    private void updateCalibrationMapsFromDashboard() {
+        // Clear and rebuild maps from dashboard values
+        hoodCalibrationMap.clear();
+        flywheelCalibrationMap.clear();
+
+        // --- HUB UPDATE ---
+        for (int i = 0; i < ShooterConstants.HUB_DISTANCES.length; i++) {
+            double dist = ShooterConstants.HUB_DISTANCES[i];
+
+            double rpm = tuningTable.getEntry("Shooter/Hub/RPM @ " + dist + "m")
+                    .getDouble(ShooterConstants.DEFAULT_HUB_RPMS[i]);
+            double hood = tuningTable.getEntry("Shooter/Hub/Hood @ " + dist + "m")
+                    .getDouble(ShooterConstants.DEFAULT_HUB_HOOD_ANGLES[i]);
+
+            hoodCalibrationMap.put(dist, hood);
+            flywheelCalibrationMap.put(dist, rpm);
+        }
+
+        // --- ALLIANCE PASS UPDATE ---
+        flywheelAlliancePassMap.clear();
+        hoodAlliancePassMap.clear();
+
+        for (int i = 0; i < ShooterConstants.ALLIANCE_PASS_DISTANCES.length; i++) {
+            double dist = ShooterConstants.ALLIANCE_PASS_DISTANCES[i];
+
+            double rpm = tuningTable.getEntry("Shooter/ToAlliance/RPM @ " + dist + "m")
+                    .getDouble(ShooterConstants.DEFAULT_ALLIANCE_PASS_RPMS[i]);
+            double hood = tuningTable.getEntry("Shooter/ToAlliance/Hood @ " + dist + "m")
+                    .getDouble(ShooterConstants.DEFAULT_ALLIANCE_PASS_HOOD_ANGLES[i]);
+
+            flywheelAlliancePassMap.put(dist, rpm);
+            hoodAlliancePassMap.put(dist, hood);
+        }
+    }
+
+    // =====================================================================
+    // SHOOTER STATE CALCULATION (Distance-Based Lookup)
+    // =====================================================================
+
+    /**
+     * Represents the target state for the shooter at a given distance.
+     */
+    public static class ShooterState {
+        public final double rpm;
+        public final double hoodAngleDeg;
+
+        public ShooterState(double rpm, double hoodAngleDeg) {
+            this.rpm = rpm;
+            this.hoodAngleDeg = hoodAngleDeg;
+        }
+    }
+
+    /**
+     * Calculate the shooter state (RPM and Hood Angle) for a given distance.
+     * Uses InterpolatingDoubleTreeMap for smooth interpolation between calibration
+     * points.
+     * 
+     * @param distanceMeters Distance to target in meters. If null/invalid, defaults
+     *                       to fender shot.
+     * @return ShooterState containing target RPM and hood angle
+     */
+    public ShooterState calculateShooterState(double distanceMeters) {
+        // Safety check: clamp distance to valid range
+        double clampedDistance = MathUtil.clamp(
+                distanceMeters,
+                ShooterConstants.HUB_DISTANCES[0],
+                ShooterConstants.HUB_DISTANCES[ShooterConstants.HUB_DISTANCES.length - 1]);
+
+        // Invalid/NaN distance check - default to fender shot
+        if (Double.isNaN(distanceMeters) || distanceMeters <= 0) {
+            return new ShooterState(
+                    ShooterConstants.FENDER_SHOT_RPM,
+                    ShooterConstants.FENDER_SHOT_HOOD_ANGLE);
+        }
+
+        // Lookup from interpolation maps
+        double rpm = flywheelCalibrationMap.get(clampedDistance);
+        double hoodAngle = hoodCalibrationMap.get(clampedDistance);
+
+        // Log for debugging
+        Logger.recordOutput("Tuning/Shooter/Calculated/Distance", distanceMeters);
+        Logger.recordOutput("Tuning/Shooter/Calculated/RPM", rpm);
+        Logger.recordOutput("Tuning/Shooter/Calculated/HoodAngle", hoodAngle);
+
+        return new ShooterState(rpm, hoodAngle);
+    }
+
+    /**
+     * Calculates the ideal shooter state for ALLIANCE PASS (To Alliance Wall).
+     * Distances: 4m - 8m
+     */
+    public ShooterState calculateShooterStateForAlliancePass(double distanceMeters) {
+        // Safety check: clamp distance to valid range
+        double clampedDistance = MathUtil.clamp(
+                distanceMeters,
+                ShooterConstants.ALLIANCE_PASS_DISTANCES[0],
+                ShooterConstants.ALLIANCE_PASS_DISTANCES[ShooterConstants.ALLIANCE_PASS_DISTANCES.length - 1]);
+
+        double targetRPM = flywheelAlliancePassMap.get(clampedDistance);
+        double targetHood = hoodAlliancePassMap.get(clampedDistance);
+
+        return new ShooterState(targetRPM, targetHood);
+    }
+
+    /**
+     * Apply shooter state - sets both flywheel RPM and hood angle.
+     * 
+     * @param state ShooterState to apply
+     */
+    public void applyShooterState(ShooterState state) {
+        setFlywheelRPM(state.rpm);
+        setHoodAngle(state.hoodAngleDeg);
     }
 
     // =====================================================================
@@ -223,6 +371,8 @@ public class ShooterSubsystem extends SubsystemBase {
 
     private void configureFlywheelMotor() {
         // Velocity PID (RPS biriminde)
+        // IMPORTANT: Verify kS, kV, kA (Feedforward) and kP are set in Constants!
+        // These are critical for accurate Velocity Control on Kraken/TalonFX.
         flywheelConfig.Slot0.kP = flywheelKP.get();
         flywheelConfig.Slot0.kI = flywheelKI.get();
         flywheelConfig.Slot0.kD = flywheelKD.get();
@@ -282,27 +432,148 @@ public class ShooterSubsystem extends SubsystemBase {
     // =====================================================================
     @Override
     public void periodic() {
-        // Auto-Aim Logic
-        updateAutoAim();
-
-        // Tuning Mode Logic
-        if (Constants.tuningMode) {
+        // IMPORTANT: Live Tuning ONLY in Test Mode
+        // In Teleop/Autonomous, hardcoded constants are used
+        if (edu.wpi.first.wpilibj.DriverStation.isTest()) {
             checkAndApplyTunables();
 
-            // Dashboard Toggle Check
-            boolean dashboardAutoAim = edu.wpi.first.wpilibj.smartdashboard.SmartDashboard
-                    .getBoolean("Shooter/EnableAutoAim", isAutoAimActive);
-            if (dashboardAutoAim != isAutoAimActive) {
-                if (dashboardAutoAim) {
-                    enableAutoAim();
-                } else {
-                    disableAutoAim();
-                }
-            }
+            // Live update calibration maps from Dashboard
+            updateCalibrationMapsFromDashboard();
         }
 
-        // AdvantageKit Logging
+        // AdvantageKit Logging (always active for monitoring)
         logTelemetry();
+
+        // Publish Status to Tuning Table (for Drivers)
+        tuningTable.getEntry("Shooter/Ready").setBoolean(isReadyToShoot());
+        tuningTable.getEntry("Shooter/AimLocked").setBoolean(isTurretAtTarget());
+        tuningTable.getEntry("Shooter/FlywheelReady").setBoolean(isFlywheelAtTarget());
+        tuningTable.getEntry("Shooter/HoodReady").setBoolean(isHoodAtTarget());
+    }
+
+    /**
+     * Updates aiming based on robot pose.
+     * Calculates distance and angle to the Hub, then updates Turret, Hood, and
+     * Flywheel setpoints.
+     * 
+     * @param robotPose Current robot pose from DriveSubsystem
+     */
+    public void updateAiming(Pose2d robotPose) {
+        // 1. Determine Target Hub based on Alliance (Dynamic from FieldConstants)
+        var alliance = DriverStation.getAlliance();
+        Translation2d hubLocation = frc.robot.constants.FieldConstants.getHubCenter(alliance);
+
+        // 2. Calculate Distance to Hub
+        double distance = robotPose.getTranslation().getDistance(hubLocation);
+
+        // 3. Calculate Turret Angle
+        // Angle to target from field origin
+        double angleToTargetRad = Math.atan2(
+                hubLocation.getY() - robotPose.getY(),
+                hubLocation.getX() - robotPose.getX());
+
+        // Robot's heading
+        double robotHeadingRad = robotPose.getRotation().getRadians();
+
+        // Turret Angle relative to Robot (Target - RobotHeading)
+        double targetTurretRad = angleToTargetRad - robotHeadingRad;
+
+        // Normalize to -PI to PI
+        targetTurretRad = MathUtil.angleModulus(targetTurretRad);
+
+        // Convert to Degrees and Add Offset
+        turretTargetDeg = Math.toDegrees(targetTurretRad) + autoAimOffsetDeg;
+
+        // Clamp Turret to Soft Limits
+        if (ShooterConstants.kTurretSoftLimitsEnabled) {
+            turretTargetDeg = MathUtil.clamp(turretTargetDeg,
+                    ShooterConstants.kTurretMinAngle,
+                    ShooterConstants.kTurretMaxAngle);
+        }
+
+        // 4. Calculate Shooter State (RPM & Hood) from Distance
+        ShooterState state = calculateShooterState(distance);
+        flywheelTargetRPM = state.rpm;
+        hoodTargetDeg = state.hoodAngleDeg;
+
+        // 5. Apply Setpoints
+        setTurretAngle(turretTargetDeg);
+        applyShooterState(state);
+
+        // Log Aiming Data
+        Logger.recordOutput("Tuning/Shooter/Aiming/Distance", distance);
+        Logger.recordOutput("Tuning/Shooter/Aiming/TargetTurretAngle", turretTargetDeg);
+        Logger.recordOutput("Tuning/Shooter/Aiming/HubX", hubLocation.getX());
+        Logger.recordOutput("Tuning/Shooter/Aiming/HubY", hubLocation.getY());
+        Logger.recordOutput("Tuning/Shooter/Aiming/OffsetDeg", autoAimOffsetDeg);
+    }
+
+    /**
+     * Updates aiming for ALLIANCE PASS (Shooting to Feeding Station area).
+     * Calculates distance and angle to the Pass Target.
+     * 
+     * @param robotPose Current robot pose
+     */
+    public void updateAimingForPass(Pose2d robotPose) {
+        // 1. Determine Pass Target
+        var alliance = DriverStation.getAlliance();
+        Translation2d targetLocation = FieldConstants.getPassTarget(alliance);
+
+        // 2. Calculate Distance
+        double distance = robotPose.getTranslation().getDistance(targetLocation);
+
+        // 3. Calculate Turret Angle
+        double angleToTargetRad = Math.atan2(
+                targetLocation.getY() - robotPose.getY(),
+                targetLocation.getX() - robotPose.getX());
+
+        double robotHeadingRad = robotPose.getRotation().getRadians();
+        double targetTurretRad = angleToTargetRad - robotHeadingRad;
+        targetTurretRad = MathUtil.angleModulus(targetTurretRad);
+
+        // No manual offset for pass (usually)
+        turretTargetDeg = Math.toDegrees(targetTurretRad);
+
+        // Clamp Turret
+        if (ShooterConstants.kTurretSoftLimitsEnabled) {
+            turretTargetDeg = MathUtil.clamp(turretTargetDeg,
+                    ShooterConstants.kTurretMinAngle,
+                    ShooterConstants.kTurretMaxAngle);
+        }
+
+        // 4. Calculate Shooter State (Alliance Pass Logic)
+        ShooterState state = calculateShooterStateForAlliancePass(distance);
+        flywheelTargetRPM = state.rpm;
+        hoodTargetDeg = state.hoodAngleDeg;
+
+        // 5. Apply Setpoints
+        setTurretAngle(turretTargetDeg);
+        applyShooterState(state);
+
+        // Log Aiming Data
+        Logger.recordOutput("Tuning/Shooter/PassAiming/Distance", distance);
+        Logger.recordOutput("Tuning/Shooter/PassAiming/TargetTurretAngle", turretTargetDeg);
+    }
+
+    /**
+     * Checks if the shooter is ready to fire based on PID errors.
+     * TRUSTS POSE ESTIMATION AND PID LOOPS.
+     * 
+     * @return true if RPM, Hood, and Turret are within tolerance.
+     */
+    public boolean isReadyToShoot() {
+        // Check 1: RPM Tolerance
+        boolean rpmReady = Math.abs(getFlywheelRPM() - flywheelTargetRPM) < ShooterConstants.SHOOTER_RPM_TOLERANCE;
+
+        // Check 2: Hood Tolerance
+        boolean hoodReady = Math.abs(getHoodAngle() - hoodTargetDeg) < ShooterConstants.HOOD_ANGLE_TOLERANCE;
+
+        // Check 3: Turret Tolerance (PID Error)
+        // We compare current angle to target angle
+        boolean turretReady = Math.abs(getTurretAngle() - turretTargetDeg) < ShooterConstants.TURRET_AIM_TOLERANCE;
+
+        // Return true ONLY if ALL checks pass
+        return rpmReady && hoodReady && turretReady;
     }
 
     // =====================================================================
@@ -417,7 +688,7 @@ public class ShooterSubsystem extends SubsystemBase {
      */
     public void enableAutoAim() {
         isAutoAimActive = true;
-        edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.putBoolean("Shooter/EnableAutoAim", true);
+        tuningTable.getEntry("Shooter/EnableAutoAim").setBoolean(true);
         System.out.println("[Shooter] Auto-aim ENABLED - Alliance: " + getAllianceString());
     }
 
@@ -426,7 +697,7 @@ public class ShooterSubsystem extends SubsystemBase {
      */
     public void disableAutoAim() {
         isAutoAimActive = false;
-        edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.putBoolean("Shooter/EnableAutoAim", false);
+        tuningTable.getEntry("Shooter/EnableAutoAim").setBoolean(false);
         System.out.println("[Shooter] Auto-aim DISABLED");
     }
 
@@ -469,112 +740,6 @@ public class ShooterSubsystem extends SubsystemBase {
     }
 
     /**
-     * Hub'ı hedeflemek için gereken turret açısını hesaplar (derece).
-     */
-    public double calculateTurretAngleToHub() {
-        return calculateTurretAngleToPoint(getTargetHub());
-    }
-
-    /**
-     * Mesafeye göre hood açısını hesaplar (derece).
-     * Daha uzak = daha düşük açı (düz atış)
-     * Daha yakın = daha yüksek açı (parabolik atış)
-     */
-    public double calculateHoodAngleFromDistance(double distanceMeters) {
-        // Interpolasyon tablosundan al
-        return hoodCalibrationMap.get(distanceMeters);
-    }
-
-    /**
-     * Mesafeye göre flywheel RPM hesaplar.
-     * Daha uzak = daha yüksek RPM
-     */
-    public double calculateFlywheelRPMFromDistance(double distanceMeters) {
-        // Interpolasyon tablosundan al
-        return flywheelCalibrationMap.get(distanceMeters);
-    }
-
-    /**
-     * Auto-aim güncelleme metodu.
-     * Aktifse turret, hood ve flywheel'i otomatik hedefler.
-     * Her periodic döngüsünde veya command'dan çağrılabilir.
-     */
-    public void updateAutoAim() {
-        if (!isAutoAimActive) {
-            return;
-        }
-
-        // 1. Hedef Belirleme (Scoring vs Feeding)
-        Translation2d targetPoint;
-        double hoodAngle;
-        double flywheelRPM;
-
-        boolean inZone = isInAllianceZone();
-
-        if (inZone) {
-            // --- SCORING MODE (Alliance Zone İçinde) ---
-            targetPoint = getTargetHub();
-            double distance = getDistanceToPoint(targetPoint);
-
-            hoodAngle = calculateHoodAngleFromDistance(distance);
-            flywheelRPM = calculateFlywheelRPMFromDistance(distance);
-
-            if (Constants.tuningMode) {
-                Logger.recordOutput("Shooter/AutoAim/Mode", "SCORING");
-                Logger.recordOutput("Shooter/AutoAim/Distance", distance);
-            }
-        } else {
-            // --- FEEDING MODE (Alliance Zone Dışında) ---
-            targetPoint = getFeedingTarget();
-            // Feeding için sabit değerler (veya mesafeye göre ayarlanabilir, şimdilik
-            // sabit)
-            hoodAngle = ShooterConstants.kFeedingHoodAngle;
-            flywheelRPM = ShooterConstants.kFeedingFlywheelRPM;
-
-            if (Constants.tuningMode) {
-                Logger.recordOutput("Shooter/AutoAim/Mode", "FEEDING");
-                Logger.recordOutput("Shooter/AutoAim/Distance", getDistanceToPoint(targetPoint));
-            }
-        }
-
-        // 2. Turret Açısı Hesaplama
-        double turretAngle = calculateTurretAngleToPoint(targetPoint);
-
-        // 3. Hedefleri Uygula
-        double rawTargetAngle = turretAngle + autoAimOffsetDeg;
-
-        // Wrap Optimization Logic:
-        // [-200, 200] aralığında en verimli açıyı (mevcut açıya en yakın) seç.
-        double optimizedTurretAngle = optimizeTurretAngle(getTurretAngle(), rawTargetAngle);
-
-        setTurretAngle(optimizedTurretAngle);
-        setHoodAngle(hoodAngle);
-        setFlywheelRPM(flywheelRPM);
-
-        // Debug log (AdvantageKit)
-        if (Constants.tuningMode) {
-            Logger.recordOutput("Shooter/AutoAim/RawTargetAngle", rawTargetAngle); // Debug için raw
-            Logger.recordOutput("Shooter/AutoAim/OptimizedTargetAngle", optimizedTurretAngle);
-            Logger.recordOutput("Shooter/AutoAim/CalculatedHoodAngle", hoodAngle);
-            Logger.recordOutput("Shooter/AutoAim/CalculatedRPM", flywheelRPM);
-            Logger.recordOutput("Shooter/AutoAim/TargetX", targetPoint.getX());
-            Logger.recordOutput("Shooter/AutoAim/TargetY", targetPoint.getY());
-
-            // CONSOLE LOG (For explicit Sim debugging)
-            // Sadece her 50 döngüde bir yaz ki konsol dolmasın (yaklaşık 1 sn)
-            if (edu.wpi.first.wpilibj.Timer.getFPGATimestamp() % 1.0 < 0.02) {
-                Pose2d p = robotPoseSupplier.get();
-                System.out.printf(
-                        "[AutoAim] %s | Pose: (%.2f, %.2f) | Target: (%.2f, %.2f) | Turret: %.2f -> %.2f%n",
-                        inZone ? "SCORING" : "FEEDING",
-                        p.getX(), p.getY(),
-                        targetPoint.getX(), targetPoint.getY(),
-                        getTurretAngle(), optimizedTurretAngle);
-            }
-        }
-    }
-
-    /**
      * Robotun Alliance Zone içinde olup olmadığını kontrol eder.
      */
     public boolean isInAllianceZone() {
@@ -609,81 +774,6 @@ public class ShooterSubsystem extends SubsystemBase {
     }
 
     /**
-     * Belirli bir noktaya dönmek için gereken turret açısını hesaplar.
-     */
-    public double calculateTurretAngleToPoint(Translation2d targetPoint) {
-        Pose2d robotPose = robotPoseSupplier.get();
-
-        // Robot'tan hedefe vektör
-        double dx = targetPoint.getX() - robotPose.getX();
-        double dy = targetPoint.getY() - robotPose.getY();
-
-        // Hedefe olan açı (saha koordinatlarında)
-        double fieldAngleRad = Math.atan2(dy, dx);
-
-        // Robot yönelimi
-        double robotAngleRad = robotPose.getRotation().getRadians();
-
-        // Turret açısı = Hedef açı - Robot açısı
-        double turretAngleRad = MathUtil.angleModulus(fieldAngleRad - robotAngleRad);
-
-        return Math.toDegrees(turretAngleRad);
-    }
-
-    /**
-     * Turret için en uygun hedef açıyı hesaplar.
-     * Hedef açı [-180, 180] aralığında gelir, ancak turret [-200, 200] dönebilir.
-     * Eğer mevcut konumdan diğer tarafa (`wrap`) dönmek daha kısaysa ve limitler
-     * içindeyse, onu seçer.
-     * 
-     * @param currentDeg    Mevcut turret açısı
-     * @param targetDegBase Hedef açı (genellikle -180 ile 180 arası normalize
-     *                      edilmiş)
-     * @return Optimize edilmiş hedef açı
-     */
-    private double optimizeTurretAngle(double currentDeg, double targetDegBase) {
-        // Hedefi -180 ile 180 arasına normalize et (emin olmak için)
-        double normalizedTarget = MathUtil.angleModulus(Math.toRadians(targetDegBase));
-        normalizedTarget = Math.toDegrees(normalizedTarget);
-
-        // Adaylar:
-        // 1. Normal hedef (örn: 170)
-        // 2. +360 fazı (örn: 170 + 360 = 530 -> Limit dışı)
-        // 3. -360 fazı (örn: 170 - 360 = -190 -> Limit içi olabilir)
-
-        double[] candidates = {
-                normalizedTarget,
-                normalizedTarget + 360.0,
-                normalizedTarget - 360.0
-        };
-
-        double bestTarget = currentDeg; // Varsayılan (hareket yok)
-        double minError = Double.MAX_VALUE;
-        boolean foundValid = false;
-
-        for (double cand : candidates) {
-            // Limit kontrolü
-            if (cand >= ShooterConstants.kTurretMinAngle && cand <= ShooterConstants.kTurretMaxAngle) {
-                double error = Math.abs(cand - currentDeg);
-                if (error < minError) {
-                    minError = error;
-                    bestTarget = cand;
-                    foundValid = true;
-                }
-            }
-        }
-
-        // Eğer geçerli bir aday bulunamazsa (nadiren olur, aralık 400 derece total),
-        // en yakın sınıra clamp'le veya base target'ı kullan.
-        if (!foundValid) {
-            // Fallback: Clamp directly
-            return MathUtil.clamp(normalizedTarget, ShooterConstants.kTurretMinAngle, ShooterConstants.kTurretMaxAngle);
-        }
-
-        return bestTarget;
-    }
-
-    /**
      * Auto-aim offset değerini ayarlar (derece).
      * Pozitif: Sola kaydır, Negatif: Sağa kaydır (veya tam tersi, deneme ile
      * belirlenir)
@@ -706,35 +796,21 @@ public class ShooterSubsystem extends SubsystemBase {
         return autoAimOffsetDeg;
     }
 
-    /**
-     * Eski metod ismi için alias (geriye uyumluluk)
-     */
-    public Translation2d getCurrentTarget() {
-        return getTargetHub();
-    }
-
-    /**
-     * Eski metod ismi için alias (geriye uyumluluk)
-     */
-    public double calculateTurretAngleToTarget() {
-        return calculateTurretAngleToHub();
-    }
-
     // =====================================================================
     // TELEMETRY (AdvantageKit)
     // =====================================================================
     private void logTelemetry() {
         // Core state - sadece önemli değerler
-        Logger.recordOutput("Shooter/Turret/ActualDeg", getTurretAngle());
-        Logger.recordOutput("Shooter/Hood/ActualDeg", getHoodAngle());
-        Logger.recordOutput("Shooter/Flywheel/ActualRPM", getFlywheelRPM());
-        Logger.recordOutput("Shooter/AutoAimActive", isAutoAimActive);
-        Logger.recordOutput("Shooter/AutoAim/OffsetDeg", autoAimOffsetDeg);
+        Logger.recordOutput("Tuning/Shooter/Turret/ActualDeg", getTurretAngle());
+        Logger.recordOutput("Tuning/Shooter/Hood/ActualDeg", getHoodAngle());
+        Logger.recordOutput("Tuning/Shooter/Flywheel/ActualRPM", getFlywheelRPM());
+        Logger.recordOutput("Tuning/Shooter/AutoAimActive", isAutoAimActive);
+        Logger.recordOutput("Tuning/Shooter/AutoAim/OffsetDeg", autoAimOffsetDeg);
 
         if (Constants.tuningMode) {
-            Logger.recordOutput("Shooter/Turret/TargetDeg", turretTargetDeg);
-            Logger.recordOutput("Shooter/Hood/TargetDeg", hoodTargetDeg);
-            Logger.recordOutput("Shooter/Flywheel/TargetRPM", flywheelTargetRPM);
+            Logger.recordOutput("Tuning/Shooter/Turret/TargetDeg", turretTargetDeg);
+            Logger.recordOutput("Tuning/Shooter/Hood/TargetDeg", hoodTargetDeg);
+            Logger.recordOutput("Tuning/Shooter/Flywheel/TargetRPM", flywheelTargetRPM);
         }
     }
 

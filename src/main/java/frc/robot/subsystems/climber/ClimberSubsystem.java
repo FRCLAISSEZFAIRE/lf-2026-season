@@ -14,10 +14,13 @@ import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.constants.ClimberConstants;
 import frc.robot.constants.RobotMap;
+import frc.robot.util.TunableNumber;
+
+import org.littletonrobotics.junction.Logger;
 
 /**
- * Climber Subsystem (Modernized)
- * Uses Dual NEO (SparkMax) with Position Control
+ * Climber Subsystem (Modernized with Tunable)
+ * Uses Dual NEO 1.2 (SparkMax) with Position Control
  */
 public class ClimberSubsystem extends SubsystemBase {
 
@@ -28,17 +31,29 @@ public class ClimberSubsystem extends SubsystemBase {
 
     private final DigitalInput seatSensor;
 
+    // =====================================================================
+    // TUNABLE VALUES
+    // =====================================================================
+    private final TunableNumber kP = new TunableNumber("Climber", "kP", ClimberConstants.kClimberP);
+    private final TunableNumber kI = new TunableNumber("Climber", "kI", ClimberConstants.kClimberI);
+    private final TunableNumber kD = new TunableNumber("Climber", "kD", ClimberConstants.kClimberD);
+
+    private final TunableNumber extendPosition = new TunableNumber("Climber", "Extend Position",
+            ClimberConstants.kClimbExtendPosition);
+    private final TunableNumber retractPosition = new TunableNumber("Climber", "Retract Position",
+            ClimberConstants.kClimbRetractPosition);
+    private final TunableNumber holdPosition = new TunableNumber("Climber", "Hold Position",
+            ClimberConstants.kClimbHoldPosition);
+    private final TunableNumber homePosition = new TunableNumber("Climber", "Home Position",
+            ClimberConstants.kHomePosition);
+
+    // =====================================================================
+    // MOTOR ENABLE/DISABLE (Motor takılı değilken test için)
+    // =====================================================================
+    private boolean motorsEnabled = true;
+
     public enum ClimberPreset {
-        HOME(ClimberConstants.kHomePosition),
-        EXTEND(ClimberConstants.kClimbExtendPosition),
-        RETRACT(ClimberConstants.kClimbRetractPosition),
-        HOLD(ClimberConstants.kClimbHoldPosition);
-
-        final double rot;
-
-        ClimberPreset(double rot) {
-            this.rot = rot;
-        }
+        HOME, EXTEND, RETRACT, HOLD
     }
 
     public ClimberSubsystem() {
@@ -52,6 +67,8 @@ public class ClimberSubsystem extends SubsystemBase {
 
         configureMotor(leftMotor, false);
         configureMotor(rightMotor, true);
+
+        System.out.println("[Climber] İki NEO 1.2 ile yapılandırıldı");
     }
 
     private void configureMotor(SparkMax motor, boolean inverted) {
@@ -63,14 +80,14 @@ public class ClimberSubsystem extends SubsystemBase {
         // Invert
         config.inverted(inverted);
 
-        // PID
-        config.closedLoop.pid(ClimberConstants.kClimberP, ClimberConstants.kClimberI, ClimberConstants.kClimberD);
+        // PID - Using tunable values
+        config.closedLoop.pid(kP.get(), kI.get(), kD.get());
         config.closedLoop.outputRange(-1, 1);
 
         // Soft Limits
-        config.softLimit.forwardSoftLimit(ClimberConstants.kForwardSoftLimit);
+        config.softLimit.forwardSoftLimit((float) ClimberConstants.kForwardSoftLimit);
         config.softLimit.forwardSoftLimitEnabled(true);
-        config.softLimit.reverseSoftLimit(ClimberConstants.kReverseSoftLimit);
+        config.softLimit.reverseSoftLimit((float) ClimberConstants.kReverseSoftLimit);
         config.softLimit.reverseSoftLimitEnabled(true);
 
         // Position Conversion (Default 1.0 is OK for Rotations)
@@ -83,15 +100,23 @@ public class ClimberSubsystem extends SubsystemBase {
 
     @Override
     public void periodic() {
+        checkTunableUpdates();
         logTelemetry();
     }
 
+    private void checkTunableUpdates() {
+        if (kP.hasChanged() || kI.hasChanged() || kD.hasChanged()) {
+            configureMotor(leftMotor, false);
+            configureMotor(rightMotor, true);
+            System.out.println("[Climber] PID güncellendi");
+        }
+    }
+
     private void logTelemetry() {
-        org.littletonrobotics.junction.Logger.recordOutput("Climber/LeftPosition",
-                leftMotor.getEncoder().getPosition());
-        org.littletonrobotics.junction.Logger.recordOutput("Climber/RightPosition",
-                rightMotor.getEncoder().getPosition());
-        org.littletonrobotics.junction.Logger.recordOutput("Climber/IsSeated", seatSensor.get());
+        Logger.recordOutput("Tuning/Climber/LeftPosition", leftMotor.getEncoder().getPosition());
+        Logger.recordOutput("Tuning/Climber/RightPosition", rightMotor.getEncoder().getPosition());
+        Logger.recordOutput("Tuning/Climber/IsSeated", seatSensor.get());
+        Logger.recordOutput("Tuning/Climber/MotorsEnabled", motorsEnabled);
     }
 
     // =========================================================================
@@ -104,9 +129,24 @@ public class ClimberSubsystem extends SubsystemBase {
     }
 
     public Command goToPreset(ClimberPreset preset) {
-        return run(() -> setPosition(preset.rot))
-                .until(() -> isAtTarget(preset.rot))
+        return run(() -> setPosition(getPresetPosition(preset)))
+                .until(() -> isAtTarget(getPresetPosition(preset)))
                 .withName("Climb " + preset.name());
+    }
+
+    private double getPresetPosition(ClimberPreset preset) {
+        switch (preset) {
+            case HOME:
+                return homePosition.get();
+            case EXTEND:
+                return extendPosition.get();
+            case RETRACT:
+                return retractPosition.get();
+            case HOLD:
+                return holdPosition.get();
+            default:
+                return 0;
+        }
     }
 
     public boolean isAtTarget(double targetRot) {
@@ -123,19 +163,19 @@ public class ClimberSubsystem extends SubsystemBase {
     // =========================================================================
 
     public void extend() {
-        setPosition(ClimberPreset.EXTEND.rot);
+        setPosition(extendPosition.get());
     }
 
     public void retract() {
-        setPosition(ClimberPreset.RETRACT.rot);
+        setPosition(retractPosition.get());
     }
 
     public void hold() {
-        setPosition(ClimberPreset.HOLD.rot);
+        setPosition(holdPosition.get());
     }
 
     public void home() {
-        setPosition(ClimberPreset.HOME.rot);
+        setPosition(homePosition.get());
     }
 
     public void stop() {
@@ -144,16 +184,34 @@ public class ClimberSubsystem extends SubsystemBase {
     }
 
     public boolean isAtTarget() {
-        // Hedef bilinmiyor, basitçe hareket durdu mu kontrol edilebilir veya
-        // son set edilen preset'e göre bakılabilir. Şimdilik hep false veya
-        // mevcut pozisyonun bir preset'e yakınlığına bakılabilir.
-        // En iyisi son hedefi saklamak.
         return false;
+    }
+
+    // =========================================================================
+    // MOTOR ENABLE/DISABLE (Motor takılı değilken test için)
+    // =========================================================================
+
+    public void enableMotors() {
+        motorsEnabled = true;
+        System.out.println("[Climber] Motors ENABLED");
+    }
+
+    public void disableMotors() {
+        motorsEnabled = false;
+        leftMotor.stopMotor();
+        rightMotor.stopMotor();
+        System.out.println("[Climber] Motors DISABLED");
+    }
+
+    public boolean areMotorsEnabled() {
+        return motorsEnabled;
     }
 
     // Manual Voltage for Override
     public void setVoltage(double volts) {
-        leftMotor.setVoltage(volts);
-        rightMotor.setVoltage(volts);
+        if (motorsEnabled) {
+            leftMotor.setVoltage(volts);
+            rightMotor.setVoltage(volts);
+        }
     }
 }

@@ -3,6 +3,8 @@ package frc.robot.subsystems.vision;
 import edu.wpi.first.math.VecBuilder;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.util.Units;
+import edu.wpi.first.networktables.NetworkTable;
+import edu.wpi.first.networktables.NetworkTableInstance;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 
 import org.littletonrobotics.junction.Logger;
@@ -13,145 +15,217 @@ import frc.robot.constants.VisionConstants;
 import frc.robot.subsystems.drive.DriveSubsystem;
 
 /**
- * Gelişmiş Vision Subsystem.
+ * Enhanced Vision Subsystem with dual Limelight pose estimation.
  * 
- * <h2>Kamera Yapılandırması:</h2>
+ * <h2>Camera Configuration:</h2>
  * <ul>
- * <li>Limelight 3 (MegaTag 2): Pose Estimation & NavX Sync</li>
- * <li>Limelight 3A: Object Detection (Intake)</li>
+ * <li><b>limelight-left:</b> Limelight 3A, rear-left corner, 45° outward -
+ * MegaTag 2</li>
+ * <li><b>limelight-right:</b> Limelight 3, rear-right corner, 45° outward -
+ * MegaTag 2</li>
+ * <li><b>intake-cam:</b> Near intake - Game Piece Detection (Color
+ * Pipeline)</li>
  * </ul>
  * 
- * <h2>Özellikler:</h2>
+ * <h2>Features:</h2>
  * <ul>
- * <li>MegaTag2 ile hassas pose estimation</li>
- * <li>Dinamik güven matrisi (tag sayısı, mesafe, dönüş hızına göre)</li>
- * <li>AdvantageKit telemetry desteği</li>
- * <li>Multi-tag lokalizasyon</li>
+ * <li>Dual Limelight MegaTag2 pose fusion</li>
+ * <li>Tuning Table toggle (default: OFF)</li>
+ * <li>Dynamic confidence matrix based on tag count, distance, rotation
+ * rate</li>
+ * <li>AdvantageKit telemetry support</li>
  * </ul>
  */
 public class VisionSubsystem extends SubsystemBase {
 
     private final DriveSubsystem drive;
 
-    // Kamera İsimleri
-    private final String poseCameraName;
-    private final String intakeCameraName;
+    // ==================== DASHBOARD TOGGLE ====================
+    private final NetworkTable tuningTable = NetworkTableInstance.getDefault().getTable("Tuning");
+    private boolean visionEnabled = false; // DEFAULT: OFF - prevents bad data on startup
 
-    // Telemetry cache
+    // ==================== TELEMETRY CACHE ====================
+    // Left camera
+    private boolean leftHasValidPose = false;
+    private int leftTagCount = 0;
+    private double leftAvgTagDistance = 0.0;
+    private Pose2d leftLatestPose = new Pose2d();
+
+    // Right camera
+    private boolean rightHasValidPose = false;
+    private int rightTagCount = 0;
+    private double rightAvgTagDistance = 0.0;
+    private Pose2d rightLatestPose = new Pose2d();
+
+    // Combined/fused
     private boolean hasValidPose = false;
-    private int tagCount = 0;
-    private double avgTagDistance = 0.0;
+    private int totalTagCount = 0;
     private Pose2d latestVisionPose = new Pose2d();
     private double latestTimestamp = 0.0;
 
+    // ==================== CONSTRUCTOR ====================
     public VisionSubsystem(DriveSubsystem drive) {
         this.drive = drive;
-        this.poseCameraName = VisionConstants.kLimelightName;
-        this.intakeCameraName = "limelight-object";
+
+        // Initialize Tuning Table entry
+        tuningTable.getEntry("Vision/Enabled").setBoolean(false);
     }
 
+    // ==================== PERIODIC ====================
     @Override
     public void periodic() {
-        // Pose Estimation (MegaTag 2)
-        updatePoseEstimation();
+        // Check tuning table toggle FIRST
+        visionEnabled = tuningTable.getEntry("Vision/Enabled").getBoolean(false);
+        Logger.recordOutput("Tuning/Vision/Enabled", visionEnabled);
 
-        // AdvantageKit Logging
-        Logger.recordOutput("Vision/HasValidPose", hasValidPose);
-        Logger.recordOutput("Vision/TagCount", tagCount);
-        Logger.recordOutput("Vision/AvgTagDistance", avgTagDistance);
-        Logger.recordOutput("Vision/LatestPose", latestVisionPose);
-        Logger.recordOutput("Vision/Timestamp", latestTimestamp);
-    }
+        // Early return if vision disabled
+        if (!visionEnabled) {
+            hasValidPose = false;
+            leftHasValidPose = false;
+            rightHasValidPose = false;
+            totalTagCount = 0;
+            return;
+        }
 
-    // ===========================================================================
-    // POSE ESTIMATION
-    // ===========================================================================
-
-    /**
-     * MegaTag2 ile pose estimation güncelleme.
-     * NavX sync ve dinamik güven matrisi kullanır.
-     */
-    private void updatePoseEstimation() {
-        hasValidPose = false;
-
-        // NavX Sync (MegaTag 2 için zorunlu)
+        // Get gyro data for MegaTag 2 sync (shared for both cameras)
         double gyroYawDegrees = drive.getRotation2d().getDegrees();
         double gyroRateDegPerSec = Units.radiansToDegrees(drive.getGyroVelocityRadPerSec());
 
+        // Process both Limelights
+        updatePoseFromCamera(VisionConstants.kLimelightLeft, gyroYawDegrees, gyroRateDegPerSec, true);
+        updatePoseFromCamera(VisionConstants.kLimelightRight, gyroYawDegrees, gyroRateDegPerSec, false);
+
+        // Update combined stats
+        totalTagCount = leftTagCount + rightTagCount;
+        hasValidPose = leftHasValidPose || rightHasValidPose;
+
+        // AdvantageKit Logging
+        // AdvantageKit Logging
+        Logger.recordOutput("Tuning/Vision/HasValidPose", hasValidPose);
+        Logger.recordOutput("Tuning/Vision/TotalTagCount", totalTagCount);
+        Logger.recordOutput("Tuning/Vision/LeftCamera/Valid", leftHasValidPose);
+        Logger.recordOutput("Tuning/Vision/LeftCamera/TagCount", leftTagCount);
+        Logger.recordOutput("Tuning/Vision/LeftCamera/AvgDist", leftAvgTagDistance);
+        Logger.recordOutput("Tuning/Vision/LeftCamera/Pose", leftLatestPose);
+        Logger.recordOutput("Tuning/Vision/RightCamera/Valid", rightHasValidPose);
+        Logger.recordOutput("Tuning/Vision/RightCamera/TagCount", rightTagCount);
+        Logger.recordOutput("Tuning/Vision/RightCamera/AvgDist", rightAvgTagDistance);
+        Logger.recordOutput("Tuning/Vision/RightCamera/Pose", rightLatestPose);
+    }
+
+    // ==================== POSE ESTIMATION ====================
+
+    /**
+     * Process pose estimation from a single Limelight camera.
+     * Uses MegaTag 2 with NavX synchronization.
+     * 
+     * @param cameraName        Limelight NetworkTables name
+     * @param gyroYawDeg        Current gyro yaw in degrees
+     * @param gyroRateDegPerSec Current gyro angular velocity
+     * @param isLeftCamera      true for left camera, false for right
+     */
+    private void updatePoseFromCamera(String cameraName, double gyroYawDeg,
+            double gyroRateDegPerSec, boolean isLeftCamera) {
+        // Reset validity
+        if (isLeftCamera) {
+            leftHasValidPose = false;
+            leftTagCount = 0;
+        } else {
+            rightHasValidPose = false;
+            rightTagCount = 0;
+        }
+
+        // NavX Sync (MegaTag 2 requirement)
         LimelightHelpers.SetRobotOrientation(
-                poseCameraName,
-                gyroYawDegrees,
+                cameraName,
+                gyroYawDeg,
                 gyroRateDegPerSec,
                 0, 0, 0, 0);
 
-        PoseEstimate mt2 = LimelightHelpers.getBotPoseEstimate_wpiBlue_MegaTag2(poseCameraName);
+        // Get MegaTag 2 pose estimate
+        PoseEstimate mt2 = LimelightHelpers.getBotPoseEstimate_wpiBlue_MegaTag2(cameraName);
 
-        // Null kontrolü
+        // Null check
         if (mt2 == null) {
-            tagCount = 0;
+            Logger.recordOutput("Tuning/Vision/" + (isLeftCamera ? "Left" : "Right") + "/RejectReason", "NullResult");
             return;
         }
 
-        tagCount = mt2.tagCount;
-        avgTagDistance = mt2.avgTagDist;
-        latestVisionPose = mt2.pose;
-        latestTimestamp = mt2.timestampSeconds;
+        // Update cache
+        if (isLeftCamera) {
+            leftTagCount = mt2.tagCount;
+            leftAvgTagDistance = mt2.avgTagDist;
+            leftLatestPose = mt2.pose;
+        } else {
+            rightTagCount = mt2.tagCount;
+            rightAvgTagDistance = mt2.avgTagDist;
+            rightLatestPose = mt2.pose;
+        }
 
-        // Geçersiz veri kontrolü - Yüksek dönüş hızında güvenme
-        if (Math.abs(gyroRateDegPerSec) > 720.0) {
-            Logger.recordOutput("Vision/RejectReason", "HighGyroRate");
+        // Validation: High gyro rate rejection
+        if (Math.abs(gyroRateDegPerSec) > VisionConstants.kMaxGyroRateForVision) {
+            Logger.recordOutput("Tuning/Vision/" + (isLeftCamera ? "Left" : "Right") + "/RejectReason", "HighGyroRate");
             return;
         }
 
-        // Tag yoksa güvenme
+        // Validation: No tags
         if (mt2.tagCount == 0) {
-            Logger.recordOutput("Vision/RejectReason", "NoTags");
+            Logger.recordOutput("Tuning/Vision/" + (isLeftCamera ? "Left" : "Right") + "/RejectReason", "NoTags");
             return;
         }
 
-        // Saha dışı kontrolü
+        // Validation: Out of field bounds
         if (mt2.pose.getX() < -0.5 || mt2.pose.getX() > 17.0 ||
                 mt2.pose.getY() < -0.5 || mt2.pose.getY() > 9.0) {
-            Logger.recordOutput("Vision/RejectReason", "OutOfField");
+            Logger.recordOutput("Tuning/Vision/" + (isLeftCamera ? "Left" : "Right") + "/RejectReason", "OutOfField");
             return;
         }
 
-        // Dinamik Standard Deviation hesaplama
+        // Calculate dynamic standard deviations
         double xyStdev = calculateXYStdDev(mt2, gyroRateDegPerSec);
         double thetaStdev = calculateThetaStdDev(mt2, gyroRateDegPerSec);
 
-        // Vision measurement ekle
+        // Add vision measurement to drive pose estimator
         drive.addVisionMeasurement(
                 mt2.pose,
                 mt2.timestampSeconds,
                 VecBuilder.fill(xyStdev, xyStdev, thetaStdev));
 
-        hasValidPose = true;
-        Logger.recordOutput("Vision/RejectReason", "None");
-        Logger.recordOutput("Vision/XYStdDev", xyStdev);
-        Logger.recordOutput("Vision/ThetaStdDev", thetaStdev);
+        // Mark as valid
+        if (isLeftCamera) {
+            leftHasValidPose = true;
+        } else {
+            rightHasValidPose = true;
+        }
+
+        latestVisionPose = mt2.pose;
+        latestTimestamp = mt2.timestampSeconds;
+
+        Logger.recordOutput("Tuning/Vision/" + (isLeftCamera ? "Left" : "Right") + "/RejectReason", "None");
+        Logger.recordOutput("Tuning/Vision/" + (isLeftCamera ? "Left" : "Right") + "/XYStdDev", xyStdev);
+        Logger.recordOutput("Tuning/Vision/" + (isLeftCamera ? "Left" : "Right") + "/ThetaStdDev", thetaStdev);
     }
 
     /**
-     * XY pozisyon güvenilirliğini hesapla.
+     * Calculate XY position standard deviation based on conditions.
      */
     private double calculateXYStdDev(PoseEstimate mt2, double gyroRateDegPerSec) {
         double stdev = 0.5; // Base value
 
-        // Dönüş hızı artarsa güvenilirlik azalır
+        // High rotation increases uncertainty
         if (Math.abs(gyroRateDegPerSec) > 100.0) {
             stdev += 0.5;
         }
 
-        // Birden fazla tag varsa güvenilirlik artar
+        // Multiple tags increase confidence
         if (mt2.tagCount > 1) {
             stdev -= 0.3;
         }
 
-        // Tag uzaktaysa güvenilirlik azalır
-        if (mt2.avgTagDist > 4.0) {
+        // Distance affects uncertainty
+        if (mt2.avgTagDist > VisionConstants.kMaxReliableTagDistance) {
             stdev += 0.5;
-        } else if (mt2.avgTagDist > 3.0) {
+        } else if (mt2.avgTagDist > VisionConstants.kHighUncertaintyTagDistance) {
             stdev += 0.2;
         }
 
@@ -159,85 +233,144 @@ public class VisionSubsystem extends SubsystemBase {
     }
 
     /**
-     * Açısal (theta) güvenilirliğini hesapla.
+     * Calculate theta (rotation) standard deviation based on conditions.
      */
     private double calculateThetaStdDev(PoseEstimate mt2, double gyroRateDegPerSec) {
         double stdev = 0.5; // Base value
 
-        // Dönüş hızı artarsa güvenilirlik çok azalır
+        // High rotation greatly increases uncertainty
         if (Math.abs(gyroRateDegPerSec) > 100.0) {
             stdev += 1.0;
         }
 
-        // Birden fazla tag varsa güvenilirlik artar
+        // Multiple tags increase confidence
         if (mt2.tagCount > 1) {
             stdev -= 0.3;
         }
 
-        // Tag uzaktaysa güvenilirlik azalır
-        if (mt2.avgTagDist > 4.0) {
+        // Distance affects uncertainty
+        if (mt2.avgTagDist > VisionConstants.kMaxReliableTagDistance) {
             stdev += 0.5;
         }
 
         return Math.max(0.1, stdev);
     }
 
-    // ===========================================================================
-    // GAME PIECE DETECTION (Limelight 3A)
-    // ===========================================================================
+    // ==================== GAME PIECE DETECTION ====================
 
     /**
-     * Intake kamerasında Fuel var mı?
+     * Check if the intake camera sees a game piece (Note/Coral).
+     * 
+     * @return true if a game piece is detected
      */
-    public boolean hasFuel() {
-        return LimelightHelpers.getTV(intakeCameraName);
+    public boolean hasGamePiece() {
+        return LimelightHelpers.getTV(VisionConstants.kIntakeCamera);
     }
 
     /**
-     * Fuel'in X açısı (yaw).
+     * Get the horizontal angle (yaw) to the detected game piece.
+     * Positive = target is to the right of center.
+     * 
+     * @return yaw angle in degrees, 0 if no target
      */
-    public double getFuelYaw() {
-        return LimelightHelpers.getTX(intakeCameraName);
+    public double getGamePieceYaw() {
+        if (!hasGamePiece())
+            return 0.0;
+        return LimelightHelpers.getTX(VisionConstants.kIntakeCamera);
     }
 
     /**
-     * Fuel'in Y açısı (pitch).
+     * Get the vertical angle (pitch) to the detected game piece.
+     * 
+     * @return pitch angle in degrees
      */
-    public double getFuelPitch() {
-        return LimelightHelpers.getTY(intakeCameraName);
+    public double getGamePiecePitch() {
+        return LimelightHelpers.getTY(VisionConstants.kIntakeCamera);
     }
 
     /**
-     * Fuel'in görüntüdeki alanı (yakınlık göstergesi).
+     * Get the area of the detected game piece (proximity indicator).
+     * Larger area = closer target.
+     * 
+     * @return target area as percentage of image (0-100)
      */
-    public double getFuelArea() {
-        return LimelightHelpers.getTA(intakeCameraName);
+    public double getGamePieceArea() {
+        return LimelightHelpers.getTA(VisionConstants.kIntakeCamera);
     }
 
     /**
-     * Pipeline değiştir.
+     * Set the pipeline for the intake camera.
+     * 
+     * @param pipelineIndex pipeline index to activate
      */
-    public void setPipeline(int pipelineIndex) {
-        LimelightHelpers.setPipelineIndex(intakeCameraName, pipelineIndex);
+    public void setIntakePipeline(int pipelineIndex) {
+        LimelightHelpers.setPipelineIndex(VisionConstants.kIntakeCamera, pipelineIndex);
     }
 
-    // ===========================================================================
-    // GETTERS
-    // ===========================================================================
+    // ==================== GETTERS ====================
 
+    /**
+     * Check if vision is currently enabled via dashboard.
+     */
+    public boolean isVisionEnabled() {
+        return visionEnabled;
+    }
+
+    /**
+     * Check if we have a valid pose estimate from either camera.
+     */
     public boolean hasValidPoseEstimate() {
         return hasValidPose;
     }
 
+    /**
+     * Get total number of AprilTags currently visible across all cameras.
+     */
+    public int getTotalTagCount() {
+        return totalTagCount;
+    }
+
+    /**
+     * Get the latest fused vision pose estimate.
+     */
+    public Pose2d getLatestVisionPose() {
+        return latestVisionPose;
+    }
+
+    /**
+     * Get the timestamp of the latest valid vision measurement.
+     */
+    public double getLatestTimestamp() {
+        return latestTimestamp;
+    }
+
+    // Legacy compatibility
     public int getTagCount() {
-        return tagCount;
+        return totalTagCount;
     }
 
     public double getAverageTagDistance() {
-        return avgTagDistance;
+        return (leftAvgTagDistance + rightAvgTagDistance) / 2.0;
     }
 
-    public Pose2d getLatestVisionPose() {
-        return latestVisionPose;
+    // Legacy fuel methods (renamed to gamepiece but keeping for compatibility)
+    public boolean hasFuel() {
+        return hasGamePiece();
+    }
+
+    public double getFuelYaw() {
+        return getGamePieceYaw();
+    }
+
+    public double getFuelPitch() {
+        return getGamePiecePitch();
+    }
+
+    public double getFuelArea() {
+        return getGamePieceArea();
+    }
+
+    public void setPipeline(int pipelineIndex) {
+        setIntakePipeline(pipelineIndex);
     }
 }

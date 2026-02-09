@@ -36,6 +36,15 @@ public final class DriveConstants {
     public static final double kRearLeftChassisAngularOffset = Math.PI; // 180 deg
     public static final double kRearRightChassisAngularOffset = -Math.PI / 2; // -90 deg
 
+    // ===========================================================================
+    // MOTOR INVERSION SETTINGS
+    // Ters dönen motorlar için true yapın. Robot test edilirken ayarlayın.
+    // ===========================================================================
+    public static final boolean kFrontLeftDrivingInverted = false; // FL: Normal
+    public static final boolean kFrontRightDrivingInverted = true; // FR: INVERTED
+    public static final boolean kRearLeftDrivingInverted = true; // RL: INVERTED
+    public static final boolean kRearRightDrivingInverted = false; // RR: Normal
+
     // Speed Limits
     public static final double kMaxSpeedMetersPerSecond = 4.8;
     public static final double kMaxAngularSpeed = 2 * Math.PI; // radians per second

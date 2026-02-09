@@ -34,8 +34,14 @@ public class MAXSwerveModule {
     /**
      * Constructs a MAXSwerveModule and configures the driving and turning motor,
      * encoder, and PID controller.
+     * 
+     * @param drivingCANId         CAN ID for the driving motor (Vortex)
+     * @param turningCANId         CAN ID for the turning motor (NEO 550)
+     * @param chassisAngularOffset Angular offset for this module in radians
+     * @param drivingInverted      true if driving motor should be inverted
+     *                             (typically FR and RL)
      */
-    public MAXSwerveModule(int drivingCANId, int turningCANId, double chassisAngularOffset) {
+    public MAXSwerveModule(int drivingCANId, int turningCANId, double chassisAngularOffset, boolean drivingInverted) {
         m_drivingSpark = new SparkFlex(drivingCANId, MotorType.kBrushless);
         m_turningSpark = new SparkMax(turningCANId, MotorType.kBrushless);
 
@@ -45,15 +51,29 @@ public class MAXSwerveModule {
         m_drivingClosedLoopController = m_drivingSpark.getClosedLoopController();
         m_turningClosedLoopController = m_turningSpark.getClosedLoopController();
 
-        // Apply the respective configurations to the SPARKS.
+        // Apply base configuration
         m_drivingSpark.configure(Configs.MAXSwerveModule.drivingConfig, ResetMode.kResetSafeParameters,
                 PersistMode.kPersistParameters);
         m_turningSpark.configure(Configs.MAXSwerveModule.turningConfig, ResetMode.kResetSafeParameters,
                 PersistMode.kPersistParameters);
 
+        // Apply motor inversion if needed (FR and RL typically need inversion)
+        if (drivingInverted) {
+            SparkFlexConfig invertConfig = new SparkFlexConfig();
+            invertConfig.inverted(true);
+            m_drivingSpark.configure(invertConfig, ResetMode.kNoResetSafeParameters, PersistMode.kPersistParameters);
+        }
+
         m_chassisAngularOffset = chassisAngularOffset;
         m_desiredState.angle = new Rotation2d(m_turningEncoder.getPosition());
         m_drivingEncoder.setPosition(0);
+    }
+
+    /**
+     * Legacy constructor for backwards compatibility (no inversion).
+     */
+    public MAXSwerveModule(int drivingCANId, int turningCANId, double chassisAngularOffset) {
+        this(drivingCANId, turningCANId, chassisAngularOffset, false);
     }
 
     // Getters moved to bottom with simulation logic support

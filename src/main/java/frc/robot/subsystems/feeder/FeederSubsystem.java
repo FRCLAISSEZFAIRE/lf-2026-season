@@ -56,6 +56,21 @@ public class FeederSubsystem extends SubsystemBase {
     private final TunableNumber kFF = new TunableNumber("Feeder", "kFF", FeederConstants.kFF);
 
     // =====================================================================
+    // TUNABLE SPEEDS (Test Mode için)
+    // =====================================================================
+    private final TunableNumber tunableFeedRPM = new TunableNumber("Feeder", "Feed RPM", FeederConstants.kFeedRPM);
+    private final TunableNumber tunableSlowFeedRPM = new TunableNumber("Feeder", "Slow Feed RPM",
+            FeederConstants.kSlowFeedRPM);
+    private final TunableNumber tunableReverseRPM = new TunableNumber("Feeder", "Reverse RPM",
+            FeederConstants.kReverseRPM);
+
+    // =====================================================================
+    // MANUAL OVERRIDE (Tuning Modunda Bağımsız Test)
+    // =====================================================================
+    private boolean manualOverrideEnabled = false;
+    private double manualOverrideRPM = 0;
+
+    // =====================================================================
     // CONSTRUCTOR
     // =====================================================================
     public FeederSubsystem() {
@@ -120,31 +135,97 @@ public class FeederSubsystem extends SubsystemBase {
     }
 
     /**
-     * İleri besleme (varsayılan hızda).
+     * İleri besleme (tunable hızda).
      */
     public void feed() {
-        setVelocity(FeederConstants.kFeedRPM);
+        if (!manualOverrideEnabled) {
+            setVelocity(tunableFeedRPM.get());
+        }
     }
 
     /**
-     * Yavaş besleme.
+     * Yavaş besleme (tunable hızda).
      */
     public void feedSlow() {
-        setVelocity(FeederConstants.kSlowFeedRPM);
+        if (!manualOverrideEnabled) {
+            setVelocity(tunableSlowFeedRPM.get());
+        }
     }
 
     /**
-     * Geri çıkarma.
+     * Geri çıkarma (tunable hızda).
      */
     public void reverse() {
-        setVelocity(FeederConstants.kReverseRPM);
+        if (!manualOverrideEnabled) {
+            setVelocity(tunableReverseRPM.get());
+        }
     }
 
     /**
      * Durdur.
      */
     public void stop() {
-        targetRPM = 0;
+        if (!manualOverrideEnabled) {
+            targetRPM = 0;
+            feederMotor.stopMotor();
+        }
+    }
+
+    // =====================================================================
+    // MANUAL OVERRIDE (Tuning Mode için Bağımsız Test)
+    // =====================================================================
+
+    /**
+     * Manuel override'ı etkinleştirir.
+     * Shooter çalışmasına gerek kalmadan feeder test edilebilir.
+     */
+    public void enableManualOverride() {
+        manualOverrideEnabled = true;
+        System.out.println("[Feeder] Manual override ENABLED - Shooter bağımsız test modu");
+    }
+
+    /**
+     * Manuel override'ı devre dışı bırakır.
+     * Normal shooter-feeder koordinasyonu devreye girer.
+     */
+    public void disableManualOverride() {
+        manualOverrideEnabled = false;
+        manualOverrideRPM = 0;
+        feederMotor.stopMotor();
+        System.out.println("[Feeder] Manual override DISABLED - Normal mod");
+    }
+
+    /**
+     * Manuel override aktif mi?
+     */
+    public boolean isManualOverrideEnabled() {
+        return manualOverrideEnabled;
+    }
+
+    /**
+     * Manuel override modunda feeder hızını ayarlar.
+     * 
+     * @param rpm Hedef RPM (tuning için)
+     */
+    public void setManualOverrideRPM(double rpm) {
+        if (manualOverrideEnabled) {
+            manualOverrideRPM = rpm;
+            feederMotor.getClosedLoopController().setSetpoint(rpm, ControlType.kVelocity);
+        }
+    }
+
+    /**
+     * Manuel override modunda ileri çalıştır.
+     */
+    public void manualFeed() {
+        setManualOverrideRPM(tunableFeedRPM.get());
+    }
+
+    /**
+     * Manuel override modunda durdur.
+     */
+    public void manualStop() {
+        setManualOverrideRPM(0);
         feederMotor.stopMotor();
     }
 
@@ -229,12 +310,14 @@ public class FeederSubsystem extends SubsystemBase {
     // TELEMETRY
     // =====================================================================
     private void logTelemetry() {
-        Logger.recordOutput("Feeder/TargetRPM", targetRPM);
-        Logger.recordOutput("Feeder/ActualRPM", getVelocityRPM());
-        Logger.recordOutput("Feeder/FuelBottom", hasFuelBottom());
-        Logger.recordOutput("Feeder/FuelTop", hasFuelTop());
-        Logger.recordOutput("Feeder/FuelLevel", getFuelLevel());
-        Logger.recordOutput("Feeder/IsLoading", isLoading);
+        Logger.recordOutput("Tuning/Feeder/TargetRPM", targetRPM);
+        Logger.recordOutput("Tuning/Feeder/ActualRPM", getVelocityRPM());
+        Logger.recordOutput("Tuning/Feeder/FuelBottom", hasFuelBottom());
+        Logger.recordOutput("Tuning/Feeder/FuelTop", hasFuelTop());
+        Logger.recordOutput("Tuning/Feeder/FuelLevel", getFuelLevel());
+        Logger.recordOutput("Tuning/Feeder/IsLoading", isLoading);
+        Logger.recordOutput("Tuning/Feeder/ManualOverrideEnabled", manualOverrideEnabled);
+        Logger.recordOutput("Tuning/Feeder/ManualOverrideRPM", manualOverrideRPM);
 
         // Elastic Dashboard Status
         String status = "Unknown";
@@ -244,7 +327,7 @@ public class FeederSubsystem extends SubsystemBase {
             status = "Full";
         else
             status = "Partial";
-        Logger.recordOutput("Feeder/Status", status);
+        Logger.recordOutput("Tuning/Feeder/Status", status);
     }
 
     // =====================================================================

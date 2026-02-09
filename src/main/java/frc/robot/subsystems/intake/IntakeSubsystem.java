@@ -14,6 +14,7 @@ import com.revrobotics.spark.SparkBase.ResetMode;
 import com.revrobotics.spark.config.SparkMaxConfig;
 import com.revrobotics.spark.config.SparkBaseConfig.IdleMode;
 import com.revrobotics.spark.SparkClosedLoopController;
+import com.revrobotics.AbsoluteEncoder;
 
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
@@ -21,80 +22,142 @@ import frc.robot.constants.IntakeConstants;
 import frc.robot.constants.RobotMap;
 import frc.robot.LimelightHelpers;
 import frc.robot.constants.VisionConstants;
-import frc.robot.constants.Constants;
+import frc.robot.util.TunableNumber;
+
+import org.littletonrobotics.junction.Logger;
 
 /**
- * Intake Subsystem (Modernized)
+ * Intake Subsystem (Modernized with Tunable)
  * Roller: TalonFX (Kraken) with Velocity Control
- * Pivot: SparkMax (NEO) with Position Control
+ * Pivot: SparkMax (NEO 1.2) with Position Control + Absolute Encoder
  */
 public class IntakeSubsystem extends SubsystemBase {
 
     private final TalonFX rollerMotor;
     private final SparkMax pivotMotor;
     private final SparkClosedLoopController pivotPID;
+    private final AbsoluteEncoder pivotAbsoluteEncoder;
 
     // Control Requests
     private final VelocityVoltage velocityRequest = new VelocityVoltage(0);
     private final VoltageOut voltageRequest = new VoltageOut(0);
 
     // Vision
-    private final String cameraName = VisionConstants.kLimelightName;
+    private final String cameraName = VisionConstants.kIntakeCamera;
     private boolean hasGamePiece = false;
     private double targetTx = 0.0;
+
+    // =====================================================================
+    // TUNABLE VALUES (Roller - Kraken)
+    // =====================================================================
+    private final TunableNumber rollerTargetRPS = new TunableNumber("Intake/Roller", "Target RPS",
+            IntakeConstants.kRollerTargetRPS);
+    private final TunableNumber rollerVoltage = new TunableNumber("Intake/Roller", "Voltage",
+            IntakeConstants.kRollerVoltage);
+    private final TunableNumber rollerKP = new TunableNumber("Intake/Roller", "kP", IntakeConstants.kRollerkP);
+    private final TunableNumber rollerKV = new TunableNumber("Intake/Roller", "kV", IntakeConstants.kRollerkV);
+
+    // =====================================================================
+    // TUNABLE VALUES (Pivot - NEO with Absolute Encoder)
+    // =====================================================================
+    private final TunableNumber pivotDeployedRad = new TunableNumber("Intake/Pivot", "Deployed Rad",
+            IntakeConstants.kPivotDeployedRad);
+    private final TunableNumber pivotRetractedRad = new TunableNumber("Intake/Pivot", "Retracted Rad",
+            IntakeConstants.kPivotRetractedRad);
+    private final TunableNumber pivotKP = new TunableNumber("Intake/Pivot", "kP", IntakeConstants.kPivotP);
+    private final TunableNumber pivotKD = new TunableNumber("Intake/Pivot", "kD", IntakeConstants.kPivotD);
+
+    // =====================================================================
+    // MANUAL OVERRIDE (Motor bağlı değilken test için)
+    // =====================================================================
+    private boolean motorsEnabled = true;
+    private boolean manualOverrideEnabled = false;
 
     public IntakeSubsystem() {
         // --- ROLLER (Kraken X60) ---
         rollerMotor = new TalonFX(RobotMap.kIntakeMotorID);
+        configureRoller();
 
+        // --- PIVOT (NEO 1.2 with Absolute Encoder) ---
+        pivotMotor = new SparkMax(RobotMap.kIntakePivotMotorID, MotorType.kBrushless);
+        pivotPID = pivotMotor.getClosedLoopController();
+        pivotAbsoluteEncoder = pivotMotor.getAbsoluteEncoder();
+
+        configurePivot();
+    }
+
+    private void configureRoller() {
         TalonFXConfiguration rollerConfig = new TalonFXConfiguration();
 
         // Motor Output
         rollerConfig.MotorOutput.NeutralMode = NeutralModeValue.Coast;
-        rollerConfig.MotorOutput.Inverted = InvertedValue.CounterClockwise_Positive; // Yönü kontrol et
+        rollerConfig.MotorOutput.Inverted = InvertedValue.CounterClockwise_Positive;
 
         // Current Limit
         rollerConfig.CurrentLimits.SupplyCurrentLimit = IntakeConstants.kRollerCurrentLimit;
         rollerConfig.CurrentLimits.SupplyCurrentLimitEnable = true;
 
-        // PID (Slot 0)
-        rollerConfig.Slot0.kV = IntakeConstants.kRollerkV;
-        rollerConfig.Slot0.kP = IntakeConstants.kRollerkP;
+        // PID (Slot 0) - Using tunable values
+        rollerConfig.Slot0.kV = rollerKV.get();
+        rollerConfig.Slot0.kP = rollerKP.get();
         rollerConfig.Slot0.kI = IntakeConstants.kRollerkI;
         rollerConfig.Slot0.kD = IntakeConstants.kRollerkD;
 
         rollerMotor.getConfigurator().apply(rollerConfig);
+    }
 
-        // --- PIVOT (NEO) ---
-        pivotMotor = new SparkMax(RobotMap.kIntakePivotMotorID, MotorType.kBrushless);
-        pivotPID = pivotMotor.getClosedLoopController();
-
+    private void configurePivot() {
         SparkMaxConfig pivotConfig = new SparkMaxConfig();
         pivotConfig.idleMode(IdleMode.kBrake);
         pivotConfig.smartCurrentLimit(IntakeConstants.kPivotCurrentLimit);
 
-        // PID
-        pivotConfig.closedLoop.pid(IntakeConstants.kPivotP, IntakeConstants.kPivotI, IntakeConstants.kPivotD);
+        // PID for position control
+        pivotConfig.closedLoop.pid(pivotKP.get(), IntakeConstants.kPivotI, pivotKD.get());
 
-        // Conversion: 1 Rot = 2pi Rad (Direct Drive)
+        // Use relative encoder with conversion factor
+        // If absolute encoder is connected, we'll use it for position zeroing
         pivotConfig.encoder.positionConversionFactor(2 * Math.PI);
         pivotConfig.encoder.velocityConversionFactor(2 * Math.PI / 60.0);
 
-        pivotConfig.softLimit.forwardSoftLimit(IntakeConstants.kPivotMaxRad);
+        // Soft Limits
+        pivotConfig.softLimit.forwardSoftLimit((float) IntakeConstants.kPivotMaxRad);
         pivotConfig.softLimit.forwardSoftLimitEnabled(true);
-        pivotConfig.softLimit.reverseSoftLimit(IntakeConstants.kPivotMinRad);
+        pivotConfig.softLimit.reverseSoftLimit((float) IntakeConstants.kPivotMinRad);
         pivotConfig.softLimit.reverseSoftLimitEnabled(true);
 
         pivotMotor.configure(pivotConfig, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
 
-        // Başlangıçta encoder'ı sıfırla (Retracted varsayımı)
-        pivotMotor.getEncoder().setPosition(IntakeConstants.kPivotRetractedRad);
+        // Zero position using absolute encoder if available
+        try {
+            double absPosition = pivotAbsoluteEncoder.getPosition();
+            pivotMotor.getEncoder().setPosition(absPosition);
+            System.out.println("[Intake] Pivot zeroed from absolute encoder: " + absPosition);
+        } catch (Exception e) {
+            // Absolute encoder not connected, use default
+            pivotMotor.getEncoder().setPosition(IntakeConstants.kPivotRetractedRad);
+            System.out.println("[Intake] Absolute encoder not available, using default position");
+        }
     }
 
     @Override
     public void periodic() {
         updateVision();
+        checkTunableUpdates();
         logTelemetry();
+    }
+
+    private void checkTunableUpdates() {
+        // Roller PID update
+        if (rollerKP.hasChanged() || rollerKV.hasChanged()) {
+            configureRoller();
+            System.out.println("[Intake] Roller PID güncellendi");
+        }
+
+        // Pivot PID update
+        if (pivotKP.hasChanged() || pivotKD.hasChanged()) {
+            configurePivot();
+            System.out.println("[Intake] Pivot PID güncellendi");
+        }
     }
 
     private void updateVision() {
@@ -108,12 +171,11 @@ public class IntakeSubsystem extends SubsystemBase {
     }
 
     private void logTelemetry() {
-        if (Constants.tuningMode) {
-            org.littletonrobotics.junction.Logger.recordOutput("Intake/PivotPosition", getPivotPosition());
-            org.littletonrobotics.junction.Logger.recordOutput("Intake/RollerVelocity",
-                    rollerMotor.getVelocity().getValueAsDouble());
-            org.littletonrobotics.junction.Logger.recordOutput("Intake/HasGamePiece", hasGamePiece);
-        }
+        Logger.recordOutput("Tuning/Intake/PivotPosition", getPivotPosition());
+        Logger.recordOutput("Tuning/Intake/RollerVelocity", rollerMotor.getVelocity().getValueAsDouble());
+        Logger.recordOutput("Tuning/Intake/HasGamePiece", hasGamePiece);
+        Logger.recordOutput("Tuning/Intake/MotorsEnabled", motorsEnabled);
+        Logger.recordOutput("Tuning/Intake/ManualOverride", manualOverrideEnabled);
     }
 
     // =========================================================================
@@ -121,23 +183,26 @@ public class IntakeSubsystem extends SubsystemBase {
     // =========================================================================
 
     public void runRoller(double volts) {
-        // Legacy support: Run on voltage
-        rollerMotor.setControl(voltageRequest.withOutput(volts));
+        if (motorsEnabled && !manualOverrideEnabled) {
+            rollerMotor.setControl(voltageRequest.withOutput(volts));
+        }
     }
 
     public void runRollerVelocity(double rps) {
-        rollerMotor.setControl(velocityRequest.withVelocity(rps));
+        if (motorsEnabled && !manualOverrideEnabled) {
+            rollerMotor.setControl(velocityRequest.withVelocity(rps));
+        }
     }
 
     /**
-     * Runs roller using Velocity Control (Target RPM/RPS).
+     * Runs roller using Velocity Control (Tunable RPS).
      */
     public Command runRollerCommand() {
-        return run(() -> runRollerVelocity(IntakeConstants.kRollerTargetRPS));
+        return run(() -> runRollerVelocity(rollerTargetRPS.get()));
     }
 
     public Command reverseRollerCommand() {
-        return run(() -> runRoller(-IntakeConstants.kRollerVoltage)); // Ters voltaj (kusma genelde max voltaj olur)
+        return run(() -> runRoller(-rollerVoltage.get()));
     }
 
     public Command stopRollerCommand() {
@@ -158,11 +223,11 @@ public class IntakeSubsystem extends SubsystemBase {
     }
 
     public Command deployCommand() {
-        return runOnce(() -> setPivotPosition(IntakeConstants.kPivotDeployedRad));
+        return runOnce(() -> setPivotPosition(pivotDeployedRad.get()));
     }
 
     public Command retractCommand() {
-        return runOnce(() -> setPivotPosition(IntakeConstants.kPivotRetractedRad));
+        return runOnce(() -> setPivotPosition(pivotRetractedRad.get()));
     }
 
     // =========================================================================
@@ -179,5 +244,40 @@ public class IntakeSubsystem extends SubsystemBase {
 
     public boolean hasGamePiece() {
         return hasGamePiece;
+    }
+
+    // =========================================================================
+    // MOTOR ENABLE/DISABLE (Motor takılı değilken test için)
+    // =========================================================================
+
+    public void enableMotors() {
+        motorsEnabled = true;
+        System.out.println("[Intake] Motors ENABLED");
+    }
+
+    public void disableMotors() {
+        motorsEnabled = false;
+        rollerMotor.stopMotor();
+        pivotMotor.stopMotor();
+        System.out.println("[Intake] Motors DISABLED");
+    }
+
+    public boolean areMotorsEnabled() {
+        return motorsEnabled;
+    }
+
+    public void enableManualOverride() {
+        manualOverrideEnabled = true;
+        System.out.println("[Intake] Manual override ENABLED");
+    }
+
+    public void disableManualOverride() {
+        manualOverrideEnabled = false;
+        System.out.println("[Intake] Manual override DISABLED");
+    }
+
+    public void stopAll() {
+        rollerMotor.stopMotor();
+        pivotMotor.stopMotor();
     }
 }

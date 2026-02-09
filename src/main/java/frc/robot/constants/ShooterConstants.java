@@ -119,6 +119,59 @@ public final class ShooterConstants {
     public static final double kMaxShootingDistance = kFarDistance;
 
     // ===========================================================================
+    // DISTANCE-BASED CALIBRATION (Live Tunable in Test Mode)
+    // ===========================================================================
+
+    // --- HUB SHOOTING ---
+    /**
+     * Fixed distance points for Hub interpolation (meters).
+     * UPDATED: {0.5, 1.0, 2.0, 3.5, 4.5}
+     */
+    public static final double[] HUB_DISTANCES = { 0.5, 1.0, 2.0, 3.5, 4.5 };
+
+    /**
+     * Default RPM values for Hub shooting.
+     * Can be tuned via Dashboard in Test Mode.
+     */
+    public static final double[] DEFAULT_HUB_RPMS = { 2000, 2500, 3500, 4500, 5500 };
+
+    /**
+     * Default Hood angles for Hub shooting.
+     * Can be tuned via Dashboard in Test Mode.
+     */
+    public static final double[] DEFAULT_HUB_HOOD_ANGLES = { 65.0, 60.0, 45.0, 30.0, 20.0 };
+
+    // --- ALLIANCE PASS SHOOTING (4m - 8m) ---
+    /**
+     * Fixed distance points for Alliance Pass interpolation (meters).
+     * Request: 4, 5, 6, 7, 8
+     */
+    public static final double[] ALLIANCE_PASS_DISTANCES = { 4.0, 5.0, 6.0, 7.0, 8.0 };
+
+    /**
+     * Default RPM values for Alliance Pass.
+     * Placeholder values - Tuning Required.
+     */
+    public static final double[] DEFAULT_ALLIANCE_PASS_RPMS = { 3000, 3500, 4000, 4500, 5000 };
+
+    /**
+     * Default Hood angles for Alliance Pass.
+     * Placeholder values - Tuning Required.
+     */
+    public static final double[] DEFAULT_ALLIANCE_PASS_HOOD_ANGLES = { 45.0, 40.0, 35.0, 30.0, 25.0 };
+
+    // --- TOLERANCES ---
+    public static final double SHOOTER_RPM_TOLERANCE = 50.0;
+    public static final double HOOD_ANGLE_TOLERANCE = 1.0;
+    public static final double TURRET_AIM_TOLERANCE = 2.0;
+
+    /**
+     * Default safe values for invalid/null distance (Fender shot)
+     */
+    public static final double FENDER_SHOT_RPM = 2000.0;
+    public static final double FENDER_SHOT_HOOD_ANGLE = 65.0;
+
+    // ===========================================================================
     // FEEDING MODE
     // ===========================================================================
     public static final double kFeedingFlywheelRPM = 3500.0;

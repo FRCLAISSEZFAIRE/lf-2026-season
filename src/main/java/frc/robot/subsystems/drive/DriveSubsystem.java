@@ -32,25 +32,30 @@ import frc.robot.util.TunableNumber;
 
 public class DriveSubsystem extends SubsystemBase {
     // Create MAXSwerveModules
+    // Motor inversion settings are in DriveConstants
     private final MAXSwerveModule m_frontLeft = new MAXSwerveModule(
             DriveConstants.kFrontLeftDrivingCanId,
             DriveConstants.kFrontLeftTurningCanId,
-            DriveConstants.kFrontLeftChassisAngularOffset);
+            DriveConstants.kFrontLeftChassisAngularOffset,
+            DriveConstants.kFrontLeftDrivingInverted);
 
     private final MAXSwerveModule m_frontRight = new MAXSwerveModule(
             DriveConstants.kFrontRightDrivingCanId,
             DriveConstants.kFrontRightTurningCanId,
-            DriveConstants.kFrontRightChassisAngularOffset);
+            DriveConstants.kFrontRightChassisAngularOffset,
+            DriveConstants.kFrontRightDrivingInverted);
 
     private final MAXSwerveModule m_rearLeft = new MAXSwerveModule(
             DriveConstants.kRearLeftDrivingCanId,
             DriveConstants.kRearLeftTurningCanId,
-            DriveConstants.kRearLeftChassisAngularOffset);
+            DriveConstants.kRearLeftChassisAngularOffset,
+            DriveConstants.kRearLeftDrivingInverted);
 
     private final MAXSwerveModule m_rearRight = new MAXSwerveModule(
             DriveConstants.kRearRightDrivingCanId,
             DriveConstants.kRearRightTurningCanId,
-            DriveConstants.kRearRightChassisAngularOffset);
+            DriveConstants.kRearRightChassisAngularOffset,
+            DriveConstants.kRearRightDrivingInverted);
 
     // The gyro sensor (NavX2 via Studica lib)
     private final AHRS m_gyro = new AHRS(NavXComType.kUSB1);
@@ -61,7 +66,7 @@ public class DriveSubsystem extends SubsystemBase {
     // Odometry class for tracking robot pose
     SwerveDriveOdometry m_odometry = new SwerveDriveOdometry(
             DriveConstants.kDriveKinematics,
-            Rotation2d.fromDegrees(-m_gyro.getAngle()),
+            Rotation2d.fromDegrees(m_gyro.getAngle()), // Removed negative sign
             new SwerveModulePosition[] {
                     m_frontLeft.getPosition(),
                     m_frontRight.getPosition(),
@@ -143,14 +148,16 @@ public class DriveSubsystem extends SubsystemBase {
         field.setRobotPose(getPose());
 
         // Logging
-        Logger.recordOutput("Drive/Pose", getPose());
-        Logger.recordOutput("Drive/Gyro", getRotation2d());
+        // Logging
+        Logger.recordOutput("Tuning/Drive/Pose", getPose());
+        Logger.recordOutput("Tuning/Drive/Gyro", getRotation2d());
 
         // Module States
-        Logger.recordOutput("Drive/ModuleStates/FrontLeft", m_frontLeft.getState());
-        Logger.recordOutput("Drive/ModuleStates/FrontRight", m_frontRight.getState());
-        Logger.recordOutput("Drive/ModuleStates/RearLeft", m_rearLeft.getState());
-        Logger.recordOutput("Drive/ModuleStates/RearRight", m_rearRight.getState());
+        // Module States
+        Logger.recordOutput("Tuning/Drive/ModuleStates/FrontLeft", m_frontLeft.getState());
+        Logger.recordOutput("Tuning/Drive/ModuleStates/FrontRight", m_frontRight.getState());
+        Logger.recordOutput("Tuning/Drive/ModuleStates/RearLeft", m_rearLeft.getState());
+        Logger.recordOutput("Tuning/Drive/ModuleStates/RearRight", m_rearRight.getState());
 
         // Dynamic Updates
         if (autoTranslationP.hasChanged() || autoRotationP.hasChanged()) {
@@ -338,7 +345,7 @@ public class DriveSubsystem extends SubsystemBase {
         if (edu.wpi.first.wpilibj.RobotBase.isSimulation()) {
             return m_simRotation;
         }
-        return Rotation2d.fromDegrees(-m_gyro.getAngle());
+        return Rotation2d.fromDegrees(m_gyro.getAngle());
     }
 
     // Compatibility for VisionSubsystem
@@ -351,7 +358,7 @@ public class DriveSubsystem extends SubsystemBase {
             edu.wpi.first.math.Matrix<edu.wpi.first.math.numbers.N3, edu.wpi.first.math.numbers.N1> stdDevs) {
         // SwerveDriveOdometry does not imply addVisionMeasurement by default
         // (PoseEstimator does).
-        Logger.recordOutput("Drive/VisionFusionIgnored", pose);
+        Logger.recordOutput("Tuning/Drive/VisionFusionIgnored", pose);
     }
 
     public void addVisionMeasurement(Pose2d pose, double timestamp) {

@@ -133,6 +133,16 @@ public class Robot extends LoggedRobot {
   /** This function is called once each time the robot enters Disabled mode. */
   @Override
   public void disabledInit() {
+    // CRITICAL: Stop all shooter motors when disabled
+    // This prevents the shooter from continuing after disable/restart
+    if (m_robotContainer != null && m_robotContainer.getShooterSubsystem() != null) {
+      m_robotContainer.getShooterSubsystem().stopAll();
+      m_robotContainer.getShooterSubsystem().disableAutoAim();
+      System.out.println("[Disabled] Shooter stopped and auto-aim disabled");
+    }
+
+    // Cancel all running commands
+    CommandScheduler.getInstance().cancelAll();
   }
 
   @Override
@@ -146,6 +156,9 @@ public class Robot extends LoggedRobot {
   @Override
   public void autonomousInit() {
     m_autonomousCommand = m_robotContainer.getAutonomousCommand();
+
+    // Switch to main driver tab in Autonomous
+    edu.wpi.first.wpilibj.shuffleboard.Shuffleboard.selectTab("SmartDashboard");
 
     // schedule the autonomous command (example)
     if (m_autonomousCommand != null) {
@@ -167,6 +180,9 @@ public class Robot extends LoggedRobot {
     if (m_autonomousCommand != null) {
       m_autonomousCommand.cancel();
     }
+
+    // Switch to main driver tab in Teleop
+    edu.wpi.first.wpilibj.shuffleboard.Shuffleboard.selectTab("SmartDashboard");
   }
 
   /** This function is called periodically during operator control. */
@@ -179,6 +195,9 @@ public class Robot extends LoggedRobot {
     // Cancels all running commands at the start of test mode.
     CommandScheduler.getInstance().cancelAll();
 
+    // Switch to Shooter Tuning tab for live tuning
+    edu.wpi.first.wpilibj.shuffleboard.Shuffleboard.selectTab("Shooter Tuning");
+
     // Reset Pose for convenience
     resetPoseToAllianceStart();
 
@@ -186,11 +205,16 @@ public class Robot extends LoggedRobot {
     CommandScheduler.getInstance().schedule(
         new frc.robot.commands.shooter.ShooterTestCommand(m_robotContainer.getShooterSubsystem()));
     System.out.println("[Test Mode] ShooterTestCommand başlatıldı - Flywheel/Turret/Hood PID tuning aktif");
+    System.out.println("[Test Mode] Live tuning ENABLED - Dashboard değerleri okunuyor");
   }
 
   /** This function is called periodically during test mode. */
   @Override
   public void testPeriodic() {
+    // CRITICAL: Run CommandScheduler so joystick triggers work in Test Mode
+    // This is needed because joystick-based shooting tests require command
+    // execution
+    CommandScheduler.getInstance().run();
   }
 
   /** This function is called once when the robot is first started up. */

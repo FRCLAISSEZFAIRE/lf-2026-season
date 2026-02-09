@@ -113,6 +113,14 @@ public class ControllerBindings {
                                 shooterSubsystem.enableAutoAim();
                         }
                 }));
+
+                // [RIGHT BUMPER] POSE-BASED SHOOTING
+                // Calculates RPM, Hood, Turret from Robot Pose
+                driverController.rightBumper().whileTrue(
+                                new frc.robot.commands.shooter.ShootCommand(
+                                                shooterSubsystem,
+                                                feederSubsystem,
+                                                driveSubsystem::getPose));
         }
 
         // =========================================================================

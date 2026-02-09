@@ -8,30 +8,19 @@ import frc.robot.subsystems.feeder.FeederSubsystem;
 import java.util.function.Supplier;
 
 /**
- * Pose-Based Shooting Command.
+ * Shoot to Alliance Pass Target Command.
  * 
- * - Continuously updates Aiming (Turret, Hood, Flywheel) based on Robot Pose.
- * - Feeder ONLY runs when shooter is READY (PID checks pass).
- * - "Hold Fire" logic: Automatically stops feeding if accuracy is lost.
+ * - Updates Aiming for Alliance Pass (Feeding Station) based on Robot Pose.
+ * - Feeder ONLY runs when shooter is READY.
  */
-public class ShootCommand extends Command {
+public class ShootToAllianceCommand extends Command {
 
     private final ShooterSubsystem shooter;
     private final FeederSubsystem feeder;
     private final Supplier<Pose2d> poseSupplier;
-
-    // Optional: Single shot state, but "Hold Fire" implies continuous fire
-    // capability if held
     private boolean hasShot = false;
 
-    /**
-     * Creates a new ShootCommand.
-     * 
-     * @param shooter      Subsystem
-     * @param feeder       Subsystem
-     * @param poseSupplier Supply current robot pose (e.g. from DriveSubsystem)
-     */
-    public ShootCommand(
+    public ShootToAllianceCommand(
             ShooterSubsystem shooter,
             FeederSubsystem feeder,
             Supplier<Pose2d> poseSupplier) {
@@ -45,50 +34,41 @@ public class ShootCommand extends Command {
     @Override
     public void initialize() {
         hasShot = false;
-        System.out.println("[ShootCommand] Started - Pose Targeting");
+        System.out.println("[ShootToAllianceCommand] Started - Targeting Alliance Pass");
     }
 
     @Override
     public void execute() {
-        // 1. Get Current Pose
         Pose2d currentPose = poseSupplier.get();
         if (currentPose == null) {
-            // Safety fallback? Just don't update aiming, or stop?
-            // Usually pose is never null if initialized correctly.
             feeder.stop();
             return;
         }
 
-        // 2. Update Aiming (Turret, Hood, RPM)
-        shooter.updateAiming(currentPose);
+        // Switch aiming logic to Alliance Pass
+        shooter.updateAimingForPass(currentPose);
 
-        // 3. "Hold Fire" Logic: Feed ONLY if Ready
         if (shooter.isReadyToShoot()) {
             if (!hasShot) {
-                // System.out.println("[ShootCommand] Ready! Firing...");
                 hasShot = true;
             }
-            // Run feeder
             if (!feeder.isLoading()) {
                 feeder.feed();
             }
         } else {
-            // NOT Ready: Stop feeder immediately (Hold Fire)
             feeder.stop();
         }
     }
 
     @Override
     public void end(boolean interrupted) {
-        // Stop everything when trigger released
         shooter.stopFlywheel();
         feeder.stop();
-        System.out.println("[ShootCommand] Stopped");
+        System.out.println("[ShootToAllianceCommand] Stopped");
     }
 
     @Override
     public boolean isFinished() {
-        // Run while button is held
         return false;
     }
 }

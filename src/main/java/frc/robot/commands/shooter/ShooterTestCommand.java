@@ -1,6 +1,5 @@
 package frc.robot.commands.shooter;
 
-import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import frc.robot.subsystems.shooter.ShooterSubsystem;
 import frc.robot.util.TunableNumber;
@@ -33,9 +32,9 @@ public class ShooterTestCommand extends Command {
         addRequirements(shooter);
 
         // TunableNumber'ları constructor'da oluştur
-        testFlywheelRPM = new TunableNumber("ShooterTest", "Flywheel RPM", 0.0);
-        testTurretAngle = new TunableNumber("ShooterTest", "Turret Angle", 0.0);
-        testHoodAngle = new TunableNumber("ShooterTest", "Hood Angle", 40.0);
+        testFlywheelRPM = new TunableNumber("Shooter/Test", "Flywheel RPM", 0.0);
+        testTurretAngle = new TunableNumber("Shooter/Test", "Turret Angle", 0.0);
+        testHoodAngle = new TunableNumber("Shooter/Test", "Hood Angle", 40.0);
 
         // Auto-aim toggle için SmartDashboard
         // Auto-aim toggle için SmartDashboard -> "Shooter/EnableAutoAim" (Subsystem'de)
@@ -109,7 +108,7 @@ public class ShooterTestCommand extends Command {
         }
 
         // Test mode log (diğer değerler subsystem.periodic() de loglanıyor)
-        Logger.recordOutput("Shooter/Test/Mode", autoAimEnabled ? "AUTO-AIM" : "MANUAL");
+        Logger.recordOutput("Tuning/Shooter/Test/Mode", autoAimEnabled ? "AUTO-AIM" : "MANUAL");
     }
 
     @Override
