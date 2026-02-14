@@ -80,6 +80,9 @@ public final class ShooterConstants {
     /** Hood başlangıç açısı (robot açılışında varsayılan pozisyon) */
     public static final double kHoodHomeAngle = 15.0;
 
+    /** Hood Smart Current Limit (Amps) - NEO 550 Safety */
+    public static final int kHoodCurrentLimit = 20;
+
     // Hood presets
     public static final double kHoodCloseAngle = 5.0;
     public static final double kHoodMidAngle = 15.0;

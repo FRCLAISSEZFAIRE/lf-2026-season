@@ -103,6 +103,36 @@ public class DriveSubsystem extends SubsystemBase {
 
         // Reset Gyro on startup
         m_gyro.reset();
+
+        // Put Reset Gyro command to Dashboard
+        // Put Reset Gyro command to Dashboard
+        SmartDashboard.putData("Drive/ResetGyro", new edu.wpi.first.wpilibj2.command.InstantCommand(this::zeroHeading));
+
+        // Initialize Gyro Inversion setting from Constants
+        SmartDashboard.setDefaultBoolean("Drive/InvertGyro", DriveConstants.kGyroReversed);
+    }
+
+    /**
+     * Resets the gyro heading to zero.
+     */
+    public void zeroHeading() {
+        m_gyro.reset();
+        // Also reset odometry rotation if needed, but usually resetting gyro is enough
+        // for field-relative calculation
+        // if getRotation2d() reads directly from gyro.
+        // However, odometry might keep its own offset.
+        // Ideally, we reset odometry pose's rotation component, but keeping
+        // translation.
+
+        // For simple field-relative driving, resetting gyro is key.
+        // But we must ensure getRotation2d() returns 0 after this.
+
+        // If we are in simulation, reset sim rotation
+        m_simRotation = new Rotation2d();
+
+        // Reset Odometry heading to 0 while keeping position
+        Pose2d currentPose = getPose();
+        resetOdometry(new Pose2d(currentPose.getTranslation(), new Rotation2d()));
     }
 
     /**
@@ -344,6 +374,13 @@ public class DriveSubsystem extends SubsystemBase {
     public Rotation2d getRotation2d() {
         if (edu.wpi.first.wpilibj.RobotBase.isSimulation()) {
             return m_simRotation;
+        }
+
+        // Read Gyro Inversion from Dashboard
+        boolean invertGyro = SmartDashboard.getBoolean("Drive/InvertGyro", DriveConstants.kGyroReversed);
+
+        if (invertGyro) {
+            return Rotation2d.fromDegrees(-m_gyro.getAngle());
         }
         return Rotation2d.fromDegrees(m_gyro.getAngle());
     }

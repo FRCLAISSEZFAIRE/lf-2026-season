@@ -406,6 +406,18 @@ public class RobotContainer {
                 // Commands.run(() -> ledSubsystem.setIdle(), ledSubsystem));
 
                 // Not: Shooter bindingleri ControllerBindings.java'da tanımlanıyor.
+
+                // --- AUTO AIM WITH MANUAL SPEED SLIDER (Button Y) ---
+                // Y tuşuna basıldığında: Auto-Aim modunu aç/kapat (Toggle).
+                // Açıkken: Taret ve Hood sürekli hedefe kilitlenir. Flywheel çalışmaz.
+                // Flywheel hızı manuel slider ile kontrol edilmelidir (veya başka bir komutla).
+                driverController.y().onTrue(
+                                Commands.runOnce(shooterSubsystem::toggleAutoAim, shooterSubsystem));
+
+                // Dashboard'a varsayılan değeri koy (Slider yapılabilir)
+                // Bu değer artık sadece manual test veya başka komutlar için kullanılabilir.
+                // Auto-aim sadece hedef takibi yapar.
+                edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.setDefaultNumber("Shooter/ManualSpeedRPM", 3000);
         }
 
         // ==================== AUTONOMOUS ====================

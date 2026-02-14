@@ -41,14 +41,33 @@ public class DriveWithJoystick extends Command {
         this.rotSpeedSupplier = rotSpeedSupplier;
 
         addRequirements(driveSubsystem);
+
+        // Initialize Dashboard Controls if not present
+        edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.setDefaultBoolean("Drive/InvertJoystick", false);
+        edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.setDefaultBoolean("Drive/InvertRotation", false);
     }
 
     @Override
     public void execute() {
+        // Read Inversion Settings
+        boolean invertJoystick = edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.getBoolean("Drive/InvertJoystick",
+                false);
+        boolean invertRotation = edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.getBoolean("Drive/InvertRotation",
+                false);
+
         // 1. Joystick değerlerini al ve deadband uygula
         double rawX = xSpeedSupplier.getAsDouble();
         double rawY = ySpeedSupplier.getAsDouble();
         double rawRot = rotSpeedSupplier.getAsDouble();
+
+        // Apply Inversions
+        if (invertJoystick) {
+            rawX = -rawX;
+            rawY = -rawY;
+        }
+        if (invertRotation) {
+            rawRot = -rawRot;
+        }
 
         double xSpeed = MathUtil.applyDeadband(rawX, OIConstants.kDriveDeadband);
         double ySpeed = MathUtil.applyDeadband(rawY, OIConstants.kDriveDeadband);

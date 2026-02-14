@@ -110,6 +110,45 @@ public class FeederSubsystem extends SubsystemBase {
         config.smartCurrentLimit(FeederConstants.kCurrentLimit);
 
         feederMotor.configure(config, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
+
+        // Initialize Dashboard Toggle
+        edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.setDefaultBoolean("Feeder/Invert", false);
+    }
+
+    private boolean lastInvertState = false;
+
+    private void checkInversion() {
+        boolean invert = edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.getBoolean("Feeder/Invert", false);
+        if (invert != lastInvertState) {
+            lastInvertState = invert;
+            SparkMaxConfig config = new SparkMaxConfig();
+            config.inverted(invert);
+            // Apply ONLY inverted setting, keeping other parameters?
+            // REVLib 2026 checks suggest we should re-apply the whole config or use
+            // specific setter if available.
+            // But `configure` with `kNoResetSafeParameters` is safer for partial updates if
+            // we had the full config object.
+            // Better to re-run configureMotor() but allow it to take a parameter or just
+            // read the field.
+            // Let's modify configureMotor to read the field, or just apply the invert here
+            // since we use PersistMode.
+
+            // Re-applying basic config to ensure consistency
+            config.closedLoop
+                    .p(kP.get())
+                    .i(kI.get())
+                    .d(kD.get())
+                    .velocityFF(kFF.get())
+                    .outputRange(-1, 1);
+            config.idleMode(IdleMode.kBrake);
+            config.smartCurrentLimit(FeederConstants.kCurrentLimit);
+            config.encoder.velocityConversionFactor(1.0);
+
+            config.inverted(invert);
+
+            feederMotor.configure(config, ResetMode.kNoResetSafeParameters, PersistMode.kNoPersistParameters);
+            System.out.println("[Feeder] Motor Inversion Updated: " + invert);
+        }
     }
 
     // =====================================================================
@@ -117,6 +156,9 @@ public class FeederSubsystem extends SubsystemBase {
     // =====================================================================
     @Override
     public void periodic() {
+        if (edu.wpi.first.wpilibj.DriverStation.isTest()) {
+            checkInversion();
+        }
         logTelemetry();
     }
 

@@ -45,8 +45,6 @@ public final class FieldConstants {
         public static final Pose2d kRedHubPose;
 
         // Speaker Positions (Linked to Calculated Centers)
-        public static final Translation2d kBlueSpeakerPosition;
-        public static final Translation2d kRedSpeakerPosition;
 
         public static final Pose2d kBlueStartPose = new Pose2d(2.0, 4.05, Rotation2d.fromDegrees(0));
         public static final Pose2d kRedStartPose = new Pose2d(14.49, 4.05, Rotation2d.fromDegrees(180));
@@ -119,10 +117,6 @@ public final class FieldConstants {
                 BLUE_HUB_CENTER = blueHub;
                 RED_HANG_CENTER = redHang;
                 BLUE_HANG_CENTER = blueHang;
-
-                // Initialize Legacy/Linked Constants
-                kBlueSpeakerPosition = BLUE_HUB_CENTER;
-                kRedSpeakerPosition = RED_HUB_CENTER;
 
                 kBlueHubPose = new Pose2d(BLUE_HUB_CENTER, Rotation2d.fromDegrees(0));
                 kRedHubPose = new Pose2d(RED_HUB_CENTER, Rotation2d.fromDegrees(180));

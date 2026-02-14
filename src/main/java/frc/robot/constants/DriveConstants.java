@@ -52,7 +52,7 @@ public final class DriveConstants {
     // Legacy Compatibility (renaming for existing code)
     public static final double kMaxAngularSpeedRadPerSec = kMaxAngularSpeed;
 
-    public static final boolean kGyroReversed = false;
+    public static final boolean kGyroReversed = true;
 
     // PID Constants (Module PID - defined in Configs.java, these are legacy or
     // unused but kept for compatibility if needed)

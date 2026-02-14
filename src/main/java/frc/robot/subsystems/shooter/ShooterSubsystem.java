@@ -360,6 +360,7 @@ public class ShooterSubsystem extends SubsystemBase {
         // Motor ayarları
         hoodConfig.inverted(true);
         hoodConfig.idleMode(IdleMode.kBrake);
+        hoodConfig.smartCurrentLimit(ShooterConstants.kHoodCurrentLimit);
 
         hoodMotor.configure(hoodConfig, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
 
@@ -387,6 +388,46 @@ public class ShooterSubsystem extends SubsystemBase {
         flywheelMotor.getConfigurator().apply(flywheelConfig);
 
         System.out.println("[Shooter] Flywheel: Phoenix6 Velocity Control");
+
+        // Initialize Dashboard Toggle
+        // Default to Clockwise_Positive (which corresponds to false/normal usually, but
+        // let's check config)
+        // Original config: flywheelConfig.MotorOutput.Inverted =
+        // InvertedValue.Clockwise_Positive;
+        // Let's assume this is the "Normal" (false) state for the toggle.
+        edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.setDefaultBoolean("Shooter/InvertFlywheel", false);
+
+        // Initialize Auto-Aim Toggle (Boolean)
+        // This allows using a Toggle Button or Checkbox on Dashboard
+        edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.setDefaultBoolean("Shooter/EnableAutoAim", false);
+
+        // Initialize Auto-Aim Inversion Toggle (Boolean)
+        // Adds 180 degrees to the target angle (Failsafe)
+        edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.setDefaultBoolean("Shooter/InvertAiming", false);
+    }
+
+    private boolean lastFlywheelInvertState = false;
+
+    private void checkFlywheelInversion() {
+        boolean invert = edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.getBoolean("Shooter/InvertFlywheel",
+                false);
+        if (invert != lastFlywheelInvertState) {
+            lastFlywheelInvertState = invert;
+
+            // Toggle between Clockwise_Positive and CounterClockwise_Positive
+            // Assuming Clockwise_Positive is the default "non-inverted" state based on
+            // original code.
+            // If invert is true -> CounterClockwise_Positive
+            // If invert is false -> Clockwise_Positive
+
+            InvertedValue newInvertValue = invert ? InvertedValue.CounterClockwise_Positive
+                    : InvertedValue.Clockwise_Positive;
+
+            flywheelConfig.MotorOutput.Inverted = newInvertValue;
+            flywheelMotor.getConfigurator().apply(flywheelConfig);
+
+            System.out.println("[Shooter] Flywheel Inversion Updated: " + newInvertValue);
+        }
     }
 
     /**
@@ -394,6 +435,10 @@ public class ShooterSubsystem extends SubsystemBase {
      * günceller.
      */
     private void checkAndApplyTunables() {
+        // Check Inversion
+        checkFlywheelInversion();
+
+        // --- TURRET PID UPDATE ---
         // --- TURRET PID UPDATE ---
         if (turretKP.hasChanged() || turretKI.hasChanged() || turretKD.hasChanged()) {
             turretConfig.closedLoop
@@ -429,16 +474,32 @@ public class ShooterSubsystem extends SubsystemBase {
 
     // =====================================================================
     // PERIODIC
-    // =====================================================================
     @Override
     public void periodic() {
+        // Sync Dashboard Toggle for Auto-Aim
+        boolean dashEnabled = edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.getBoolean("Shooter/EnableAutoAim",
+                false);
+        if (dashEnabled != isAutoAimActive) {
+            if (dashEnabled) {
+                enableAutoAim();
+            } else {
+                disableAutoAim();
+            }
+        }
+
         // IMPORTANT: Live Tuning ONLY in Test Mode
         // In Teleop/Autonomous, hardcoded constants are used
         if (edu.wpi.first.wpilibj.DriverStation.isTest()) {
             checkAndApplyTunables();
+            checkFlywheelInversion();
 
             // Live update calibration maps from Dashboard
             updateCalibrationMapsFromDashboard();
+        }
+
+        // Continuous Auto-Aim Tracking
+        if (isAutoAimActive) {
+            trackTarget();
         }
 
         // AdvantageKit Logging (always active for monitoring)
@@ -506,6 +567,56 @@ public class ShooterSubsystem extends SubsystemBase {
         Logger.recordOutput("Tuning/Shooter/Aiming/HubX", hubLocation.getX());
         Logger.recordOutput("Tuning/Shooter/Aiming/HubY", hubLocation.getY());
         Logger.recordOutput("Tuning/Shooter/Aiming/OffsetDeg", autoAimOffsetDeg);
+    }
+
+    /**
+     * Updates aiming but uses a MANUAL RPM value instead of distance-based RPM.
+     * Turret and Hood are still automated.
+     */
+    public void updateAimingManualRPM(double manualRPM) {
+        // 1. Get Robot Pose
+        Pose2d robotPose = robotPoseSupplier.get();
+
+        // 2. Determine Target Hub based on Alliance
+        var alliance = DriverStation.getAlliance();
+        Translation2d hubLocation = frc.robot.constants.FieldConstants.getHubCenter(alliance);
+
+        // 3. Calculate Distance (Only for Hood and Turret logic if needed)
+        double distance = robotPose.getTranslation().getDistance(hubLocation);
+
+        // 4. Calculate Turret Angle
+        double angleToTargetRad = Math.atan2(
+                hubLocation.getY() - robotPose.getY(),
+                hubLocation.getX() - robotPose.getX());
+
+        double robotHeadingRad = robotPose.getRotation().getRadians();
+        double targetTurretRad = angleToTargetRad - robotHeadingRad;
+        targetTurretRad = MathUtil.angleModulus(targetTurretRad);
+
+        turretTargetDeg = Math.toDegrees(targetTurretRad) + autoAimOffsetDeg;
+
+        if (ShooterConstants.kTurretSoftLimitsEnabled) {
+            turretTargetDeg = MathUtil.clamp(turretTargetDeg,
+                    ShooterConstants.kTurretMinAngle,
+                    ShooterConstants.kTurretMaxAngle);
+        }
+
+        // 5. Calculate Hood Angle based on distance
+        ShooterState state = calculateShooterState(distance);
+        hoodTargetDeg = state.hoodAngleDeg;
+
+        // 6. Use MANUAL RPM
+        flywheelTargetRPM = manualRPM;
+
+        // 7. Apply Setpoints
+        setTurretAngle(turretTargetDeg);
+        setHoodAngle(hoodTargetDeg);
+        setFlywheelRPM(flywheelTargetRPM);
+
+        // Log Data
+        Logger.recordOutput("Tuning/Shooter/Aiming/Distance", distance);
+        Logger.recordOutput("Tuning/Shooter/Aiming/TargetTurretAngle", turretTargetDeg);
+        Logger.recordOutput("Tuning/Shooter/Aiming/ManualRPM", manualRPM);
     }
 
     /**
@@ -683,11 +794,24 @@ public class ShooterSubsystem extends SubsystemBase {
     // =====================================================================
 
     /**
+     * Toggles the Auto-Aim state.
+     */
+    public void toggleAutoAim() {
+        if (isAutoAimActive) {
+            disableAutoAim();
+        } else {
+            enableAutoAim();
+        }
+    }
+
+    /**
      * Auto-aim'i etkinleştirir.
      * Turret ve hood otomatik olarak hub'a yönelir.
      */
     public void enableAutoAim() {
         isAutoAimActive = true;
+        // Sync with Dashboard
+        edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.putBoolean("Shooter/EnableAutoAim", true);
         tuningTable.getEntry("Shooter/EnableAutoAim").setBoolean(true);
         System.out.println("[Shooter] Auto-aim ENABLED - Alliance: " + getAllianceString());
     }
@@ -697,8 +821,75 @@ public class ShooterSubsystem extends SubsystemBase {
      */
     public void disableAutoAim() {
         isAutoAimActive = false;
+        // Sync with Dashboard
+        edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.putBoolean("Shooter/EnableAutoAim", false);
         tuningTable.getEntry("Shooter/EnableAutoAim").setBoolean(false);
         System.out.println("[Shooter] Auto-aim DISABLED");
+        // Optional: Stop Turret/Hood or keep at last position?
+        // Usually safer to stop or just let them stay.
+        setTurretAngle(0); // Reset turret on disable? Or keep?
+        // Let's reset to 0 for safety/predictability as per typical FRC usage.
+    }
+
+    // =====================================================================
+    // TUNABLES FOR TARGET CORRECTION
+    // =====================================================================
+    private final TunableNumber tunableTargetOverrideX = new TunableNumber("Shooter/Target", "OverrideX", 0);
+    private final TunableNumber tunableTargetOverrideY = new TunableNumber("Shooter/Target", "OverrideY", 0);
+
+    /**
+     * Tracks the target (Turret & Hood) WITHOUT running the Flywheel.
+     * Uses current robot pose.
+     */
+    private void trackTarget() {
+        // 1. Get Robot Pose
+        Pose2d robotPose = robotPoseSupplier.get();
+
+        // 2. Determine Target Hub (now includes overrides)
+        Translation2d hubLocation = getTargetHub();
+
+        // 3. Calculate Distance
+        double distance = robotPose.getTranslation().getDistance(hubLocation);
+
+        // 4. Calculate Turret Angle
+        double angleToTargetRad = Math.atan2(
+                hubLocation.getY() - robotPose.getY(),
+                hubLocation.getX() - robotPose.getX());
+
+        double robotHeadingRad = robotPose.getRotation().getRadians();
+        double targetTurretRad = angleToTargetRad - robotHeadingRad;
+
+        // --- INVERT AIMING FAILSAFE ---
+        boolean invertAiming = edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.getBoolean("Shooter/InvertAiming",
+                false);
+        if (invertAiming) {
+            targetTurretRad += Math.PI; // Add 180 degrees (in radians)
+        }
+        // ------------------------------
+
+        targetTurretRad = MathUtil.angleModulus(targetTurretRad);
+
+        turretTargetDeg = Math.toDegrees(targetTurretRad) + autoAimOffsetDeg;
+
+        if (ShooterConstants.kTurretSoftLimitsEnabled) {
+            turretTargetDeg = MathUtil.clamp(turretTargetDeg,
+                    ShooterConstants.kTurretMinAngle,
+                    ShooterConstants.kTurretMaxAngle);
+        }
+
+        // 5. Calculate Hood Angle
+        ShooterState state = calculateShooterState(distance);
+        hoodTargetDeg = state.hoodAngleDeg;
+
+        // 6. Apply Setpoints (Turret & Hood ONLY)
+        setTurretAngle(turretTargetDeg);
+        setHoodAngle(hoodTargetDeg);
+
+        // Log Data
+        Logger.recordOutput("Tuning/Shooter/Aiming/Distance", distance);
+        Logger.recordOutput("Tuning/Shooter/Aiming/TargetTurretAngle", turretTargetDeg);
+        Logger.recordOutput("Tuning/Shooter/Aiming/HubX", hubLocation.getX());
+        Logger.recordOutput("Tuning/Shooter/Aiming/HubY", hubLocation.getY());
     }
 
     /**
@@ -715,10 +906,21 @@ public class ShooterSubsystem extends SubsystemBase {
      */
     public Translation2d getTargetHub() {
         var alliance = DriverStation.getAlliance();
-        if (alliance.isPresent() && alliance.get() == Alliance.Red) {
-            return FieldConstants.kRedSpeakerPosition;
+        Translation2d hubLocation = frc.robot.constants.FieldConstants.getHubCenter(alliance);
+
+        // --- OVERRIDE LOGIC START ---
+        double ovX = tunableTargetOverrideX.get();
+        double ovY = tunableTargetOverrideY.get();
+
+        if (Math.abs(ovX) > 0.01 || Math.abs(ovY) > 0.01) {
+            hubLocation = new Translation2d(ovX, ovY);
+            Logger.recordOutput("Shooter/Target/IsOverridden", true);
+        } else {
+            Logger.recordOutput("Shooter/Target/IsOverridden", false);
         }
-        return FieldConstants.kBlueSpeakerPosition;
+        // --- OVERRIDE LOGIC END ---
+
+        return hubLocation;
     }
 
     /**
