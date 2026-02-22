@@ -217,6 +217,20 @@ public class Robot extends LoggedRobot {
             m_robotContainer.getShooterSubsystem(),
             m_robotContainer.getFeederSubsystem()));
     System.out.println("[Test Mode] ShooterTestCommand başlatıldı - Flywheel/Turret/Hood PID tuning aktif");
+
+    // Intake Test komutu başlat
+    CommandScheduler.getInstance().schedule(
+        new frc.robot.commands.intake.IntakeTestCommand(
+            m_robotContainer.getIntakeSubsystem()));
+    System.out.println("[Test Mode] IntakeTestCommand başlatıldı - Pivot/Roller tuning aktif");
+
+    // Feeder Test komutu başlat (ShooterTestCommand feeder'ı require ediyor, bu
+    // yüzden ayrı çalışır)
+    CommandScheduler.getInstance().schedule(
+        new frc.robot.commands.feeder.FeederTestCommand(
+            m_robotContainer.getFeederSubsystem()));
+    System.out.println("[Test Mode] FeederTestCommand başlatıldı - RPM tuning aktif");
+
     System.out.println("[Test Mode] Live tuning ENABLED - Dashboard değerleri okunuyor");
   }
 

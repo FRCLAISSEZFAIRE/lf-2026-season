@@ -98,7 +98,63 @@
   {
     "name": "/Preferences/Shooter/Flywheel Tolerance",
     "type": "double",
-    "value": 500.0,
+    "value": 600.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Intake/Test/Pivot Angle",
+    "type": "double",
+    "value": 50.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Intake/Test/Roller RPS",
+    "type": "double",
+    "value": 5000.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Intake/Test/Roller RPM",
+    "type": "double",
+    "value": 5000.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Intake/Pivot/EncoderInvert",
+    "type": "boolean",
+    "value": false,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Intake/Roller/Invert",
+    "type": "boolean",
+    "value": true,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Intake/Pivot/MotorInvert",
+    "type": "boolean",
+    "value": false,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Intake/Pivot/Min Deg",
+    "type": "double",
+    "value": 0.0,
     "properties": {
       "persistent": true
     }

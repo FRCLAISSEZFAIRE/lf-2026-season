@@ -112,6 +112,10 @@ public class RobotContainer {
                 return feederSubsystem;
         }
 
+        public IntakeSubsystem getIntakeSubsystem() {
+                return intakeSubsystem;
+        }
+
         // ==================== CONSTRUCTOR ====================
         public RobotContainer() {
                 // 1. IO Katmanlarını Oluştur
@@ -139,6 +143,8 @@ public class RobotContainer {
                 // --- SCHEDULE TURRET HOMING ---
                 // Runs once on robot startup to calibrate turret via magnet switch
                 shooterSubsystem.getHomeTurretCommand().schedule();
+
+                // Intake homing is now scheduled dynamically in onTeleopInit / onAutonomousInit
 
                 configureDefaultCommands();
 
@@ -461,6 +467,13 @@ public class RobotContainer {
                 } else {
                         System.out.println("[AutoInit] Vision valid. Keeping existing pose.");
                 }
+
+                // Intake Homing & Deploy
+                if (!intakeSubsystem.isHomed()) {
+                        intakeSubsystem.getHomePivotCommand().andThen(intakeSubsystem.deployCommand()).schedule();
+                } else {
+                        intakeSubsystem.deployCommand().schedule();
+                }
         }
 
         /**
@@ -476,6 +489,13 @@ public class RobotContainer {
                 } else {
                         System.out.println("[TeleopInit] No FMS (Practice). Resetting to Alliance Start.");
                         resetToAllianceStart();
+                }
+
+                // Intake Homing & Deploy
+                if (!intakeSubsystem.isHomed()) {
+                        intakeSubsystem.getHomePivotCommand().andThen(intakeSubsystem.deployCommand()).schedule();
+                } else {
+                        intakeSubsystem.deployCommand().schedule();
                 }
         }
 

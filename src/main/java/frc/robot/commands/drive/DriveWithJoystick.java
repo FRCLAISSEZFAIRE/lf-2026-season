@@ -23,6 +23,9 @@ public class DriveWithJoystick extends Command {
     private final DoubleSupplier ySpeedSupplier;
     private final DoubleSupplier rotSpeedSupplier;
 
+    private boolean lastInvertJoystick;
+    private boolean lastInvertRotation;
+
     /**
      * @param driveSubsystem   Sürüş alt sistemi
      * @param xSpeedSupplier   İleri/Geri hız supplier'ı (-1 ile 1 arası)
@@ -42,18 +45,37 @@ public class DriveWithJoystick extends Command {
 
         addRequirements(driveSubsystem);
 
-        // Initialize Dashboard Controls if not present
-        edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.setDefaultBoolean("Drive/InvertJoystick", false);
-        edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.setDefaultBoolean("Drive/InvertRotation", true);
+        // Load values from RIO Preferences (saved state)
+        boolean savedInvertJoystick = edu.wpi.first.wpilibj.Preferences.getBoolean("Drive/InvertJoystick", false);
+        boolean savedInvertRotation = edu.wpi.first.wpilibj.Preferences.getBoolean("Drive/InvertRotation", true);
+
+        // Put to Dashboard
+        edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.setDefaultBoolean("Drive/InvertJoystick",
+                savedInvertJoystick);
+        edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.setDefaultBoolean("Drive/InvertRotation",
+                savedInvertRotation);
+
+        this.lastInvertJoystick = savedInvertJoystick;
+        this.lastInvertRotation = savedInvertRotation;
     }
 
     @Override
     public void execute() {
-        // Read Inversion Settings
+        // Read Inversion Settings from Dashboard
         boolean invertJoystick = edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.getBoolean("Drive/InvertJoystick",
-                false);
+                lastInvertJoystick);
         boolean invertRotation = edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.getBoolean("Drive/InvertRotation",
-                true);
+                lastInvertRotation);
+
+        // Save to RIO Preferences if it changed
+        if (invertJoystick != lastInvertJoystick) {
+            edu.wpi.first.wpilibj.Preferences.setBoolean("Drive/InvertJoystick", invertJoystick);
+            lastInvertJoystick = invertJoystick;
+        }
+        if (invertRotation != lastInvertRotation) {
+            edu.wpi.first.wpilibj.Preferences.setBoolean("Drive/InvertRotation", invertRotation);
+            lastInvertRotation = invertRotation;
+        }
 
         // 1. Joystick değerlerini al ve deadband uygula
         double rawX = xSpeedSupplier.getAsDouble();

@@ -133,6 +133,11 @@ public class ControllerBindings {
                                                 shooterSubsystem,
                                                 feederSubsystem,
                                                 driveSubsystem::getPose));
+
+                // [LEFT BUMPER] INTAKE ROLLER RUN
+                // Runs the intake roller when held, stops when released
+                driverController.leftTrigger().whileTrue(
+                                intakeSubsystem.runRollerCommand());
         }
 
         // =========================================================================
