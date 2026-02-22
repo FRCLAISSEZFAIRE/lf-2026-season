@@ -44,7 +44,7 @@ public class DriveWithJoystick extends Command {
 
         // Initialize Dashboard Controls if not present
         edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.setDefaultBoolean("Drive/InvertJoystick", false);
-        edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.setDefaultBoolean("Drive/InvertRotation", false);
+        edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.setDefaultBoolean("Drive/InvertRotation", true);
     }
 
     @Override
@@ -53,12 +53,27 @@ public class DriveWithJoystick extends Command {
         boolean invertJoystick = edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.getBoolean("Drive/InvertJoystick",
                 false);
         boolean invertRotation = edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.getBoolean("Drive/InvertRotation",
-                false);
+                true);
 
         // 1. Joystick değerlerini al ve deadband uygula
         double rawX = xSpeedSupplier.getAsDouble();
         double rawY = ySpeedSupplier.getAsDouble();
         double rawRot = rotSpeedSupplier.getAsDouble();
+
+        // --- ALLIANCE CORRECTION ---
+        // Red Alliance için X ve Y eksenlerini ters çevir.
+        // Böylece Stick İleri her zaman "Sürücüden Uzağa" gitmek anlamına gelir.
+        // CHECK: User reported "Forward goes Backward" on Red. Disabling for
+        // verification.
+        /*
+         * var alliance = edu.wpi.first.wpilibj.DriverStation.getAlliance();
+         * if (alliance.isPresent() && alliance.get() ==
+         * edu.wpi.first.wpilibj.DriverStation.Alliance.Red) {
+         * rawX = -rawX;
+         * rawY = -rawY;
+         * }
+         */
+        // ---------------------------
 
         // Apply Inversions
         if (invertJoystick) {

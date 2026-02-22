@@ -23,7 +23,7 @@ public final class FeederConstants {
     public static final double kRPMTolerance = 100.0; // Tolerans
 
     // --- SPEEDS (RPM) ---
-    public static final double kFeedRPM = 3000.0; // Shooter'a besleme hızı
+    public static final double kFeedRPM = 4500.0; // Shooter'a besleme hızı (~80% MAX)
     public static final double kSlowFeedRPM = 1000.0; // Yavaş besleme (Intake için)
     public static final double kIntakeRPM = 1500.0; // Intake'den alma hızı
     public static final double kReverseRPM = -1000.0; // Geri kusma hızı

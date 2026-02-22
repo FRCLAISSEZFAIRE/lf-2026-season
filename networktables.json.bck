@@ -82,7 +82,23 @@
   {
     "name": "/Preferences/Drive/Limits/Max Accel (mps2)",
     "type": "double",
-    "value": 2.0,
+    "value": 3.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Shooter/Target/OverrideX",
+    "type": "double",
+    "value": -3.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Shooter/Flywheel Tolerance",
+    "type": "double",
+    "value": 500.0,
     "properties": {
       "persistent": true
     }

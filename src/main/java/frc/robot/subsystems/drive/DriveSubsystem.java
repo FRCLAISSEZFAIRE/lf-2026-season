@@ -1,12 +1,13 @@
 package frc.robot.subsystems.drive;
 
 import edu.wpi.first.math.MathUtil;
+import edu.wpi.first.math.VecBuilder;
+import edu.wpi.first.math.estimator.SwerveDrivePoseEstimator;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.math.kinematics.SwerveDriveKinematics;
-import edu.wpi.first.math.kinematics.SwerveDriveOdometry;
 import edu.wpi.first.math.kinematics.SwerveModulePosition;
 import edu.wpi.first.math.kinematics.SwerveModuleState;
 import edu.wpi.first.wpilibj.DriverStation;
@@ -63,16 +64,8 @@ public class DriveSubsystem extends SubsystemBase {
     // Simulation State
     private Rotation2d m_simRotation = new Rotation2d();
 
-    // Odometry class for tracking robot pose
-    SwerveDriveOdometry m_odometry = new SwerveDriveOdometry(
-            DriveConstants.kDriveKinematics,
-            Rotation2d.fromDegrees(m_gyro.getAngle()), // Removed negative sign
-            new SwerveModulePosition[] {
-                    m_frontLeft.getPosition(),
-                    m_frontRight.getPosition(),
-                    m_rearLeft.getPosition(),
-                    m_rearRight.getPosition()
-            });
+    // Pose Estimator for tracking robot pose (supports Vision Fusion)
+    private final SwerveDrivePoseEstimator m_poseEstimator;
 
     // Field visualization
     private final Field2d field = new Field2d();
@@ -96,6 +89,24 @@ public class DriveSubsystem extends SubsystemBase {
 
     /** Creates a new DriveSubsystem. */
     public DriveSubsystem() {
+        // Initialize Pose Estimator
+        // Start with standard deviations:
+        // State (Odometry): 0.1m, 0.1m, 0.1rad (Trust internal sensors)
+        // Vision: 0.9m, 0.9m, 0.9rad (Low trust initially)
+        m_poseEstimator = new SwerveDrivePoseEstimator(
+                DriveConstants.kDriveKinematics,
+                Rotation2d.fromDegrees(m_gyro.getAngle()),
+                new SwerveModulePosition[] {
+                        m_frontLeft.getPosition(),
+                        m_frontRight.getPosition(),
+                        m_rearLeft.getPosition(),
+                        m_rearRight.getPosition()
+                },
+                new Pose2d(),
+                VecBuilder.fill(0.1, 0.1, 0.1), // State StdDevs
+                VecBuilder.fill(0.9, 0.9, 0.9) // Vision StdDevs
+        );
+
         // Config PathPlanner
         setupPathPlanner();
 
@@ -105,7 +116,6 @@ public class DriveSubsystem extends SubsystemBase {
         m_gyro.reset();
 
         // Put Reset Gyro command to Dashboard
-        // Put Reset Gyro command to Dashboard
         SmartDashboard.putData("Drive/ResetGyro", new edu.wpi.first.wpilibj2.command.InstantCommand(this::zeroHeading));
 
         // Initialize Gyro Inversion setting from Constants
@@ -113,26 +123,30 @@ public class DriveSubsystem extends SubsystemBase {
     }
 
     /**
-     * Resets the gyro heading to zero.
+     * Resets the gyro heading.
+     * Blue Alliance: 0 degrees.
+     * Red Alliance: 180 degrees.
      */
     public void zeroHeading() {
         m_gyro.reset();
-        // Also reset odometry rotation if needed, but usually resetting gyro is enough
-        // for field-relative calculation
-        // if getRotation2d() reads directly from gyro.
-        // However, odometry might keep its own offset.
-        // Ideally, we reset odometry pose's rotation component, but keeping
-        // translation.
 
-        // For simple field-relative driving, resetting gyro is key.
-        // But we must ensure getRotation2d() returns 0 after this.
+        // Determine heading based on Alliance
+        var alliance = DriverStation.getAlliance();
+        Rotation2d targetHeading = new Rotation2d(); // Default 0 (Blue)
 
-        // If we are in simulation, reset sim rotation
-        m_simRotation = new Rotation2d();
+        if (alliance.isPresent() && alliance.get() == DriverStation.Alliance.Red) {
+            targetHeading = Rotation2d.fromDegrees(180);
+        }
 
-        // Reset Odometry heading to 0 while keeping position
+        // Update Simulation State
+        m_simRotation = targetHeading;
+
+        // Reset Pose Estimator heading while keeping position
         Pose2d currentPose = getPose();
-        resetOdometry(new Pose2d(currentPose.getTranslation(), new Rotation2d()));
+        resetOdometry(new Pose2d(currentPose.getTranslation(), targetHeading));
+
+        System.out.println("[DriveSubsystem] Gyro Reset to " + targetHeading.getDegrees() + " degrees ("
+                + (alliance.isPresent() ? alliance.get() : "Unknown") + ")");
     }
 
     /**
@@ -163,9 +177,9 @@ public class DriveSubsystem extends SubsystemBase {
 
     @Override
     public void periodic() {
-        // Update the odometry in the periodic block
+        // Update the pose estimator in the periodic block
         // Use getRotation2d() so it handles Simulation vs Real automatically
-        m_odometry.update(
+        m_poseEstimator.update(
                 getRotation2d(),
                 new SwerveModulePosition[] {
                         m_frontLeft.getPosition(),
@@ -178,11 +192,9 @@ public class DriveSubsystem extends SubsystemBase {
         field.setRobotPose(getPose());
 
         // Logging
-        // Logging
         Logger.recordOutput("Tuning/Drive/Pose", getPose());
         Logger.recordOutput("Tuning/Drive/Gyro", getRotation2d());
 
-        // Module States
         // Module States
         Logger.recordOutput("Tuning/Drive/ModuleStates/FrontLeft", m_frontLeft.getState());
         Logger.recordOutput("Tuning/Drive/ModuleStates/FrontRight", m_frontRight.getState());
@@ -214,7 +226,7 @@ public class DriveSubsystem extends SubsystemBase {
      * @return The pose.
      */
     public Pose2d getPose() {
-        return m_odometry.getPoseMeters();
+        return m_poseEstimator.getEstimatedPosition();
     }
 
     /**
@@ -223,10 +235,10 @@ public class DriveSubsystem extends SubsystemBase {
      * @param pose The pose to which to set the odometry.
      */
     public void resetOdometry(Pose2d pose) {
-        m_gyro.reset(); // Reset gyro to match pose? No, just reset odometry offset.
+        m_gyro.reset();
         m_simRotation = pose.getRotation(); // Reset sim rotation too
 
-        m_odometry.resetPosition(
+        m_poseEstimator.resetPosition(
                 getRotation2d(),
                 new SwerveModulePosition[] {
                         m_frontLeft.getPosition(),
@@ -235,6 +247,22 @@ public class DriveSubsystem extends SubsystemBase {
                         m_rearRight.getPosition()
                 },
                 pose);
+    }
+
+    /**
+     * Updates the pose estimator with a vision measurement.
+     * 
+     * @param pose      The pose estimated by vision.
+     * @param timestamp The timestamp of the vision measurement in seconds.
+     * @param stdDevs   Standard deviations [x, y, theta] for the measurement.
+     */
+    public void addVisionMeasurement(Pose2d pose, double timestamp,
+            edu.wpi.first.math.Matrix<edu.wpi.first.math.numbers.N3, edu.wpi.first.math.numbers.N1> stdDevs) {
+        m_poseEstimator.addVisionMeasurement(pose, timestamp, stdDevs);
+    }
+
+    public void addVisionMeasurement(Pose2d pose, double timestamp) {
+        m_poseEstimator.addVisionMeasurement(pose, timestamp);
     }
 
     /**
@@ -289,7 +317,6 @@ public class DriveSubsystem extends SubsystemBase {
     // Compatibility: 5-arg drive for AutoClimbCommand (vX, vY, rot, fieldRelative,
     // rateLimit)
     public void drive(double xSpeed, double ySpeed, double rot, boolean fieldRelative, boolean rateLimit) {
-        // Ignoring rateLimit boolean for now or use driveManual if true?
         if (rateLimit) {
             driveManual(xSpeed, ySpeed, rot, fieldRelative);
         } else {
@@ -388,18 +415,6 @@ public class DriveSubsystem extends SubsystemBase {
     // Compatibility for VisionSubsystem
     public double getGyroVelocityRadPerSec() {
         return Math.toRadians(m_gyro.getRate());
-    }
-
-    // Compatibility for VisionSubsystem
-    public void addVisionMeasurement(Pose2d pose, double timestamp,
-            edu.wpi.first.math.Matrix<edu.wpi.first.math.numbers.N3, edu.wpi.first.math.numbers.N1> stdDevs) {
-        // SwerveDriveOdometry does not imply addVisionMeasurement by default
-        // (PoseEstimator does).
-        Logger.recordOutput("Tuning/Drive/VisionFusionIgnored", pose);
-    }
-
-    public void addVisionMeasurement(Pose2d pose, double timestamp) {
-        addVisionMeasurement(pose, timestamp, null);
     }
 
     // ===========================================================================

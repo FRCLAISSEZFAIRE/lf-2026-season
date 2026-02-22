@@ -105,7 +105,7 @@ public class FeederSubsystem extends SubsystemBase {
                 .outputRange(-1, 1);
 
         // Motor ayarları
-        config.inverted(false);
+        config.inverted(true);
         config.idleMode(IdleMode.kBrake);
         config.smartCurrentLimit(FeederConstants.kCurrentLimit);
 

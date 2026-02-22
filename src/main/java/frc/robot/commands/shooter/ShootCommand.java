@@ -60,20 +60,38 @@ public class ShootCommand extends Command {
         }
 
         // 2. Update Aiming (Turret, Hood, RPM)
-        shooter.updateAiming(currentPose);
+        // CHECK ZONE: Inside Alliance Zone -> Score (Hub), Outside -> Pass (Feed)
+        if (shooter.isInAllianceZone()) {
+            shooter.updateAiming(currentPose);
+        } else {
+            shooter.updateAimingForPass(currentPose);
+        }
 
-        // 3. "Hold Fire" Logic: Feed ONLY if Ready
-        if (shooter.isReadyToShoot()) {
-            if (!hasShot) {
-                // System.out.println("[ShootCommand] Ready! Firing...");
-                hasShot = true;
-            }
-            // Run feeder
+        // 3. "Hold Fire" Logic with LATCH
+        // Once we start shooting (isFeeding = true), we ignore RPM drops.
+        // We only stop if the command ends (trigger released).
+
+        // RELAXED READY CHECK:
+        // Only require Flywheel RPM to be ready.
+        // We ignore Turret/Hood alignment to prevent "stuttering" if the robot is
+        // moving.
+        boolean ready = shooter.isFlywheelAtTarget();
+
+        // Optional: Uncomment to FORCE FEED always (Debug only)
+        // ready = true;
+
+        if (ready && !hasShot) {
+            hasShot = true; // Mark that we have started shooting
+        }
+
+        // LATCH LOGIC:
+        // If we are ready OR we have already started shooting (latched), FEED!
+        if (ready || hasShot) {
             if (!feeder.isLoading()) {
                 feeder.feed();
             }
         } else {
-            // NOT Ready: Stop feeder immediately (Hold Fire)
+            // Not ready and haven't started yet -> Wait
             feeder.stop();
         }
     }

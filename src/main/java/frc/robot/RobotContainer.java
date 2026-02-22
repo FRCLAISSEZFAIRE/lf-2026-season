@@ -8,6 +8,7 @@ import org.littletonrobotics.junction.Logger; // Logger ekle
 
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
@@ -107,6 +108,10 @@ public class RobotContainer {
                 return driveSubsystem;
         }
 
+        public FeederSubsystem getFeederSubsystem() {
+                return feederSubsystem;
+        }
+
         // ==================== CONSTRUCTOR ====================
         public RobotContainer() {
                 // 1. IO Katmanlarını Oluştur
@@ -114,15 +119,28 @@ public class RobotContainer {
                 // switch (Constants.currentMode) ... VisionIO instantiation removed
 
                 // 2. Subsystemleri Başlat
-                // YAGSL Drive Instantiation
                 driveSubsystem = new DriveSubsystem();
 
+                // Vision Subsystem requires DriveSubsystem for Odometry updates
                 visionSubsystem = new VisionSubsystem(driveSubsystem);
-                intakeSubsystem = new IntakeSubsystem();
+
                 shooterSubsystem = new ShooterSubsystem(driveSubsystem::getPose);
-                climberSubsystem = new ClimberSubsystem();
                 feederSubsystem = new FeederSubsystem();
+                intakeSubsystem = new IntakeSubsystem();
+                climberSubsystem = new ClimberSubsystem();
+
+                // LED Subsystem requires FeederState
                 ledSubsystem = new LEDSubsystem(feederSubsystem);
+
+                // --- SCHEDULE HOOD HOMING ---
+                // Runs once on robot startup to calibrate hood
+                shooterSubsystem.getHomeHoodCommand().schedule();
+
+                // --- SCHEDULE TURRET HOMING ---
+                // Runs once on robot startup to calibrate turret via magnet switch
+                shooterSubsystem.getHomeTurretCommand().schedule();
+
+                configureDefaultCommands();
 
                 // 2.5 Named Commands (Subsystem'ler oluşturulduktan SONRA kayıt edilmeli)
                 registerNamedCommands();
@@ -425,6 +443,42 @@ public class RobotContainer {
                 return autoChooser.getSelected();
         }
 
+        // ==================== SMART POSE INITIALIZATION ====================
+
+        /**
+         * Called when Autonomous mode starts.
+         * Logic:
+         * 1. If Vision is valid, trust it (do nothing).
+         * 2. If Vision is NOT valid (Blind start), reset pose to Alliance Start
+         * (Subwoofer).
+         */
+        public void onAutonomousInit() {
+                boolean useVision = visionSubsystem.isVisionEnabled() && visionSubsystem.hasValidPoseEstimate();
+
+                if (!useVision) {
+                        System.out.println("[AutoInit] Vision unavailable or disabled. Resetting to Alliance Start.");
+                        resetToAllianceStart();
+                } else {
+                        System.out.println("[AutoInit] Vision valid. Keeping existing pose.");
+                }
+        }
+
+        /**
+         * Called when Teleop mode starts.
+         * Logic:
+         * 1. If FMS is attached (Real Match), do NOTHING. Trust the pose from Auto.
+         * 2. If FMS is NOT attached (Practice/Lab), Reset to Alliance Start.
+         * This allows immediate driving in Lab without running Auto first.
+         */
+        public void onTeleopInit() {
+                if (edu.wpi.first.wpilibj.DriverStation.isFMSAttached()) {
+                        System.out.println("[TeleopInit] FMS Attached (Match). Keeping existing pose from Auto.");
+                } else {
+                        System.out.println("[TeleopInit] No FMS (Practice). Resetting to Alliance Start.");
+                        resetToAllianceStart();
+                }
+        }
+
         // ==================== NAMED COMMANDS ====================
         private void registerNamedCommands() {
                 // PathPlanner GUI'da kullanılacak komut isimleri
@@ -525,22 +579,23 @@ public class RobotContainer {
         public Pose2d getShootingPose() {
                 var alliance = edu.wpi.first.wpilibj.DriverStation.getAlliance();
 
+                // Get Dynamic Hub Center
+                Translation2d hubCenter = frc.robot.constants.FieldConstants.getHubCenter(alliance);
+
                 if (alliance.isPresent() && alliance.get() == edu.wpi.first.wpilibj.DriverStation.Alliance.Red) {
                         // Kırmızı Alliance: Hub saha sonunda
                         // Atış pozisyonu: Hub'ın 3m önünde (sahaya doğru, yani X küçülür)
                         return new Pose2d(
-                                        frc.robot.constants.FieldConstants.kRedHubPose.getX()
-                                                        - frc.robot.constants.FieldConstants.kIdealShootingDistanceMeters,
-                                        frc.robot.constants.FieldConstants.kRedHubPose.getY(),
+                                        hubCenter.getX() - frc.robot.constants.FieldConstants.kIdealShootingDistanceMeters,
+                                        hubCenter.getY(),
                                         Rotation2d.fromDegrees(180) // Hub'a bak
                         );
                 } else {
                         // Mavi Alliance (varsayılan): Hub saha başında
                         // Atış pozisyonu: Hub'ın 3m önünde (sahaya doğru, yani X artar)
                         return new Pose2d(
-                                        frc.robot.constants.FieldConstants.kBlueHubPose.getX()
-                                                        + frc.robot.constants.FieldConstants.kIdealShootingDistanceMeters,
-                                        frc.robot.constants.FieldConstants.kBlueHubPose.getY(),
+                                        hubCenter.getX() + frc.robot.constants.FieldConstants.kIdealShootingDistanceMeters,
+                                        hubCenter.getY(),
                                         Rotation2d.fromDegrees(0) // Hub'a bak
                         );
                 }

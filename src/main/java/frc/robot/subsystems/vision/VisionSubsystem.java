@@ -235,24 +235,13 @@ public class VisionSubsystem extends SubsystemBase {
      * Calculate theta (rotation) standard deviation based on conditions.
      */
     private double calculateThetaStdDev(PoseEstimate mt2, double gyroRateDegPerSec) {
-        double stdev = 0.5; // Base value
-
-        // High rotation greatly increases uncertainty
-        if (Math.abs(gyroRateDegPerSec) > 100.0) {
-            stdev += 1.0;
-        }
-
-        // Multiple tags increase confidence
-        if (mt2.tagCount > 1) {
-            stdev -= 0.3;
-        }
-
-        // Distance affects uncertainty
-        if (mt2.avgTagDist > VisionConstants.kMaxReliableTagDistance) {
-            stdev += 0.5;
-        }
-
-        return Math.max(0.1, stdev);
+        // MEGATAG 2 REQUIREMENT:
+        // We MUST trust the Gyro for correlation.
+        // The vision estimate's rotation is essentially ignored for state update,
+        // but used by the MT2 algorithm internally for X/Y calculation.
+        // We set this to Infinity (Double.MAX_VALUE) so the Pose Estimator
+        // never uses the vision rotation to override the Gyro.
+        return Double.MAX_VALUE;
     }
 
     /**

@@ -157,6 +157,11 @@ public class Robot extends LoggedRobot {
   public void autonomousInit() {
     m_autonomousCommand = m_robotContainer.getAutonomousCommand();
 
+    // SMART POSE INIT
+    if (m_robotContainer != null) {
+      m_robotContainer.onAutonomousInit();
+    }
+
     // Switch to main driver tab in Autonomous
     edu.wpi.first.wpilibj.shuffleboard.Shuffleboard.selectTab("SmartDashboard");
 
@@ -181,6 +186,11 @@ public class Robot extends LoggedRobot {
       m_autonomousCommand.cancel();
     }
 
+    // SMART POSE INIT
+    if (m_robotContainer != null) {
+      m_robotContainer.onTeleopInit();
+    }
+
     // Switch to main driver tab in Teleop
     edu.wpi.first.wpilibj.shuffleboard.Shuffleboard.selectTab("SmartDashboard");
   }
@@ -203,7 +213,9 @@ public class Robot extends LoggedRobot {
 
     // Flywheel PID Tuning komutu başlat
     CommandScheduler.getInstance().schedule(
-        new frc.robot.commands.shooter.ShooterTestCommand(m_robotContainer.getShooterSubsystem()));
+        new frc.robot.commands.shooter.ShooterTestCommand(
+            m_robotContainer.getShooterSubsystem(),
+            m_robotContainer.getFeederSubsystem()));
     System.out.println("[Test Mode] ShooterTestCommand başlatıldı - Flywheel/Turret/Hood PID tuning aktif");
     System.out.println("[Test Mode] Live tuning ENABLED - Dashboard değerleri okunuyor");
   }

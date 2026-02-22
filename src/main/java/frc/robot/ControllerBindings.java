@@ -114,9 +114,21 @@ public class ControllerBindings {
                         }
                 }));
 
-                // [RIGHT BUMPER] POSE-BASED SHOOTING
+                // ==================== LIVE OFFSETS (POV) ====================
+                // Turret: Left/Right (+/- 1.0 deg)
+                driverController.povLeft().onTrue(Commands.runOnce(() -> shooterSubsystem.adjustAutoAimOffset(1.0)));
+                driverController.povRight().onTrue(Commands.runOnce(() -> shooterSubsystem.adjustAutoAimOffset(-1.0)));
+
+                // Hood: Up/Down (+/- 1.0 deg)
+                driverController.povUp().onTrue(Commands.runOnce(() -> shooterSubsystem.adjustHoodOffset(1.0)));
+                driverController.povDown().onTrue(Commands.runOnce(() -> shooterSubsystem.adjustHoodOffset(-1.0)));
+                // ============================================================
+
+                // [RIGHT TRIGGER] POSE-BASED SHOOTING (Smart Shoot)
                 // Calculates RPM, Hood, Turret from Robot Pose
-                driverController.rightBumper().whileTrue(
+                // Holds fire until ready, then latches feed.
+                // Chassis is FREE (Manual Drive via Default Command). Turret Auto-Aims.
+                driverController.rightTrigger().whileTrue(
                                 new frc.robot.commands.shooter.ShootCommand(
                                                 shooterSubsystem,
                                                 feederSubsystem,

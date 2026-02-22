@@ -1,5 +1,7 @@
 package frc.robot.constants;
 
+import frc.robot.util.TunableNumber;
+
 /**
  * Shooter alt sistemi için sabitler.
  * Flywheel, Turret ve Hood ayarları.
@@ -122,46 +124,71 @@ public final class ShooterConstants {
     public static final double kMaxShootingDistance = kFarDistance;
 
     // ===========================================================================
-    // DISTANCE-BASED CALIBRATION (Live Tunable in Test Mode)
+    // DISTANCE-BASED CALIBRATION (Tunable & Persistent)
     // ===========================================================================
 
-    // --- HUB SHOOTING ---
-    /**
-     * Fixed distance points for Hub interpolation (meters).
-     * UPDATED: {0.5, 1.0, 2.0, 3.5, 4.5}
-     */
-    public static final double[] HUB_DISTANCES = { 0.5, 1.0, 2.0, 3.5, 4.5 };
+    // --- HUB SHOOTING MAP ---
+    // Point 0 (0.5m)
+    public static final TunableNumber kHubDist0 = new TunableNumber("ShooterMap/Hub/Point0", "Dist", 0.5);
+    public static final TunableNumber kHubRPM0 = new TunableNumber("ShooterMap/Hub/Point0", "RPM", 2000);
+    public static final TunableNumber kHubHood0 = new TunableNumber("ShooterMap/Hub/Point0", "Hood", 0.0);
 
-    /**
-     * Default RPM values for Hub shooting.
-     * Can be tuned via Dashboard in Test Mode.
-     */
-    public static final double[] DEFAULT_HUB_RPMS = { 2000, 2500, 3500, 4500, 5500 };
+    // Point 1 (1.0m) - Measured
+    public static final TunableNumber kHubDist1 = new TunableNumber("ShooterMap/Hub/Point1", "Dist", 1.0);
+    public static final TunableNumber kHubRPM1 = new TunableNumber("ShooterMap/Hub/Point1", "RPM", 2650);
+    public static final TunableNumber kHubHood1 = new TunableNumber("ShooterMap/Hub/Point1", "Hood", 0.0);
 
-    /**
-     * Default Hood angles for Hub shooting.
-     * Can be tuned via Dashboard in Test Mode.
-     */
-    public static final double[] DEFAULT_HUB_HOOD_ANGLES = { 65.0, 60.0, 45.0, 30.0, 20.0 };
+    // Point 2 (2.0m) - Measured
+    public static final TunableNumber kHubDist2 = new TunableNumber("ShooterMap/Hub/Point2", "Dist", 2.0);
+    public static final TunableNumber kHubRPM2 = new TunableNumber("ShooterMap/Hub/Point2", "RPM", 3000);
+    public static final TunableNumber kHubHood2 = new TunableNumber("ShooterMap/Hub/Point2", "Hood", 15.0);
 
-    // --- ALLIANCE PASS SHOOTING (4m - 8m) ---
-    /**
-     * Fixed distance points for Alliance Pass interpolation (meters).
-     * Request: 4, 5, 6, 7, 8
-     */
-    public static final double[] ALLIANCE_PASS_DISTANCES = { 4.0, 5.0, 6.0, 7.0, 8.0 };
+    // Point 3 (3.5m)
+    public static final TunableNumber kHubDist3 = new TunableNumber("ShooterMap/Hub/Point3", "Dist", 3.5);
+    public static final TunableNumber kHubRPM3 = new TunableNumber("ShooterMap/Hub/Point3", "RPM", 4500);
+    public static final TunableNumber kHubHood3 = new TunableNumber("ShooterMap/Hub/Point3", "Hood", 30.0);
 
-    /**
-     * Default RPM values for Alliance Pass.
-     * Placeholder values - Tuning Required.
-     */
-    public static final double[] DEFAULT_ALLIANCE_PASS_RPMS = { 3000, 3500, 4000, 4500, 5000 };
+    // Point 4 (4.5m)
+    public static final TunableNumber kHubDist4 = new TunableNumber("ShooterMap/Hub/Point4", "Dist", 4.5);
+    public static final TunableNumber kHubRPM4 = new TunableNumber("ShooterMap/Hub/Point4", "RPM", 5500);
+    public static final TunableNumber kHubHood4 = new TunableNumber("ShooterMap/Hub/Point4", "Hood", 45.0);
 
-    /**
-     * Default Hood angles for Alliance Pass.
-     * Placeholder values - Tuning Required.
-     */
-    public static final double[] DEFAULT_ALLIANCE_PASS_HOOD_ANGLES = { 45.0, 40.0, 35.0, 30.0, 25.0 };
+    // Arrays of Tunables for Iteration (Optional, but helpful for Subsystem)
+    public static final TunableNumber[] HUB_DIST_TUNABLES = { kHubDist0, kHubDist1, kHubDist2, kHubDist3, kHubDist4 };
+    public static final TunableNumber[] HUB_RPM_TUNABLES = { kHubRPM0, kHubRPM1, kHubRPM2, kHubRPM3, kHubRPM4 };
+    public static final TunableNumber[] HUB_HOOD_TUNABLES = { kHubHood0, kHubHood1, kHubHood2, kHubHood3, kHubHood4 };
+
+    // --- ALLIANCE PASS MAP ---
+    // Point 0 (4.0m)
+    public static final TunableNumber kPassDist0 = new TunableNumber("ShooterMap/Pass/Point0", "Dist", 4.0);
+    public static final TunableNumber kPassRPM0 = new TunableNumber("ShooterMap/Pass/Point0", "RPM", 3000);
+    public static final TunableNumber kPassHood0 = new TunableNumber("ShooterMap/Pass/Point0", "Hood", 50.0);
+
+    // Point 1 (5.0m)
+    public static final TunableNumber kPassDist1 = new TunableNumber("ShooterMap/Pass/Point1", "Dist", 5.0);
+    public static final TunableNumber kPassRPM1 = new TunableNumber("ShooterMap/Pass/Point1", "RPM", 3500);
+    public static final TunableNumber kPassHood1 = new TunableNumber("ShooterMap/Pass/Point1", "Hood", 50.0);
+
+    // Point 2 (6.0m)
+    public static final TunableNumber kPassDist2 = new TunableNumber("ShooterMap/Pass/Point2", "Dist", 6.0);
+    public static final TunableNumber kPassRPM2 = new TunableNumber("ShooterMap/Pass/Point2", "RPM", 4000);
+    public static final TunableNumber kPassHood2 = new TunableNumber("ShooterMap/Pass/Point2", "Hood", 50.0);
+
+    // Point 3 (7.0m)
+    public static final TunableNumber kPassDist3 = new TunableNumber("ShooterMap/Pass/Point3", "Dist", 7.0);
+    public static final TunableNumber kPassRPM3 = new TunableNumber("ShooterMap/Pass/Point3", "RPM", 4500);
+    public static final TunableNumber kPassHood3 = new TunableNumber("ShooterMap/Pass/Point3", "Hood", 50.0);
+
+    // Point 4 (8.0m)
+    public static final TunableNumber kPassDist4 = new TunableNumber("ShooterMap/Pass/Point4", "Dist", 8.0);
+    public static final TunableNumber kPassRPM4 = new TunableNumber("ShooterMap/Pass/Point4", "RPM", 5000);
+    public static final TunableNumber kPassHood4 = new TunableNumber("ShooterMap/Pass/Point4", "Hood", 50.0);
+
+    public static final TunableNumber[] PASS_DIST_TUNABLES = { kPassDist0, kPassDist1, kPassDist2, kPassDist3,
+            kPassDist4 };
+    public static final TunableNumber[] PASS_RPM_TUNABLES = { kPassRPM0, kPassRPM1, kPassRPM2, kPassRPM3, kPassRPM4 };
+    public static final TunableNumber[] PASS_HOOD_TUNABLES = { kPassHood0, kPassHood1, kPassHood2, kPassHood3,
+            kPassHood4 };
 
     // --- TOLERANCES ---
     public static final double SHOOTER_RPM_TOLERANCE = 50.0;
@@ -181,18 +208,13 @@ public final class ShooterConstants {
     public static final double kFeedingHoodAngle = 50.0;
 
     // ===========================================================================
-    // INTERPOLATION METHODS
+    // INTERPOLATION METHODS (REMOVED - MOVED TO SUBSYSTEM)
     // ===========================================================================
+    // The static interpolate method is generic and can stay if needed,
+    // but specific getHoodAngleForDistance etc. must removed as they relied on
+    // arrays.
 
-    public static double getHoodAngleForDistance(double distanceMeters) {
-        return interpolate(distanceMeters, kCloseDistance, kFarDistance, kCloseHoodAngle, kFarHoodAngle);
-    }
-
-    public static double getFlywheelRPMForDistance(double distanceMeters) {
-        return interpolate(distanceMeters, kCloseDistance, kFarDistance, kCloseFlywheelRPM, kFarFlywheelRPM);
-    }
-
-    private static double interpolate(double input, double inputMin, double inputMax,
+    public static double interpolate(double input, double inputMin, double inputMax,
             double outputMin, double outputMax) {
         if (input <= inputMin)
             return outputMin;

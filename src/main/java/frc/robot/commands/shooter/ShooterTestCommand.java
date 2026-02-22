@@ -21,15 +21,20 @@ import org.littletonrobotics.junction.Logger;
 public class ShooterTestCommand extends Command {
 
     private final ShooterSubsystem shooter;
+    private final frc.robot.subsystems.feeder.FeederSubsystem feeder;
+
+    // Logic State
+    private boolean isFeeding = false;
 
     // Test mode için hedef değerler (Dashboard'dan ayarlanabilir)
     private final TunableNumber testFlywheelRPM;
     private final TunableNumber testTurretAngle;
     private final TunableNumber testHoodAngle;
 
-    public ShooterTestCommand(ShooterSubsystem shooter) {
+    public ShooterTestCommand(ShooterSubsystem shooter, frc.robot.subsystems.feeder.FeederSubsystem feeder) {
         this.shooter = shooter;
-        addRequirements(shooter);
+        this.feeder = feeder;
+        addRequirements(shooter, feeder);
 
         // TunableNumber'ları constructor'da oluştur
         testFlywheelRPM = new TunableNumber("Shooter/Test", "Flywheel RPM", 0.0);
@@ -73,8 +78,23 @@ public class ShooterTestCommand extends Command {
             double targetRPM = testFlywheelRPM.get();
             if (targetRPM > 0) {
                 shooter.setFlywheelRPM(targetRPM);
+
+                // --- AUTO FEED LOGIC ---
+                // Flywheel hedefe ulaştığında feeder'ı başlat ve KİLİTLE (Latch).
+                // RPM düşse bile feeder çalışmaya devam etsin.
+                if (shooter.isFlywheelAtTarget()) {
+                    isFeeding = true;
+                }
             } else {
                 shooter.stopFlywheel();
+                isFeeding = false; // Reset latch
+            }
+
+            // Feeder Logic
+            if (isFeeding) {
+                feeder.feed(); // Velocity Control
+            } else {
+                feeder.stop();
             }
 
             // =========== TURRET ===========
