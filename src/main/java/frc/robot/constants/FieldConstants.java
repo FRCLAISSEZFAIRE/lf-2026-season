@@ -81,6 +81,32 @@ public final class FieldConstants {
         private static final TunableNumber towerX = new TunableNumber("Field", "Tower/X", 8.245);
         private static final TunableNumber towerY = new TunableNumber("Field", "Tower/Y", 4.05);
 
+        // TRANSITION POINTS (Blue Alliance has A, B, C, D)
+        private static final TunableNumber transitionBlueA_X = new TunableNumber("Field", "TransitionBlueA/X", 3.270);
+        private static final TunableNumber transitionBlueA_Y = new TunableNumber("Field", "TransitionBlueA/Y", 0.650);
+
+        private static final TunableNumber transitionBlueB_X = new TunableNumber("Field", "TransitionBlueB/X", 5.700);
+        private static final TunableNumber transitionBlueB_Y = new TunableNumber("Field", "TransitionBlueB/Y", 0.650);
+
+        private static final TunableNumber transitionBlueC_X = new TunableNumber("Field", "TransitionBlueC/X", 3.270);
+        private static final TunableNumber transitionBlueC_Y = new TunableNumber("Field", "TransitionBlueC/Y", 7.410);
+
+        private static final TunableNumber transitionBlueD_X = new TunableNumber("Field", "TransitionBlueD/X", 5.700);
+        private static final TunableNumber transitionBlueD_Y = new TunableNumber("Field", "TransitionBlueD/Y", 7.410);
+
+        // TRANSITION POINTS (Red Alliance has A, B, C, D)
+        private static final TunableNumber transitionRedA_X = new TunableNumber("Field", "TransitionRedA/X", 13.400);
+        private static final TunableNumber transitionRedA_Y = new TunableNumber("Field", "TransitionRedA/Y", 7.470);
+
+        private static final TunableNumber transitionRedB_X = new TunableNumber("Field", "TransitionRedB/X", 10.800);
+        private static final TunableNumber transitionRedB_Y = new TunableNumber("Field", "TransitionRedB/Y", 7.470);
+
+        private static final TunableNumber transitionRedC_X = new TunableNumber("Field", "TransitionRedC/X", 13.400);
+        private static final TunableNumber transitionRedC_Y = new TunableNumber("Field", "TransitionRedC/Y", 0.650);
+
+        private static final TunableNumber transitionRedD_X = new TunableNumber("Field", "TransitionRedD/X", 10.800);
+        private static final TunableNumber transitionRedD_Y = new TunableNumber("Field", "TransitionRedD/Y", 0.650);
+
         // === LEGACY CONSTANTS (Restored & Linked) ===
         public static final double kHubHeightMeters = 1.83;
 
@@ -185,6 +211,62 @@ public final class FieldConstants {
                         return RED_HANG_CENTER;
                 }
                 return BLUE_HANG_CENTER;
+        }
+
+        /**
+         * Gets Transition Point A for Blue Alliance
+         */
+        public static Pose2d getTransitionPointBlueA() {
+                return new Pose2d(transitionBlueA_X.get(), transitionBlueA_Y.get(), Rotation2d.fromDegrees(0));
+        }
+
+        /**
+         * Gets Transition Point B for Blue Alliance
+         */
+        public static Pose2d getTransitionPointBlueB() {
+                return new Pose2d(transitionBlueB_X.get(), transitionBlueB_Y.get(), Rotation2d.fromDegrees(0));
+        }
+
+        /**
+         * Gets Transition Point C for Blue Alliance
+         */
+        public static Pose2d getTransitionPointBlueC() {
+                return new Pose2d(transitionBlueC_X.get(), transitionBlueC_Y.get(), Rotation2d.fromDegrees(0));
+        }
+
+        /**
+         * Gets Transition Point D for Blue Alliance
+         */
+        public static Pose2d getTransitionPointBlueD() {
+                return new Pose2d(transitionBlueD_X.get(), transitionBlueD_Y.get(), Rotation2d.fromDegrees(0));
+        }
+
+        /**
+         * Gets Transition Point A for Red Alliance
+         */
+        public static Pose2d getTransitionPointRedA() {
+                return new Pose2d(transitionRedA_X.get(), transitionRedA_Y.get(), Rotation2d.fromDegrees(180));
+        }
+
+        /**
+         * Gets Transition Point B for Red Alliance
+         */
+        public static Pose2d getTransitionPointRedB() {
+                return new Pose2d(transitionRedB_X.get(), transitionRedB_Y.get(), Rotation2d.fromDegrees(180));
+        }
+
+        /**
+         * Gets Transition Point C for Red Alliance
+         */
+        public static Pose2d getTransitionPointRedC() {
+                return new Pose2d(transitionRedC_X.get(), transitionRedC_Y.get(), Rotation2d.fromDegrees(180));
+        }
+
+        /**
+         * Gets Transition Point D for Red Alliance
+         */
+        public static Pose2d getTransitionPointRedD() {
+                return new Pose2d(transitionRedD_X.get(), transitionRedD_Y.get(), Rotation2d.fromDegrees(180));
         }
 
         /**

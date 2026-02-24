@@ -279,6 +279,10 @@ public class RobotContainer {
 
                 edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.putData("Auto Chooser", autoChooser);
 
+                // Add TrenchPassCommand to SmartDashboard for easy triggering in simulation or
+                // matches
+                edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.putData("Commands/TrenchPass",
+                                new frc.robot.commands.drive.TrenchPassCommand(driveSubsystem, shooterSubsystem));
         }
 
         // ==================== SOURCE POSITION SELECTION ====================

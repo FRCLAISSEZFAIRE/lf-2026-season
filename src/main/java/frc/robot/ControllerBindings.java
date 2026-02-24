@@ -75,44 +75,10 @@ public class ControllerBindings {
         // =========================================================================
         private void configureDriverBindings() {
 
-                // [A Tuşu] AUTO-CENTER ON NOTE (Limelight 3A)
-                driverController.a().whileTrue(
-                                Commands.run(() -> {
-                                        // PID katsayılarını güncelle (Dashboard'dan değişirse)
-                                        if (visionkP.hasChanged() || visionkI.hasChanged() || visionkD.hasChanged()) {
-                                                fuelAimPID.setPID(visionkP.get(), visionkI.get(), visionkD.get());
-                                        }
-
-                                        double xVelocity = -MathUtil.applyDeadband(driverController.getLeftY(), 0.1)
-                                                        * 4.5;
-                                        double yVelocity = -MathUtil.applyDeadband(driverController.getLeftX(), 0.1)
-                                                        * 4.5;
-                                        double rotVelocity;
-
-                                        if (intakeSubsystem.seesGamePiece()) {
-                                                double tx = intakeSubsystem.getAlignmentError();
-                                                double pidOutput = fuelAimPID.calculate(tx, 0.0);
-                                                rotVelocity = MathUtil.clamp(pidOutput, -1.0, 1.0) * 4.0;
-                                        } else {
-                                                rotVelocity = -MathUtil.applyDeadband(driverController.getRightX(), 0.1)
-                                                                * 4.5;
-                                        }
-
-                                        driveSubsystem.drive(
-                                                        new Translation2d(xVelocity, yVelocity),
-                                                        rotVelocity,
-                                                        true);
-
-                                }, driveSubsystem));
-
-                // [Y Tuşu] TOGGLE AUTO-AIM
-                driverController.y().onTrue(Commands.runOnce(() -> {
-                        if (shooterSubsystem.isAutoAimActive()) {
-                                shooterSubsystem.disableAutoAim();
-                        } else {
-                                shooterSubsystem.enableAutoAim();
-                        }
-                }));
+                // [RIGHT BUMPER] İTTİFAKA VE KONUMA GÖRE A->B veya B->A SIRALI GİDİŞ
+                driverController.rightBumper()
+                                .whileTrue(new frc.robot.commands.drive.TrenchPassCommand(driveSubsystem,
+                                                shooterSubsystem));
 
                 // ==================== LIVE OFFSETS (POV) ====================
                 // Turret: Left/Right (+/- 1.0 deg)
