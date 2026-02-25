@@ -505,16 +505,46 @@ public class RobotContainer {
 
         // ==================== NAMED COMMANDS ====================
         private void registerNamedCommands() {
-                // PathPlanner GUI'da kullanılacak komut isimleri
-                // NamedCommands.registerCommand("AutoIntake", Commands.print("[PathPlanner]
-                // AutoIntake Çalıştı"));
-                // NamedCommands.registerCommand("Shoot", Commands.print("[PathPlanner] Shoot
-                // Çalıştı"));
+                // Otomatik atış komutları - Simülasyon için 5 sn sensörsüz kör atış
+                NamedCommands.registerCommand("autoShoot",
+                                Commands.run(() -> {
+                                        shooterSubsystem.setFlywheelRPM(3000);
+                                        shooterSubsystem.setHoodAngle(30);
+                                        shooterSubsystem.setTurretAngle(0);
+                                        feederSubsystem.feed();
+                                }, shooterSubsystem, feederSubsystem)
+                                                .withTimeout(5.0)
+                                                .finallyDo(() -> {
+                                                        shooterSubsystem.stopFlywheel();
+                                                        feederSubsystem.stop();
+                                                }));
 
-                // NamedCommands.registerCommand("ClimberExtend",
-                // new frc.robot.commands.climber.ClimberExtendCommand(climberSubsystem));
-                // NamedCommands.registerCommand("ClimberRetract",
-                // new frc.robot.commands.climber.ClimberRetractCommand(climberSubsystem));
+                // Otomatik intake komutları - Simülasyon için 5 sn sensörsüz kör alma
+                NamedCommands.registerCommand("autoIntake",
+                                Commands.run(() -> {
+                                        intakeSubsystem.runRoller(12.0); // Tam güç
+                                        feederSubsystem.feed();
+                                }, intakeSubsystem, feederSubsystem)
+                                                .withTimeout(5.0)
+                                                .finallyDo(() -> {
+                                                        intakeSubsystem.runRoller(0);
+                                                        feederSubsystem.stop();
+                                                }));
+
+                // Otomatik geçiş komutları
+                NamedCommands.registerCommand("autoPass",
+                                new frc.robot.commands.drive.TrenchPassCommand(driveSubsystem, shooterSubsystem));
+
+                // Otomatik tırmanma komutu (autoClimb)
+                // Kule merkezine gidip, kancaları uzatıp asılır (1. seviye)
+                NamedCommands.registerCommand("autoClimb",
+                                new frc.robot.commands.climber.AutoClimbCommand(
+                                                climberSubsystem,
+                                                driveSubsystem,
+                                                () -> new edu.wpi.first.math.geometry.Pose2d(
+                                                                frc.robot.constants.FieldConstants.getTowerCenter(),
+                                                                edu.wpi.first.math.geometry.Rotation2d
+                                                                                .fromDegrees(0))));
         }
 
         // ==================== AUTO CLIMB SETUP ====================

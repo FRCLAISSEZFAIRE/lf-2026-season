@@ -7,7 +7,7 @@
         {
           "type": "named",
           "data": {
-            "name": "Shoot"
+            "name": "autoShoot"
           }
         },
         {
@@ -31,31 +31,13 @@
         {
           "type": "named",
           "data": {
-            "name": "Shoot"
-          }
-        },
-        {
-          "type": "path",
-          "data": {
-            "pathName": "Pass Left"
+            "name": "autoShoot"
           }
         },
         {
           "type": "named",
           "data": {
-            "name": "AutoIntake"
-          }
-        },
-        {
-          "type": "path",
-          "data": {
-            "pathName": "Reverse Left"
-          }
-        },
-        {
-          "type": "named",
-          "data": {
-            "name": "Shoot"
+            "name": "autoClimb"
           }
         }
       ]
