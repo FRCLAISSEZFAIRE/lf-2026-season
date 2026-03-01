@@ -132,9 +132,9 @@ public class MAXSwerveModule {
     private double m_simDriveVelocityMetersPerSec = 0;
 
     public void simulationPeriodic(double dt) {
-        // Simple simulation: Assume perfect tracking of desired state
-        // Drive
-        m_simDriveVelocityMetersPerSec = m_desiredState.speedMetersPerSecond;
+        // Negate speed to match MAXSwerve bevel gear reversal (same as real encoder
+        // negation)
+        m_simDriveVelocityMetersPerSec = -m_desiredState.speedMetersPerSecond;
         m_simDrivePositionMeters += m_simDriveVelocityMetersPerSec * dt;
 
         // Turn
@@ -152,6 +152,8 @@ public class MAXSwerveModule {
 
     public SwerveModulePosition getPosition() {
         if (edu.wpi.first.wpilibj.RobotBase.isSimulation()) {
+            // simDrivePositionMeters is already in physical space (negated in
+            // simulationPeriodic)
             return new SwerveModulePosition(
                     m_simDrivePositionMeters,
                     new Rotation2d(m_simTurnPositionRad - m_chassisAngularOffset));
@@ -159,13 +161,18 @@ public class MAXSwerveModule {
 
         // Apply chassis angular offset to the encoder position to get the position
         // relative to the chassis.
+        // Negate drive encoder: MAXSwerve bevel gear reverses shaft vs wheel direction.
+        // Motor inversion handles PID correctly internally, but odometry reads raw
+        // encoder values which have the wrong sign. Negating here fixes odometry only.
         return new SwerveModulePosition(
-                m_drivingEncoder.getPosition(),
+                -m_drivingEncoder.getPosition(),
                 new Rotation2d(m_turningEncoder.getPosition() - m_chassisAngularOffset));
     }
 
     public SwerveModuleState getState() {
         if (edu.wpi.first.wpilibj.RobotBase.isSimulation()) {
+            // simDriveVelocityMetersPerSec is already in physical space (negated in
+            // simulationPeriodic)
             return new SwerveModuleState(
                     m_simDriveVelocityMetersPerSec,
                     new Rotation2d(m_simTurnPositionRad - m_chassisAngularOffset));
@@ -173,7 +180,8 @@ public class MAXSwerveModule {
 
         // Apply chassis angular offset to the encoder position to get the position
         // relative to the chassis.
-        return new SwerveModuleState(m_drivingEncoder.getVelocity(),
+        // Negate velocity for same reason as position above.
+        return new SwerveModuleState(-m_drivingEncoder.getVelocity(),
                 new Rotation2d(m_turningEncoder.getPosition() - m_chassisAngularOffset));
     }
 }

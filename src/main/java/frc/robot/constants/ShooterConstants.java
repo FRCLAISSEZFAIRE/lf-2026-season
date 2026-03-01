@@ -45,6 +45,11 @@ public final class ShooterConstants {
     public static final double kTurretDefaultI = 0.0;
     public static final double kTurretDefaultD = 0.005;
 
+    /**
+     * Turret maksimum motor çıkışı (0.0 - 1.0 arası). Hız kontrolü için kullanılır.
+     */
+    public static final double kTurretMaxOutput = 0.2;
+
     /** Turret pozisyon toleransı (derece) */
     public static final double kTurretTolerance = 2.0;
 

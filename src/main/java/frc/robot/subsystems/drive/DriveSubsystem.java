@@ -95,7 +95,7 @@ public class DriveSubsystem extends SubsystemBase {
         // Vision: 0.9m, 0.9m, 0.9rad (Low trust initially)
         m_poseEstimator = new SwerveDrivePoseEstimator(
                 DriveConstants.kDriveKinematics,
-                Rotation2d.fromDegrees(m_gyro.getAngle()),
+                getRotation2d(),
                 new SwerveModulePosition[] {
                         m_frontLeft.getPosition(),
                         m_frontRight.getPosition(),
@@ -118,8 +118,31 @@ public class DriveSubsystem extends SubsystemBase {
         // Put Reset Gyro command to Dashboard
         SmartDashboard.putData("Drive/ResetGyro", new edu.wpi.first.wpilibj2.command.InstantCommand(this::zeroHeading));
 
-        // Initialize Gyro Inversion setting from Constants
-        SmartDashboard.setDefaultBoolean("Drive/InvertGyro", DriveConstants.kGyroReversed);
+        // Initialize Gyro Inversion setting from Constants (putBoolean to force-update
+        // stale cache)
+        SmartDashboard.putBoolean("Drive/InvertGyro", DriveConstants.kGyroReversed);
+
+        // Pose Offset — 10cm adımlarla X/Y kaydırma butonları
+        SmartDashboard.putData("Drive/PoseX+",
+                new edu.wpi.first.wpilibj2.command.InstantCommand(() -> {
+                    Pose2d c = getPose();
+                    resetOdometry(new Pose2d(c.getX() + 0.10, c.getY(), c.getRotation()));
+                }, this).ignoringDisable(true));
+        SmartDashboard.putData("Drive/PoseX-",
+                new edu.wpi.first.wpilibj2.command.InstantCommand(() -> {
+                    Pose2d c = getPose();
+                    resetOdometry(new Pose2d(c.getX() - 0.10, c.getY(), c.getRotation()));
+                }, this).ignoringDisable(true));
+        SmartDashboard.putData("Drive/PoseY+",
+                new edu.wpi.first.wpilibj2.command.InstantCommand(() -> {
+                    Pose2d c = getPose();
+                    resetOdometry(new Pose2d(c.getX(), c.getY() + 0.10, c.getRotation()));
+                }, this).ignoringDisable(true));
+        SmartDashboard.putData("Drive/PoseY-",
+                new edu.wpi.first.wpilibj2.command.InstantCommand(() -> {
+                    Pose2d c = getPose();
+                    resetOdometry(new Pose2d(c.getX(), c.getY() - 0.10, c.getRotation()));
+                }, this).ignoringDisable(true));
     }
 
     /**
@@ -200,6 +223,14 @@ public class DriveSubsystem extends SubsystemBase {
         Logger.recordOutput("Tuning/Drive/ModuleStates/FrontRight", m_frontRight.getState());
         Logger.recordOutput("Tuning/Drive/ModuleStates/RearLeft", m_rearLeft.getState());
         Logger.recordOutput("Tuning/Drive/ModuleStates/RearRight", m_rearRight.getState());
+
+        // === DIAGNOSTIC LOGGING for Odometry Inversion Debug ===
+        Logger.recordOutput("Debug/Gyro/RawAngle", m_gyro.getAngle());
+        Logger.recordOutput("Debug/Gyro/ComputedHeadingDeg", getRotation2d().getDegrees());
+        Logger.recordOutput("Debug/Modules/FL_DrivePos", m_frontLeft.getPosition().distanceMeters);
+        Logger.recordOutput("Debug/Modules/FR_DrivePos", m_frontRight.getPosition().distanceMeters);
+        Logger.recordOutput("Debug/Modules/RL_DrivePos", m_rearLeft.getPosition().distanceMeters);
+        Logger.recordOutput("Debug/Modules/RR_DrivePos", m_rearRight.getPosition().distanceMeters);
 
         // Dynamic Updates
         if (autoTranslationP.hasChanged() || autoRotationP.hasChanged()) {
@@ -403,8 +434,9 @@ public class DriveSubsystem extends SubsystemBase {
             return m_simRotation;
         }
 
-        // Read Gyro Inversion from Dashboard
-        boolean invertGyro = SmartDashboard.getBoolean("Drive/InvertGyro", DriveConstants.kGyroReversed);
+        // Use constant directly to avoid stale NetworkTables cache issues.
+        // Dashboard toggle is still available for RUNTIME changes only.
+        boolean invertGyro = DriveConstants.kGyroReversed;
 
         if (invertGyro) {
             return Rotation2d.fromDegrees(-m_gyro.getAngle());

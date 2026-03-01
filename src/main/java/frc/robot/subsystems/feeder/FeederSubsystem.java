@@ -56,13 +56,14 @@ public class FeederSubsystem extends SubsystemBase {
     private final TunableNumber kFF = new TunableNumber("Feeder", "kFF", FeederConstants.kFF);
 
     // =====================================================================
-    // TUNABLE SPEEDS (Test Mode için)
+    // TUNABLE SPEEDS (Voltaj kontrol - Dashboard'dan ayarlanabilir)
     // =====================================================================
-    private final TunableNumber tunableFeedRPM = new TunableNumber("Feeder", "Feed RPM", FeederConstants.kFeedRPM);
-    private final TunableNumber tunableSlowFeedRPM = new TunableNumber("Feeder", "Slow Feed RPM",
-            FeederConstants.kSlowFeedRPM);
-    private final TunableNumber tunableReverseRPM = new TunableNumber("Feeder", "Reverse RPM",
-            FeederConstants.kReverseRPM);
+    private final TunableNumber tunableFeedVoltage = new TunableNumber("Feeder", "Feed Voltage",
+            FeederConstants.kFeedVoltage);
+    private final TunableNumber tunableSlowFeedVoltage = new TunableNumber("Feeder", "Slow Feed Voltage",
+            FeederConstants.kSlowFeedVoltage);
+    private final TunableNumber tunableReverseVoltage = new TunableNumber("Feeder", "Reverse Voltage",
+            FeederConstants.kReverseVoltage);
 
     // =====================================================================
     // MANUAL OVERRIDE (Tuning Modunda Bağımsız Test)
@@ -82,22 +83,22 @@ public class FeederSubsystem extends SubsystemBase {
         fuelSensorBottom = new DigitalInput(RobotMap.kFeederSensorBottomID);
         fuelSensorTop = new DigitalInput(RobotMap.kFeederSensorTopID);
 
-        System.out.println("[Feeder] REVLib 2026 Velocity Control ile yapılandırıldı");
+        System.out.println("[Feeder] Voltaj kontrol ile yapılandırıldı (encoder bağımsız)");
     }
 
     // =====================================================================
     // MOTOR CONFIGURATION
     // =====================================================================
-    private void configureMotor() {
-        SparkMaxConfig config = new SparkMaxConfig();
+    private final SparkMaxConfig feederConfig = new SparkMaxConfig();
 
+    private void configureMotor() {
         // Encoder dönüşüm faktörü (RPM olarak okumak için)
         // NEO encoder: 42 CPR, motor shaft'ta
-        config.encoder
+        feederConfig.encoder
                 .velocityConversionFactor(1.0); // Motor RPM direkt okunur
 
         // REVLib Onboard Velocity PID
-        config.closedLoop
+        feederConfig.closedLoop
                 .p(kP.get())
                 .i(kI.get())
                 .d(kD.get())
@@ -105,14 +106,31 @@ public class FeederSubsystem extends SubsystemBase {
                 .outputRange(-1, 1);
 
         // Motor ayarları
-        config.inverted(true);
-        config.idleMode(IdleMode.kBrake);
-        config.smartCurrentLimit(FeederConstants.kCurrentLimit);
+        feederConfig.inverted(true);
+        feederConfig.idleMode(IdleMode.kCoast);
+        feederConfig.smartCurrentLimit(FeederConstants.kCurrentLimit);
 
-        feederMotor.configure(config, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
+        feederMotor.configure(feederConfig, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
 
         // Initialize Dashboard Toggle
         edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.setDefaultBoolean("Feeder/Invert", false);
+    }
+
+    /**
+     * PID/FF değerleri değiştiyse motora uygular.
+     * Test ve Teleop modlarında çalışır.
+     */
+    private void checkAndApplyTunables() {
+        if (kP.hasChanged() || kI.hasChanged() || kD.hasChanged() || kFF.hasChanged()) {
+            feederConfig.closedLoop
+                    .p(kP.get())
+                    .i(kI.get())
+                    .d(kD.get())
+                    .velocityFF(kFF.get());
+            feederMotor.configure(feederConfig, ResetMode.kNoResetSafeParameters, PersistMode.kNoPersistParameters);
+            System.out.println("[Feeder] PID/FF Updated: P=" + kP.get()
+                    + ", I=" + kI.get() + ", D=" + kD.get() + ", FF=" + kFF.get());
+        }
     }
 
     private boolean lastInvertState = false;
@@ -156,6 +174,9 @@ public class FeederSubsystem extends SubsystemBase {
     // =====================================================================
     @Override
     public void periodic() {
+        // PID/FF değişikliklerini her modda kontrol et (maç içinde de ayarlanabilir)
+        checkAndApplyTunables();
+
         if (edu.wpi.first.wpilibj.DriverStation.isTest()) {
             checkInversion();
         }
@@ -163,11 +184,21 @@ public class FeederSubsystem extends SubsystemBase {
     }
 
     // =====================================================================
-    // VELOCITY CONTROL (RPM) - setSetpoint API
+    // VOLTAGE CONTROL (Encoder bağımsız)
     // =====================================================================
 
     /**
-     * Feeder hızını ayarlar (RPM).
+     * Feeder'a voltaj gönderir (encoder gereksiz).
+     * 
+     * @param volts Voltaj (-12 ile +12 arası)
+     */
+    public void setFeedVoltage(double volts) {
+        targetRPM = volts; // Telemetri için voltajı kaydet
+        feederMotor.setVoltage(volts);
+    }
+
+    /**
+     * Feeder hızını ayarlar (RPM - eski velocity kontrol, encoder gerekli).
      * 
      * @param rpm Hedef hız (pozitif = ileri, negatif = geri)
      */
@@ -177,29 +208,29 @@ public class FeederSubsystem extends SubsystemBase {
     }
 
     /**
-     * İleri besleme (tunable hızda).
+     * İleri besleme (tunable voltajda).
      */
     public void feed() {
         if (!manualOverrideEnabled) {
-            setVelocity(tunableFeedRPM.get());
+            setFeedVoltage(tunableFeedVoltage.get());
         }
     }
 
     /**
-     * Yavaş besleme (tunable hızda).
+     * Yavaş besleme (tunable voltajda).
      */
     public void feedSlow() {
         if (!manualOverrideEnabled) {
-            setVelocity(tunableSlowFeedRPM.get());
+            setFeedVoltage(tunableSlowFeedVoltage.get());
         }
     }
 
     /**
-     * Geri çıkarma (tunable hızda).
+     * Geri çıkarma (tunable voltajda).
      */
     public void reverse() {
         if (!manualOverrideEnabled) {
-            setVelocity(tunableReverseRPM.get());
+            setFeedVoltage(tunableReverseVoltage.get());
         }
     }
 
@@ -245,9 +276,21 @@ public class FeederSubsystem extends SubsystemBase {
     }
 
     /**
-     * Manuel override modunda feeder hızını ayarlar.
+     * Manuel override modunda feeder voltajını ayarlar.
      * 
-     * @param rpm Hedef RPM (tuning için)
+     * @param volts Hedef voltaj (tuning için)
+     */
+    public void setManualOverrideVoltage(double volts) {
+        if (manualOverrideEnabled) {
+            manualOverrideRPM = volts;
+            feederMotor.setVoltage(volts);
+        }
+    }
+
+    /**
+     * Manuel override modunda feeder RPM'ini ayarlar (velocity PID).
+     * 
+     * @param rpm Hedef hız (tuning için)
      */
     public void setManualOverrideRPM(double rpm) {
         if (manualOverrideEnabled) {
@@ -260,14 +303,16 @@ public class FeederSubsystem extends SubsystemBase {
      * Manuel override modunda ileri çalıştır.
      */
     public void manualFeed() {
-        setManualOverrideRPM(tunableFeedRPM.get());
+        setManualOverrideVoltage(tunableFeedVoltage.get());
     }
 
     /**
      * Manuel override modunda durdur.
      */
     public void manualStop() {
-        setManualOverrideRPM(0);
+        if (manualOverrideEnabled) {
+            manualOverrideRPM = 0;
+        }
         feederMotor.stopMotor();
     }
 

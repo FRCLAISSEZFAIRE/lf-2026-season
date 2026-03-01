@@ -14,15 +14,7 @@ import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 
 // --- CONSTANTS ---
-import frc.robot.constants.Constants;
-import frc.robot.constants.DriveConstants;
-import frc.robot.constants.MechanismConstants;
 import frc.robot.constants.OIConstants;
-import frc.robot.constants.ClimberConstants;
-import frc.robot.constants.FeederConstants;
-import frc.robot.constants.FieldConstants;
-import frc.robot.constants.IntakeConstants;
-import frc.robot.constants.VisionConstants;
 
 // --- SUBSYSTEMS & IO ---
 import frc.robot.subsystems.drive.*;
@@ -35,13 +27,8 @@ import frc.robot.subsystems.feeder.*;
 
 // --- COMMANDS ---
 import frc.robot.commands.drive.DriveWithJoystick;
-import frc.robot.commands.drive.DriveWithAiming;
+import frc.robot.commands.drive.SimpleDriveToPose;
 
-import frc.robot.commands.intake.AutoIntakeCommand;
-
-// --- PATHPLANNER ---
-import com.pathplanner.lib.auto.AutoBuilder;
-import com.pathplanner.lib.auto.NamedCommands;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 
 /**
@@ -148,9 +135,6 @@ public class RobotContainer {
 
                 configureDefaultCommands();
 
-                // 2.5 Named Commands (Subsystem'ler oluşturulduktan SONRA kayıt edilmeli)
-                registerNamedCommands();
-
                 // Bağlantılar
                 // Bağlantılar
                 // shooterSubsystem.setIntakeSubsystem(intakeSubsystem);
@@ -177,191 +161,23 @@ public class RobotContainer {
                 // 4. Başlangıç Pozisyonu Ayarla (Alliance'a göre)
                 configureStartingPose();
 
-                // 5. AutoChooser Oluştur (PathPlanner otonomları için)
-                SendableChooser<Command> tempChooser;
-                if (AutoBuilder.isConfigured()) {
-                        try {
-                                tempChooser = AutoBuilder.buildAutoChooser();
-                        } catch (Exception e) {
-                                System.out.println("AutoBuilder hatası: " + e.getMessage());
-                                tempChooser = new SendableChooser<>();
-                                tempChooser.setDefaultOption("Hata: " + e.getMessage(), Commands.none());
-                        }
-                } else {
-                        tempChooser = new SendableChooser<>();
-                        tempChooser.setDefaultOption("HATA: PathPlanner Yapılandırılamadı", Commands.none());
-                }
-
-                autoChooser = tempChooser;
-
-                // Manuel Otonomlar (Her zaman ekle)
-                /*
-                 * autoChooser.addOption("Sadece Atış Yap (Manuel)",
-                 * Commands.sequence(
-                 * Commands.runOnce(() -> shooterSubsystem.shoot(), shooterSubsystem),
-                 * Commands.waitSeconds(1.0),
-                 * Commands.runOnce(() -> feederSubsystem.feed(), feederSubsystem),
-                 * Commands.waitSeconds(2.0),
-                 * Commands.runOnce(() -> {
-                 * shooterSubsystem.stopShooter();
-                 * feederSubsystem.stop();
-                 * }, shooterSubsystem, feederSubsystem)));
-                 */
-
-                // 6. Pathfinding Kontrollerini Ayarla (Score Pose Seçimi)
-                // configureAutoClimb();
-                // configureDriverPathfindingBindings();
-
-                // Örnek: Shooter + PathPlanner + Intake entegrasyonu
-                /*
-                 * if (AutoBuilder.isConfigured())
-                 * 
-                 * {
-                 * try {
-                 * // Basit bir test rotası oluştur (istersen PathPlanner GUI'dan .auto dosyası
-                 * da
-                 * // kullanabilirsin)
-                 * java.util.List<edu.wpi.first.math.geometry.Pose2d> examplePoses =
-                 * java.util.Arrays
-                 * .asList(
-                 * new edu.wpi.first.math.geometry.Pose2d(1.5, 5.5,
-                 * edu.wpi.first.math.geometry.Rotation2d
-                 * .fromDegrees(0)),
-                 * new edu.wpi.first.math.geometry.Pose2d(5.0, 5.5,
-                 * edu.wpi.first.math.geometry.Rotation2d
-                 * .fromDegrees(0)));
-                 * 
-                 * com.pathplanner.lib.path.PathPlannerPath examplePath = new
-                 * com.pathplanner.lib.path.PathPlannerPath(
-                 * com.pathplanner.lib.path.PathPlannerPath
-                 * .waypointsFromPoses(examplePoses),
-                 * new com.pathplanner.lib.path.PathConstraints(2.0, 2.0,
-                 * edu.wpi.first.math.util.Units.degreesToRadians(360),
-                 * edu.wpi.first.math.util.Units.degreesToRadians(540)),
-                 * null,
-                 * new com.pathplanner.lib.path.GoalEndState(0.0,
-                 * edu.wpi.first.math.geometry.Rotation2d.fromDegrees(0)));
-                 * 
-                 * // Sequence: Shoot → Path → Intake
-                 * autoChooser.addOption("Example: Shoot + Path + Intake",
-                 * Commands.sequence(
-                 * // 1. Shooter hazırlama ve atış (3 saniye)
-                 * Commands.runOnce(() -> shooterSubsystem.shoot(),
-                 * shooterSubsystem)
-                 * .andThen(Commands.waitSeconds(1.0))
-                 * .andThen(Commands.runOnce(
-                 * () -> feederSubsystem
-                 * .feed(),
-                 * feederSubsystem))
-                 * .andThen(Commands.waitSeconds(2.0))
-                 * .andThen(Commands.runOnce(() -> {
-                 * shooterSubsystem.stopShooter();
-                 * feederSubsystem.stop();
-                 * }, shooterSubsystem, feederSubsystem)),
-                 * 
-                 * // 2. PathPlanner rotasını takip et
-                 * AutoBuilder.followPath(examplePath),
-                 * 
-                 * // 3. Intake çalıştır (2 saniye, 8V)
-                 * Commands.runOnce(() -> intakeSubsystem.runRoller(8.0),
-                 * intakeSubsystem)
-                 * .andThen(Commands.waitSeconds(2.0))
-                 * .andThen(Commands.runOnce(
-                 * () -> intakeSubsystem
-                 * .runRoller(0),
-                 * intakeSubsystem))));
-                 * 
-                 * } catch (Exception e) {
-                 * System.out.println("Örnek otonom oluşturma hatası: " + e.getMessage());
-                 * }
-                 * }
-                 */
-
-                edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.putData("Auto Chooser", autoChooser);
+                // 5. AutoChooser Oluştur (senaryolar AutonomousScenarios sınıfında)
+                autoChooser = AutonomousScenarios.buildChooser(
+                                driveSubsystem, shooterSubsystem, feederSubsystem,
+                                intakeSubsystem, climberSubsystem);
 
                 // Add TrenchPassCommand to SmartDashboard for easy triggering in simulation or
                 // matches
                 edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.putData("Commands/TrenchPass",
                                 new frc.robot.commands.drive.TrenchPassCommand(driveSubsystem, shooterSubsystem));
+
+                // Intake Deploy/Retract commands for Elastic Dashboard
+                edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.putData("Commands/IntakeDeploy",
+                                intakeSubsystem.deployCommand());
+                edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.putData("Commands/IntakeRetract",
+                                intakeSubsystem.retractCommand());
         }
 
-        // ==================== SOURCE POSITION SELECTION ====================
-        // Turret olduğu için skor pozisyonu seçimi gereksiz - otomatik nişan alınır
-        // Seçili source indeksi (0-1 arasında)
-        private int selectedSourceIndex = 0;
-
-        /**
-         * Seçili source pozisyonunu değiştirir.
-         * 
-         * @param delta Değişim miktarı (+1 veya -1)
-         */
-        private void changeSourceIndex(int delta) {
-                selectedSourceIndex += delta;
-                // Dizi sınırları içinde tut (döngüsel)
-                if (selectedSourceIndex >= FieldConstants.kSourcePoses.length) {
-                        selectedSourceIndex = 0;
-                } else if (selectedSourceIndex < 0) {
-                        selectedSourceIndex = FieldConstants.kSourcePoses.length - 1;
-                }
-
-                // Field görselleştirme ve loglama
-                edu.wpi.first.math.geometry.Pose2d target = FieldConstants.kSourcePoses[selectedSourceIndex];
-                driveSubsystem.showTargetPose(target);
-
-                // AdvantageKit Loglama
-                Logger.recordOutput("Pathfinding/SelectedSourceIndex", selectedSourceIndex);
-                Logger.recordOutput("Pathfinding/SelectedSource", target);
-        }
-
-        /**
-         * Sürücü kontrollerini yapılandırır.
-         * POV Up/Down: Climb Pozisyonu Seçimi
-         * POV Left/Right: Source Seçimi
-         * X: Auto Intake
-         * Y: Auto Aim
-         */
-        /*
-         * private void configureDriverPathfindingBindings() {
-         * // --- CLIMB POSITION SELECTION (POV Up/Down) ---
-         * driverController.povUp().onTrue(Commands.runOnce(() ->
-         * cycleClimbPosition(1)));
-         * driverController.povDown().onTrue(Commands.runOnce(() ->
-         * cycleClimbPosition(-1)));
-         * 
-         * // --- SOURCE SELECTION (POV Right/Left) ---
-         * driverController.povRight().onTrue(Commands.runOnce(() ->
-         * changeSourceIndex(1)));
-         * driverController.povLeft().onTrue(Commands.runOnce(() ->
-         * changeSourceIndex(-1)));
-         * 
-         * // Path Constraints
-         * com.pathplanner.lib.path.PathConstraints constraints = new
-         * com.pathplanner.lib.path.PathConstraints(
-         * 3.0, 3.0,
-         * edu.wpi.first.math.util.Units.degreesToRadians(360),
-         * edu.wpi.first.math.util.Units.degreesToRadians(540));
-         * 
-         * // --- AUTO INTAKE (Button X) ---
-         * driverController.x().whileTrue(
-         * new AutoIntakeCommand(driveSubsystem, intakeSubsystem, feederSubsystem,
-         * visionSubsystem));
-         * 
-         * // --- AUTO AIM (Button Y) ---
-         * // Y tuşuna basılı tutulduğunda: Hareket serbest, robot hedefe döner
-         * (Auto-Aim)
-         * driverController.y().whileTrue(
-         * new DriveWithAiming(
-         * driveSubsystem,
-         * () -> -driverController.getRawAxis(OIConstants.kDriverLeftYAxis),
-         * () -> -driverController.getRawAxis(OIConstants.kDriverLeftXAxis),
-         * () -> new edu.wpi.first.math.geometry.Translation2d(16.5, 5.55) // Hedef
-         * // Konumu
-         * // (Shooter
-         * // ile
-         * // aynı)
-         * ));
-         * }
-         */
         // ==================== STARTING POSE ====================
 
         /**
@@ -457,21 +273,10 @@ public class RobotContainer {
 
         /**
          * Called when Autonomous mode starts.
-         * Logic:
-         * 1. If Vision is valid, trust it (do nothing).
-         * 2. If Vision is NOT valid (Blind start), reset pose to Alliance Start
-         * (Subwoofer).
+         * Sadece intake homing ve deploy yapar.
+         * Başlangıç pozisyonu artık dashboard butonlarıyla manuel ayarlanır.
          */
         public void onAutonomousInit() {
-                boolean useVision = visionSubsystem.isVisionEnabled() && visionSubsystem.hasValidPoseEstimate();
-
-                if (!useVision) {
-                        System.out.println("[AutoInit] Vision unavailable or disabled. Resetting to Alliance Start.");
-                        resetToAllianceStart();
-                } else {
-                        System.out.println("[AutoInit] Vision valid. Keeping existing pose.");
-                }
-
                 // Intake Homing & Deploy
                 if (!intakeSubsystem.isHomed()) {
                         intakeSubsystem.getHomePivotCommand().andThen(intakeSubsystem.deployCommand()).schedule();
@@ -482,10 +287,7 @@ public class RobotContainer {
 
         /**
          * Called when Teleop mode starts.
-         * Logic:
-         * 1. If FMS is attached (Real Match), do NOTHING. Trust the pose from Auto.
-         * 2. If FMS is NOT attached (Practice/Lab), Reset to Alliance Start.
-         * This allows immediate driving in Lab without running Auto first.
+         * Başlangıç pozisyonu artık dashboard butonlarıyla manuel ayarlanır.
          */
         public void onTeleopInit() {
                 if (edu.wpi.first.wpilibj.DriverStation.isFMSAttached()) {
@@ -503,123 +305,15 @@ public class RobotContainer {
                 }
         }
 
-        // ==================== NAMED COMMANDS ====================
-        private void registerNamedCommands() {
-                // Otomatik atış komutları - Simülasyon için 5 sn sensörsüz kör atış
-                NamedCommands.registerCommand("autoShoot",
-                                Commands.run(() -> {
-                                        shooterSubsystem.setFlywheelRPM(3000);
-                                        shooterSubsystem.setHoodAngle(30);
-                                        shooterSubsystem.setTurretAngle(0);
-                                        feederSubsystem.feed();
-                                }, shooterSubsystem, feederSubsystem)
-                                                .withTimeout(5.0)
-                                                .finallyDo(() -> {
-                                                        shooterSubsystem.stopFlywheel();
-                                                        feederSubsystem.stop();
-                                                }));
-
-                // Otomatik intake komutları - Simülasyon için 5 sn sensörsüz kör alma
-                NamedCommands.registerCommand("autoIntake",
-                                Commands.run(() -> {
-                                        intakeSubsystem.runRoller(12.0); // Tam güç
-                                        feederSubsystem.feed();
-                                }, intakeSubsystem, feederSubsystem)
-                                                .withTimeout(5.0)
-                                                .finallyDo(() -> {
-                                                        intakeSubsystem.runRoller(0);
-                                                        feederSubsystem.stop();
-                                                }));
-
-                // Otomatik geçiş komutları
-                NamedCommands.registerCommand("autoPass",
-                                new frc.robot.commands.drive.TrenchPassCommand(driveSubsystem, shooterSubsystem));
-
-                // Otomatik tırmanma komutu (autoClimb)
-                // Kule merkezine gidip, kancaları uzatıp asılır (1. seviye)
-                NamedCommands.registerCommand("autoClimb",
-                                new frc.robot.commands.climber.AutoClimbCommand(
-                                                climberSubsystem,
-                                                driveSubsystem,
-                                                () -> new edu.wpi.first.math.geometry.Pose2d(
-                                                                frc.robot.constants.FieldConstants.getTowerCenter(),
-                                                                edu.wpi.first.math.geometry.Rotation2d
-                                                                                .fromDegrees(0))));
-        }
-
-        // ==================== AUTO CLIMB SETUP ====================
-        private SendableChooser<Integer> climbPositionChooser;
-
-        /*
-         * private void configureAutoClimb() {
-         * climbPositionChooser = new SendableChooser<>();
-         * climbPositionChooser.setDefaultOption("Tower Mid", 1);
-         * climbPositionChooser.addOption("Tower Left", 0);
-         * climbPositionChooser.addOption("Tower Right", 2);
-         * 
-         * edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.putData("Climb Position",
-         * climbPositionChooser);
-         * 
-         * // Auto Climb Komutu (Dashboard Button)
-         * edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.
-         * putData("START AUTO CLIMB",
-         * new frc.robot.commands.climber.AutoClimbCommand(
-         * climberSubsystem,
-         * driveSubsystem,
-         * this::getSelectedClimbPose));
-         * }
-         * 
-         * // Climb Position Selection Logic
-         * private int selectedClimbIndex = 1; // Default: Mid (0:Left, 1:Mid, 2:Right)
-         * 
-         * public void cycleClimbPosition(int delta) {
-         * selectedClimbIndex += delta;
-         * if (selectedClimbIndex > 2)
-         * selectedClimbIndex = 0;
-         * if (selectedClimbIndex < 0)
-         * selectedClimbIndex = 2;
-         * 
-         * updateClimbDashboard();
-         * }
-         * 
-         * private Pose2d getSelectedClimbPose() {
-         * // Dashboard chooser öncelikli olsun mu? Şimdilik index kullanalım.
-         * // Ama kullanıcı Dashboard'dan seçerse ne olacak?
-         * // İkisi ayrı kalsın, POV indexi değiştirir.
-         * return FieldConstants.kTowerClimbPoses[selectedClimbIndex];
-         * }
-         * 
-         * private void updateClimbDashboard() {
-         * String[] names = { "Tower Left", "Tower Mid", "Tower Right" };
-         * edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.
-         * putString("Active Climb Target",
-         * names[selectedClimbIndex]);
-         * // Visualisation
-         * driveSubsystem.showTargetPose(FieldConstants.kTowerClimbPoses[
-         * selectedClimbIndex]);
-         * }
-         */
-
         /**
-         * Dinamik olarak belirtilen hedefe pathfinding ile gider.
+         * Dinamik olarak belirtilen hedefe SimpleDriveToPose ile gider.
          * Teleop sırasında robotun otomatik hareket etmesi için kullanılır.
          * 
          * @param targetPose Hedef konum ve açı
-         * @return Pathfinding komutu
+         * @return SimpleDriveToPose komutu
          */
         public Command driveToPose(Pose2d targetPose) {
-                return AutoBuilder.pathfindToPose(
-                                targetPose,
-                                new com.pathplanner.lib.path.PathConstraints(
-                                                DriveConstants.kMaxSpeedMetersPerSecond, // Max velocity
-                                                DriveConstants.kMaxSpeedMetersPerSecond * 0.75, // Max acceleration
-                                                                                                // (75%)
-                                                DriveConstants.kMaxAngularSpeedRadPerSec, // Max angular velocity
-                                                DriveConstants.kMaxAngularSpeedRadPerSec * 0.75 // Max angular
-                                                                                                // acceleration
-                                ),
-                                0.0 // Goal end velocity (duracak)
-                );
+                return new SimpleDriveToPose(driveSubsystem, targetPose);
         }
 
         // ==================== SHOOTING POSE ====================
@@ -637,21 +331,15 @@ public class RobotContainer {
                 Translation2d hubCenter = frc.robot.constants.FieldConstants.getHubCenter(alliance);
 
                 if (alliance.isPresent() && alliance.get() == edu.wpi.first.wpilibj.DriverStation.Alliance.Red) {
-                        // Kırmızı Alliance: Hub saha sonunda
-                        // Atış pozisyonu: Hub'ın 3m önünde (sahaya doğru, yani X küçülür)
                         return new Pose2d(
                                         hubCenter.getX() - frc.robot.constants.FieldConstants.kIdealShootingDistanceMeters,
                                         hubCenter.getY(),
-                                        Rotation2d.fromDegrees(180) // Hub'a bak
-                        );
+                                        Rotation2d.fromDegrees(180));
                 } else {
-                        // Mavi Alliance (varsayılan): Hub saha başında
-                        // Atış pozisyonu: Hub'ın 3m önünde (sahaya doğru, yani X artar)
                         return new Pose2d(
                                         hubCenter.getX() + frc.robot.constants.FieldConstants.kIdealShootingDistanceMeters,
                                         hubCenter.getY(),
-                                        Rotation2d.fromDegrees(0) // Hub'a bak
-                        );
+                                        Rotation2d.fromDegrees(0));
                 }
         }
 

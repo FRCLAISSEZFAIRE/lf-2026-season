@@ -2,13 +2,10 @@ package frc.robot.commands.climber;
 
 import java.util.function.Supplier;
 
-import com.pathplanner.lib.auto.AutoBuilder;
-import com.pathplanner.lib.path.PathConstraints;
-
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SequentialCommandGroup;
-import frc.robot.constants.DriveConstants;
+import frc.robot.commands.drive.SimpleDriveToPose;
 import frc.robot.subsystems.climber.ClimberSubsystem;
 import frc.robot.subsystems.drive.DriveSubsystem;
 
@@ -19,7 +16,7 @@ import frc.robot.subsystems.drive.DriveSubsystem;
  * ADIMLAR:
  * </p>
  * <ol>
- * <li>Seçilen Tower pozisyonuna git (Pathfinding)</li>
+ * <li>Seçilen Tower pozisyonuna git (SimpleDriveToPose)</li>
  * <li>Kancaları uzat (Extend)</li>
  * <li>Yavaşça ileri sür (Hizalama - Kancalar barın üzerine geçsin diye)</li>
  * <li>Robotu yukarı çek (Retract)</li>
@@ -34,22 +31,11 @@ public class AutoClimbCommand extends SequentialCommandGroup {
                         Supplier<Pose2d> targetPoseSupplier) {
 
                 addCommands(
-                                // 1. Hedefe Git
+                                // 1. Hedefe Git (SimpleDriveToPose ile)
                                 Commands.defer(() -> {
                                         Pose2d target = targetPoseSupplier.get();
-                                        return AutoBuilder.pathfindToPose(
-                                                        target,
-                                                        new PathConstraints(
-                                                                        DriveConstants.kMaxSpeedMetersPerSecond * 0.5, // Daha
-                                                                                                                       // yavaş
-                                                                                                                       // yaklaş
-                                                                        DriveConstants.kMaxSpeedMetersPerSecond * 0.5,
-                                                                        DriveConstants.kMaxAngularSpeedRadPerSec * 0.5,
-                                                                        DriveConstants.kMaxAngularSpeedRadPerSec * 0.5),
-                                                        0.0 // Dur
-                                        );
-
-                                }, java.util.Set.of(driveSubsystem)), // DriveSubsystem gereksinimi
+                                        return new SimpleDriveToPose(driveSubsystem, target);
+                                }, java.util.Set.of(driveSubsystem)),
 
                                 // 2. Kancaları Uzat
                                 new ClimberExtendCommand(climberSubsystem),

@@ -31,48 +31,39 @@ public class TrenchPassCommand extends DeferredCommand {
         var alliance = DriverStation.getAlliance();
         boolean isTopHalf = currentPose.getY() > 4.0;
 
+        Pose2d pointA;
+        Pose2d pointB;
+
         if (alliance.isPresent() && alliance.get() == DriverStation.Alliance.Red) {
             // RED ALLIANCE
             if (isTopHalf) {
-                // Red A and B are on the top side (Y > 4.0)
-                if (currentPose.getX() > FieldConstants.kRedAllianceZoneMinX) {
-                    return new SimpleDriveToPose(driveSubsystem, FieldConstants.getTransitionPointRedA())
-                            .andThen(new SimpleDriveToPose(driveSubsystem, FieldConstants.getTransitionPointRedB()));
-                } else {
-                    return new SimpleDriveToPose(driveSubsystem, FieldConstants.getTransitionPointRedB())
-                            .andThen(new SimpleDriveToPose(driveSubsystem, FieldConstants.getTransitionPointRedA()));
-                }
+                pointA = FieldConstants.getTransitionPointRedA();
+                pointB = FieldConstants.getTransitionPointRedB();
             } else {
-                // Red C and D are on the bottom side (Y < 4.0)
-                if (currentPose.getX() > FieldConstants.kRedAllianceZoneMinX) {
-                    return new SimpleDriveToPose(driveSubsystem, FieldConstants.getTransitionPointRedC())
-                            .andThen(new SimpleDriveToPose(driveSubsystem, FieldConstants.getTransitionPointRedD()));
-                } else {
-                    return new SimpleDriveToPose(driveSubsystem, FieldConstants.getTransitionPointRedD())
-                            .andThen(new SimpleDriveToPose(driveSubsystem, FieldConstants.getTransitionPointRedC()));
-                }
+                pointA = FieldConstants.getTransitionPointRedC();
+                pointB = FieldConstants.getTransitionPointRedD();
             }
         } else {
             // BLUE ALLIANCE (Default)
             if (isTopHalf) {
-                // Blue C and D are on the top side (Y > 4.0)
-                if (currentPose.getX() < FieldConstants.kBlueAllianceZoneMaxX) {
-                    return new SimpleDriveToPose(driveSubsystem, FieldConstants.getTransitionPointBlueC())
-                            .andThen(new SimpleDriveToPose(driveSubsystem, FieldConstants.getTransitionPointBlueD()));
-                } else {
-                    return new SimpleDriveToPose(driveSubsystem, FieldConstants.getTransitionPointBlueD())
-                            .andThen(new SimpleDriveToPose(driveSubsystem, FieldConstants.getTransitionPointBlueC()));
-                }
+                pointA = FieldConstants.getTransitionPointBlueC();
+                pointB = FieldConstants.getTransitionPointBlueD();
             } else {
-                // Blue A and B are on the bottom side (Y < 4.0)
-                if (currentPose.getX() < FieldConstants.kBlueAllianceZoneMaxX) {
-                    return new SimpleDriveToPose(driveSubsystem, FieldConstants.getTransitionPointBlueA())
-                            .andThen(new SimpleDriveToPose(driveSubsystem, FieldConstants.getTransitionPointBlueB()));
-                } else {
-                    return new SimpleDriveToPose(driveSubsystem, FieldConstants.getTransitionPointBlueB())
-                            .andThen(new SimpleDriveToPose(driveSubsystem, FieldConstants.getTransitionPointBlueA()));
-                }
+                pointA = FieldConstants.getTransitionPointBlueA();
+                pointB = FieldConstants.getTransitionPointBlueB();
             }
+        }
+
+        // Go to the CLOSER point first, then to the farther one
+        double distA = currentPose.getTranslation().getDistance(pointA.getTranslation());
+        double distB = currentPose.getTranslation().getDistance(pointB.getTranslation());
+
+        if (distA <= distB) {
+            return new SimpleDriveToPose(driveSubsystem, pointA)
+                    .andThen(new SimpleDriveToPose(driveSubsystem, pointB));
+        } else {
+            return new SimpleDriveToPose(driveSubsystem, pointB)
+                    .andThen(new SimpleDriveToPose(driveSubsystem, pointA));
         }
     }
 }

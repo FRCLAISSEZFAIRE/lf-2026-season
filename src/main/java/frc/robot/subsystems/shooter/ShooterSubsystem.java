@@ -110,6 +110,10 @@ public class ShooterSubsystem extends SubsystemBase {
     private final TunableNumber flywheelTolerance = new TunableNumber("Shooter", "Flywheel Tolerance",
             ShooterConstants.kFlywheelTolerance);
 
+    // Turret Max Output (Hız kontrolü - Dashboard'dan ayarlanabilir)
+    private final TunableNumber turretMaxOutput = new TunableNumber("Shooter", "Turret MaxOutput",
+            ShooterConstants.kTurretMaxOutput);
+
     // Turret Soft Limits (Dashboard'dan ayarlanabilir)
     private final TunableNumber turretMinAngle = new TunableNumber("Shooter", "Turret MinAngle",
             ShooterConstants.kTurretMinAngle);
@@ -320,7 +324,7 @@ public class ShooterSubsystem extends SubsystemBase {
                 .p(turretKP.get())
                 .i(turretKI.get())
                 .d(turretKD.get())
-                .outputRange(-0.2, 0.2); // %50 max output (güvenlik)
+                .outputRange(-turretMaxOutput.get(), turretMaxOutput.get()); // Dashboard'dan ayarlanabilir hız
 
         // Motor ayarları
         turretConfig.inverted(false);
@@ -455,6 +459,14 @@ public class ShooterSubsystem extends SubsystemBase {
             turretMotor.configure(turretConfig, ResetMode.kNoResetSafeParameters, PersistMode.kNoPersistParameters);
             System.out.println("[Shooter] Turret PID Updated: P=" + turretKP.get() + ", I=" + turretKI.get() + ", D="
                     + turretKD.get());
+        }
+
+        // --- TURRET MAX OUTPUT (HIZ) UPDATE ---
+        if (turretMaxOutput.hasChanged()) {
+            turretConfig.closedLoop
+                    .outputRange(-turretMaxOutput.get(), turretMaxOutput.get());
+            turretMotor.configure(turretConfig, ResetMode.kNoResetSafeParameters, PersistMode.kNoPersistParameters);
+            System.out.println("[Shooter] Turret Max Output Updated: " + turretMaxOutput.get());
         }
 
         // --- TURRET SOFT LIMITS UPDATE ---

@@ -68,9 +68,26 @@ public class SimpleDriveToPose extends Command {
         ySpeed = clamp(ySpeed, -3.0, 3.0);
         rotSpeed = clamp(rotSpeed, -2.0, 2.0);
 
+        // === DEBUG LOGGING ===
+        org.littletonrobotics.junction.Logger.recordOutput("SimpleDrive/TargetX", targetPose.getX());
+        org.littletonrobotics.junction.Logger.recordOutput("SimpleDrive/TargetY", targetPose.getY());
+        org.littletonrobotics.junction.Logger.recordOutput("SimpleDrive/CurrentX", currentPose.getX());
+        org.littletonrobotics.junction.Logger.recordOutput("SimpleDrive/CurrentY", currentPose.getY());
+        org.littletonrobotics.junction.Logger.recordOutput("SimpleDrive/PID_xSpeed", xSpeed);
+        org.littletonrobotics.junction.Logger.recordOutput("SimpleDrive/PID_ySpeed", ySpeed);
+        org.littletonrobotics.junction.Logger.recordOutput("SimpleDrive/PID_rotSpeed", rotSpeed);
+        org.littletonrobotics.junction.Logger.recordOutput("SimpleDrive/ErrorX",
+                targetPose.getX() - currentPose.getX());
+        org.littletonrobotics.junction.Logger.recordOutput("SimpleDrive/ErrorY",
+                targetPose.getY() - currentPose.getY());
+        org.littletonrobotics.junction.Logger.recordOutput("SimpleDrive/Target", targetPose);
+
         // Field-relative sürüş
+        // Negate xSpeed and ySpeed: motor/encoder config causes positive vx = physical
+        // backward.
+        // Same compensation as Drive/InvertJoystick in DriveWithJoystick.
         driveSubsystem.runVelocity(
-                ChassisSpeeds.fromFieldRelativeSpeeds(xSpeed, ySpeed, rotSpeed, currentPose.getRotation()));
+                ChassisSpeeds.fromFieldRelativeSpeeds(-xSpeed, -ySpeed, -rotSpeed, currentPose.getRotation()));
     }
 
     @Override
