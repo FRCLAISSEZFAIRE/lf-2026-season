@@ -53,7 +53,7 @@ public class IntakeTestCommand extends Command {
         if (Math.abs(rollerTarget) > 10) {
             intake.runRollerRPM(rollerTarget);
         } else {
-            intake.runRoller(0);
+            intake.stopRoller();
         }
 
         // =========== LOG ===========

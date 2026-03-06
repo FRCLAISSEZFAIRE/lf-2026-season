@@ -41,7 +41,7 @@ public class VisionSubsystem extends SubsystemBase {
 
     // ==================== DASHBOARD TOGGLE ====================
     private final NetworkTable tuningTable = NetworkTableInstance.getDefault().getTable("Tuning");
-    private boolean visionEnabled = false; // DEFAULT: OFF - prevents bad data on startup
+    private boolean visionEnabled = true; // DEFAULT: ON - enabled by default for pose estimation
 
     // ==================== TELEMETRY CACHE ====================
     // Left camera
@@ -67,14 +67,14 @@ public class VisionSubsystem extends SubsystemBase {
         this.drive = drive;
 
         // Initialize Tuning Table entry
-        tuningTable.getEntry("Vision/Enabled").setBoolean(false);
+        tuningTable.getEntry("Vision/Enabled").setDefaultBoolean(true);
     }
 
     // ==================== PERIODIC ====================
     @Override
     public void periodic() {
         // Check tuning table toggle FIRST
-        visionEnabled = tuningTable.getEntry("Vision/Enabled").getBoolean(false);
+        visionEnabled = tuningTable.getEntry("Vision/Enabled").getBoolean(true);
         Logger.recordOutput("Tuning/Vision/Enabled", visionEnabled);
 
         // Early return if vision disabled
@@ -241,7 +241,7 @@ public class VisionSubsystem extends SubsystemBase {
         // but used by the MT2 algorithm internally for X/Y calculation.
         // We set this to Infinity (Double.MAX_VALUE) so the Pose Estimator
         // never uses the vision rotation to override the Gyro.
-        return Double.MAX_VALUE;
+        return 9999999.0;
     }
 
     /**

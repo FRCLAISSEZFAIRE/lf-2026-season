@@ -45,11 +45,11 @@ public class DriveWithJoystick extends Command {
 
         addRequirements(driveSubsystem);
 
-        // Load values from RIO Preferences (saved state)
+        // RIO Preferences'tan kayıtlı değerleri yükle
         boolean savedInvertJoystick = edu.wpi.first.wpilibj.Preferences.getBoolean("Drive/InvertJoystick", false);
         boolean savedInvertRotation = edu.wpi.first.wpilibj.Preferences.getBoolean("Drive/InvertRotation", true);
 
-        // Put to Dashboard
+        // Dashboard'a koy
         edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.setDefaultBoolean("Drive/InvertJoystick",
                 savedInvertJoystick);
         edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.setDefaultBoolean("Drive/InvertRotation",
@@ -61,13 +61,13 @@ public class DriveWithJoystick extends Command {
 
     @Override
     public void execute() {
-        // Read Inversion Settings from Dashboard
+        // Dashboard'dan ters çevirme ayarlarını oku
         boolean invertJoystick = edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.getBoolean("Drive/InvertJoystick",
                 lastInvertJoystick);
         boolean invertRotation = edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.getBoolean("Drive/InvertRotation",
                 lastInvertRotation);
 
-        // Save to RIO Preferences if it changed
+        // Değiştiyse RIO Preferences'a kaydet
         if (invertJoystick != lastInvertJoystick) {
             edu.wpi.first.wpilibj.Preferences.setBoolean("Drive/InvertJoystick", invertJoystick);
             lastInvertJoystick = invertJoystick;
@@ -82,11 +82,10 @@ public class DriveWithJoystick extends Command {
         double rawY = ySpeedSupplier.getAsDouble();
         double rawRot = rotSpeedSupplier.getAsDouble();
 
-        // --- ALLIANCE CORRECTION ---
-        // Red Alliance için X ve Y eksenlerini ters çevir.
+        // --- İTTİFAK DÜZELTMESİ ---
+        // Kırmızı İttifak için X ve Y eksenlerini ters çevir.
         // Böylece Stick İleri her zaman "Sürücüden Uzağa" gitmek anlamına gelir.
-        // CHECK: User reported "Forward goes Backward" on Red. Disabling for
-        // verification.
+        // KONTROL: Kullanıcı "İleri geriye gidiyor" dedi. Doğrulama için devre dışı.
         /*
          * var alliance = edu.wpi.first.wpilibj.DriverStation.getAlliance();
          * if (alliance.isPresent() && alliance.get() ==
@@ -97,7 +96,7 @@ public class DriveWithJoystick extends Command {
          */
         // ---------------------------
 
-        // Apply Inversions
+        // Ters çevirme uygula
         if (invertJoystick) {
             rawX = -rawX;
             rawY = -rawY;
@@ -131,14 +130,14 @@ public class DriveWithJoystick extends Command {
         Logger.recordOutput("Drive/CommandedVY", ySpeed);
         Logger.recordOutput("Drive/CommandedOmega", rotSpeed);
 
-        // 3. Drive Logic
+        // 3. Sürüş Mantığı
         if (xSpeed == 0 && ySpeed == 0 && rotSpeed == 0) {
             // Joystick bırakıldığında ANINDA dur ve X-stance pozisyonuna geç (Tekerleri
             // kilitle)
             driveSubsystem.stop();
         } else {
-            // Field-relative sürüş uygula (LEGACY MANUAL MODE)
-            // Kullanıcının istediği referans koda uygun logic
+            // Saha-referanslı sürüş uygula (ESKİ MANUEL MOD)
+            // Kullanıcının istediği referans koda uygun mantık
             driveSubsystem.driveManual(
                     xSpeed,
                     ySpeed,

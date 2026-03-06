@@ -1,134 +1,85 @@
 package frc.robot.commands.intake;
 
-import edu.wpi.first.math.controller.PIDController;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
-import frc.robot.constants.IntakeConstants;
 
 import frc.robot.subsystems.drive.DriveSubsystem;
 import frc.robot.subsystems.feeder.FeederSubsystem;
 import frc.robot.subsystems.intake.IntakeSubsystem;
+import frc.robot.util.TunableNumber;
 
 /**
- * Limelight 3A kullanarak otomatik game piece toplama komutu.
- * - Robotu hedefe yönlendirir (Vision Yaw).
- * - İleri sürer ve Intake/Feeder çalıştırır.
- * - Hedef kaybolursa bir süre (timeout) aramaya devam eder.
- * - Hazne dolduğunda (Feeder Full) durur.
+ * Zamanlı otomatik intake komutu.
+ * Robot-relative ileri hareket ederken intake roller ve feeder çalıştırır.
+ * Süre dolduğunda durur.
+ * 
+ * <p>
+ * Sürüş hızı TunableNumber ile Dashboard'dan ayarlanabilir,
+ * değer RIO'ya kaydedilir.
+ * </p>
  */
 public class AutoIntakeCommand extends Command {
     private final DriveSubsystem drive;
     private final IntakeSubsystem intake;
     private final FeederSubsystem feeder;
+    private final double durationSeconds;
 
-    private final PIDController turnPID = new PIDController(2.0, 0.0, 0.0); // Tuning gerekebilir
-    private final Timer lostTargetTimer = new Timer();
-    private boolean hasSeenTarget = false;
+    private final Timer timer = new Timer();
 
+    // Intake sırasında ileri sürüş hızı (m/s) — Dashboard'dan ayarlanabilir
+    private static final TunableNumber intakeDriveSpeed = new TunableNumber(
+            "Auto", "IntakeDriveSpeed", 0.3); // Varsayılan: 0.3 m/s (çok yavaş)
+
+    /**
+     * Zamanlı intake komutu oluşturur.
+     * Robot ileri hareket ederken intake roller ve feeder çalıştırır.
+     *
+     * @param drive           Drive alt sistemi (ileri sürüş için)
+     * @param intake          Intake alt sistemi
+     * @param feeder          Feeder alt sistemi
+     * @param durationSeconds Çalışma süresi (saniye)
+     */
     public AutoIntakeCommand(DriveSubsystem drive, IntakeSubsystem intake,
-            FeederSubsystem feeder) {
+            FeederSubsystem feeder, double durationSeconds) {
         this.drive = drive;
         this.intake = intake;
         this.feeder = feeder;
+        this.durationSeconds = durationSeconds;
 
         addRequirements(drive, intake, feeder);
     }
 
     @Override
     public void initialize() {
-        // Timer ve durum sıfırla
-        lostTargetTimer.stop();
-        lostTargetTimer.reset();
-        hasSeenTarget = false;
-
-        // PID Reset
-        turnPID.reset();
+        timer.reset();
+        timer.start();
+        System.out.println("[AutoIntake] Başlatıldı — Süre: " + durationSeconds
+                + "s, Hız: " + intakeDriveSpeed.get() + " m/s");
     }
 
     @Override
     public void execute() {
-        boolean seesGamePiece = intake.seesGamePiece();
-        double rotationSpeed = 0.0;
-        double forwardSpeed = 0.0;
+        // Intake ve Feeder çalıştır
+        intake.runRollerRPM(4800); // 4800 RPM
+        feeder.feed();
 
-        if (seesGamePiece) {
-            // Hedef görüldü!
-            hasSeenTarget = true;
-            lostTargetTimer.stop();
-            lostTargetTimer.reset();
-
-            // 1. Hizalanma (PID)
-            double error = intake.getAlignmentError();
-            // Tx derece cinsinden, PID'ye verilebilir.
-            // Radyan'a çevirmek daha doğru olabilir ama PID katsayısı dereceye göre de
-            // ayarlanabilir.
-            // Limelight tx +/- 29.8 derece.
-            // PID output rad/s olmalı (Drive runVelocity için).
-            // Derece -> Output (Rad/S) dönüşümü için kP'yi ona göre seçtik.
-            // Basitçe: kP * errorDegrees. kP=0.1 dersek, 10 derece hata -> 1 rad/s dönüş.
-            rotationSpeed = turnPID.calculate(error, 0.0);
-
-            // 2. İleri Sürüş (Yavaşça yaklaş)
-            forwardSpeed = 1.0; // m/s (Ayarlanabilir)
-
-        } else {
-            // Hedef yok
-            if (hasSeenTarget) {
-                // Önceden görmüştük, kaybettik -> Timeout say
-                lostTargetTimer.start();
-
-                if (lostTargetTimer.get() < IntakeConstants.kTargetLostTimeoutSeconds) {
-                    // Kayıp ama süre bitmedi -> Aramaya devam et veya düz git
-                    // '3a bir şey görmüyor ise... 4 saniye intake çalışsın'
-                    forwardSpeed = 0.5; // Yavaşça ilerle
-                    rotationSpeed = 0.0;
-                } else {
-                    // Timeout doldu -> Dur
-                    forwardSpeed = 0.0;
-                    rotationSpeed = 0.0;
-                }
-            } else {
-                // Hiç görmedik -> Olduğun yerde dur veya ara (şimdilik dur)
-                forwardSpeed = 0.0;
-                rotationSpeed = 0.0;
-            }
-        }
-
-        // 3. Drive Uygula
-        drive.runVelocity(new ChassisSpeeds(forwardSpeed, 0.0, rotationSpeed));
-
-        // 4. Intake ve Feeder Çalıştır
-        // Eğer target görüyor veya timeout içindeysek çalıştır
-        if (seesGamePiece || (hasSeenTarget && lostTargetTimer.get() < IntakeConstants.kTargetLostTimeoutSeconds)) {
-            intake.runRoller(10.0); // 10 Volt (veya kAutoIntakeSpeed)
-            feeder.feed(); // Feeder ileri
-        } else {
-            intake.runRoller(0.0);
-            feeder.stop();
-        }
+        // Robot-relative ileri sürüş (intake yönüne doğru)
+        double speed = intakeDriveSpeed.get();
+        drive.runVelocity(new ChassisSpeeds(speed, 0, 0));
     }
 
     @Override
     public void end(boolean interrupted) {
-        // Durdur
-        drive.stop();
-        intake.runRoller(0.0);
+        timer.stop();
+        intake.stopRoller();
         feeder.stop();
+        drive.stop();
+        System.out.println("[AutoIntake] Durduruldu" + (interrupted ? " (kesildi)" : ""));
     }
 
     @Override
     public boolean isFinished() {
-        // 1. Tank Doldu mu?
-        if (feeder.isFuelSystemFull()) {
-            return true;
-        }
-
-        // 2. Timeout doldu mu? (Hedef görülüp kaybolduysa)
-        if (hasSeenTarget && lostTargetTimer.hasElapsed(IntakeConstants.kTargetLostTimeoutSeconds)) {
-            return true;
-        }
-
-        return false;
+        return timer.hasElapsed(durationSeconds);
     }
 }

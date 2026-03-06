@@ -64,8 +64,6 @@ public class IntakeSubsystem extends SubsystemBase {
             IntakeConstants.kRollerMinRPM);
     private final TunableNumber rollerMaxRPM = new TunableNumber("Intake/Roller", "Max RPM",
             IntakeConstants.kRollerMaxRPM);
-    private final TunableNumber rollerVoltage = new TunableNumber("Intake/Roller", "Voltage",
-            IntakeConstants.kRollerVoltage);
 
     // =====================================================================
     // PIVOT PID (RIO'ya kaydedilir)
@@ -324,20 +322,20 @@ public class IntakeSubsystem extends SubsystemBase {
         return rollerMotor.getVelocity().getValueAsDouble() * 60.0;
     }
 
+    /** Roller'ı durdurur */
+    public void stopRoller() {
+        rollerMotor.stopMotor();
+        lastRollerSetpointRPM = 0;
+    }
+
     public Command runRollerCommand() {
         return run(() -> runRollerRPM(rollerTargetRPM.get()))
-                .finallyDo(() -> {
-                    rollerMotor.stopMotor();
-                    lastRollerSetpointRPM = 0;
-                });
+                .finallyDo(() -> stopRoller());
     }
 
     public Command reverseRollerCommand() {
-        return run(() -> runRoller(-rollerVoltage.get()))
-                .finallyDo(() -> {
-                    rollerMotor.stopMotor();
-                    lastRollerSetpointRPM = 0;
-                });
+        return run(() -> runRollerRPM(-rollerTargetRPM.get()))
+                .finallyDo(() -> stopRoller());
     }
 
     public Command stopRollerCommand() {
@@ -385,18 +383,6 @@ public class IntakeSubsystem extends SubsystemBase {
 
     public Command retractCommand() {
         return runOnce(() -> setPivotPosition(pivotRetractedDeg.get()));
-    }
-
-    // =========================================================================
-    // HELPERS
-    // =========================================================================
-
-    public boolean seesGamePiece() {
-        return false;
-    }
-
-    public double getAlignmentError() {
-        return 0.0;
     }
 
     // =========================================================================

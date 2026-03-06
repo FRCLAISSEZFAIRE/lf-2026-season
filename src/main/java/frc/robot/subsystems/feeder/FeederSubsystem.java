@@ -8,11 +8,9 @@ import com.revrobotics.spark.SparkLowLevel.MotorType;
 import com.revrobotics.spark.config.SparkMaxConfig;
 import com.revrobotics.spark.config.SparkBaseConfig.IdleMode;
 
-import edu.wpi.first.wpilibj.DigitalInput;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 
 import frc.robot.constants.FeederConstants;
-import frc.robot.constants.RobotMap;
 import frc.robot.util.TunableNumber;
 
 import org.littletonrobotics.junction.Logger;
@@ -24,7 +22,6 @@ import org.littletonrobotics.junction.Logger;
  * <h2>Özellikler:</h2>
  * <ul>
  * <li>NEO motor + REVLib Onboard Velocity PID</li>
- * <li>MZ-80 yakıt sensörleri</li>
  * <li>Intake → Shooter arası transfer</li>
  * </ul>
  */
@@ -36,16 +33,9 @@ public class FeederSubsystem extends SubsystemBase {
     private final SparkMax feederMotor;
 
     // =====================================================================
-    // SENSORS
-    // =====================================================================
-    private final DigitalInput fuelSensorBottom;
-    private final DigitalInput fuelSensorTop;
-
-    // =====================================================================
     // STATE
     // =====================================================================
     private double targetRPM = 0;
-    private boolean isLoading = false;
 
     // =====================================================================
     // TUNABLE PID
@@ -78,10 +68,6 @@ public class FeederSubsystem extends SubsystemBase {
         // --- FEEDER MOTOR (NEO + Velocity Control) ---
         feederMotor = new SparkMax(FeederConstants.kFeederMotorID, MotorType.kBrushless);
         configureMotor();
-
-        // --- FUEL SENSORS ---
-        fuelSensorBottom = new DigitalInput(RobotMap.kFeederSensorBottomID);
-        fuelSensorTop = new DigitalInput(RobotMap.kFeederSensorTopID);
 
         System.out.println("[Feeder] Voltaj kontrol ile yapılandırıldı (encoder bağımsız)");
     }
@@ -342,79 +328,13 @@ public class FeederSubsystem extends SubsystemBase {
     }
 
     // =====================================================================
-    // FUEL TANK LOGIC
-    // =====================================================================
-
-    public void setLoading(boolean loading) {
-        this.isLoading = loading;
-    }
-
-    public boolean isLoading() {
-        return isLoading;
-    }
-
-    /**
-     * Alt sensör algılıyor mu? (User: False=Empty, True=Full)
-     */
-    public boolean hasFuelBottom() {
-        return fuelSensorBottom.get();
-    }
-
-    /**
-     * Üst sensör algılıyor mu? (User: False=Empty, True=Full)
-     */
-    public boolean hasFuelTop() {
-        return fuelSensorTop.get();
-    }
-
-    /**
-     * Yakıt seviyesi (0-2).
-     */
-    public int getFuelLevel() {
-        int level = 0;
-        if (hasFuelBottom())
-            level++;
-        if (hasFuelTop())
-            level++;
-        return level;
-    }
-
-    /**
-     * Sistem boş mu?
-     */
-    public boolean isFuelSystemEmpty() {
-        return !hasFuelBottom() && !hasFuelTop();
-    }
-
-    /**
-     * Sistem dolu mu?
-     */
-    public boolean isFuelSystemFull() {
-        return hasFuelTop();
-    }
-
-    // =====================================================================
     // TELEMETRY
     // =====================================================================
     private void logTelemetry() {
         Logger.recordOutput("Tuning/Feeder/TargetRPM", targetRPM);
         Logger.recordOutput("Tuning/Feeder/ActualRPM", getVelocityRPM());
-        Logger.recordOutput("Tuning/Feeder/FuelBottom", hasFuelBottom());
-        Logger.recordOutput("Tuning/Feeder/FuelTop", hasFuelTop());
-        Logger.recordOutput("Tuning/Feeder/FuelLevel", getFuelLevel());
-        Logger.recordOutput("Tuning/Feeder/IsLoading", isLoading);
         Logger.recordOutput("Tuning/Feeder/ManualOverrideEnabled", manualOverrideEnabled);
         Logger.recordOutput("Tuning/Feeder/ManualOverrideRPM", manualOverrideRPM);
-
-        // Elastic Dashboard Status
-        String status = "Unknown";
-        if (isFuelSystemEmpty())
-            status = "Empty";
-        else if (isFuelSystemFull())
-            status = "Full";
-        else
-            status = "Partial";
-        Logger.recordOutput("Tuning/Feeder/Status", status);
     }
 
     // =====================================================================

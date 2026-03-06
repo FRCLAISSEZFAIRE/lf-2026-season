@@ -15,7 +15,7 @@ public class SimpleDriveToPose extends Command {
     private final DriveSubsystem driveSubsystem;
     private final Pose2d targetPose;
 
-    // PID Controllers
+    // PID Kontrolcüleri
     private final PIDController xController;
     private final PIDController yController;
     private final PIDController rotController;
@@ -68,7 +68,7 @@ public class SimpleDriveToPose extends Command {
         ySpeed = clamp(ySpeed, -3.0, 3.0);
         rotSpeed = clamp(rotSpeed, -2.0, 2.0);
 
-        // === DEBUG LOGGING ===
+        // === HATA AYIKLAMA LOGLARI ===
         org.littletonrobotics.junction.Logger.recordOutput("SimpleDrive/TargetX", targetPose.getX());
         org.littletonrobotics.junction.Logger.recordOutput("SimpleDrive/TargetY", targetPose.getY());
         org.littletonrobotics.junction.Logger.recordOutput("SimpleDrive/CurrentX", currentPose.getX());
@@ -82,10 +82,10 @@ public class SimpleDriveToPose extends Command {
                 targetPose.getY() - currentPose.getY());
         org.littletonrobotics.junction.Logger.recordOutput("SimpleDrive/Target", targetPose);
 
-        // Field-relative sürüş
-        // Negate xSpeed and ySpeed: motor/encoder config causes positive vx = physical
-        // backward.
-        // Same compensation as Drive/InvertJoystick in DriveWithJoystick.
+        // Saha-referanslı sürüş
+        // xSpeed ve ySpeed ters çevrildi: motor/encoder ayarı nedeniyle pozitif vx =
+        // fiziksel geriye gidiş.
+        // DriveWithJoystick'teki Drive/InvertJoystick ile aynı telafi.
         driveSubsystem.runVelocity(
                 ChassisSpeeds.fromFieldRelativeSpeeds(-xSpeed, -ySpeed, -rotSpeed, currentPose.getRotation()));
     }

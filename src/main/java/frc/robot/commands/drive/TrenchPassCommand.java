@@ -35,7 +35,7 @@ public class TrenchPassCommand extends DeferredCommand {
         Pose2d pointB;
 
         if (alliance.isPresent() && alliance.get() == DriverStation.Alliance.Red) {
-            // RED ALLIANCE
+            // KIRMIZI İTTİFAK
             if (isTopHalf) {
                 pointA = FieldConstants.getTransitionPointRedA();
                 pointB = FieldConstants.getTransitionPointRedB();
@@ -44,7 +44,7 @@ public class TrenchPassCommand extends DeferredCommand {
                 pointB = FieldConstants.getTransitionPointRedD();
             }
         } else {
-            // BLUE ALLIANCE (Default)
+            // MAVİ İTTİFAK (Varsayılan)
             if (isTopHalf) {
                 pointA = FieldConstants.getTransitionPointBlueC();
                 pointB = FieldConstants.getTransitionPointBlueD();
@@ -54,7 +54,7 @@ public class TrenchPassCommand extends DeferredCommand {
             }
         }
 
-        // Go to the CLOSER point first, then to the farther one
+        // Önce YAKIN noktaya git, sonra uzak noktaya
         double distA = currentPose.getTranslation().getDistance(pointA.getTranslation());
         double distB = currentPose.getTranslation().getDistance(pointB.getTranslation());
 

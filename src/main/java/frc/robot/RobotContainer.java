@@ -65,11 +65,8 @@ import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
  */
 public class RobotContainer {
 
-        // ==================== CONTROLLERS ====================
         private final CommandXboxController driverController = new CommandXboxController(
                         OIConstants.kDriverControllerPort);
-        private final CommandXboxController operatorController = new CommandXboxController(
-                        OIConstants.kOperatorControllerPort);
 
         // ==================== SUBSYSTEMS ====================
         private final DriveSubsystem driveSubsystem;
@@ -147,7 +144,6 @@ public class RobotContainer {
                 // 3. Bindings (ayrı sınıfta)
                 bindings = new ControllerBindings(
                                 driverController,
-                                operatorController,
                                 driveSubsystem,
                                 visionSubsystem,
                                 shooterSubsystem,
@@ -166,16 +162,28 @@ public class RobotContainer {
                                 driveSubsystem, shooterSubsystem, feederSubsystem,
                                 intakeSubsystem, climberSubsystem);
 
-                // Add TrenchPassCommand to SmartDashboard for easy triggering in simulation or
-                // matches
+                // Elastic Dashboard butonları
                 edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.putData("Commands/TrenchPass",
                                 new frc.robot.commands.drive.TrenchPassCommand(driveSubsystem, shooterSubsystem));
 
-                // Intake Deploy/Retract commands for Elastic Dashboard
                 edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.putData("Commands/IntakeDeploy",
                                 intakeSubsystem.deployCommand());
                 edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.putData("Commands/IntakeRetract",
                                 intakeSubsystem.retractCommand());
+
+                // AutoIntake: İleri sürüş + roller + feeder (10 saniye, Dashboard'dan
+                // başlatılabilir)
+                edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.putData("Commands/AutoIntake",
+                                new frc.robot.commands.intake.AutoIntakeCommand(
+                                                driveSubsystem, intakeSubsystem, feederSubsystem, 10.0));
+
+                // Taret Offset ayarı (her basışta ±3 derece)
+                edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.putData("Commands/TurretOffset +3",
+                                Commands.runOnce(() -> shooterSubsystem.adjustAutoAimOffset(3.0))
+                                                .ignoringDisable(true).withName("TurretOffset +3"));
+                edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.putData("Commands/TurretOffset -3",
+                                Commands.runOnce(() -> shooterSubsystem.adjustAutoAimOffset(-3.0))
+                                                .ignoringDisable(true).withName("TurretOffset -3"));
         }
 
         // ==================== STARTING POSE ====================
@@ -251,17 +259,6 @@ public class RobotContainer {
 
                 // Not: Shooter bindingleri ControllerBindings.java'da tanımlanıyor.
 
-                // --- AUTO AIM WITH MANUAL SPEED SLIDER (Button Y) ---
-                // Y tuşuna basıldığında: Auto-Aim modunu aç/kapat (Toggle).
-                // Açıkken: Taret ve Hood sürekli hedefe kilitlenir. Flywheel çalışmaz.
-                // Flywheel hızı manuel slider ile kontrol edilmelidir (veya başka bir komutla).
-                driverController.y().onTrue(
-                                Commands.runOnce(shooterSubsystem::toggleAutoAim, shooterSubsystem));
-
-                // Dashboard'a varsayılan değeri koy (Slider yapılabilir)
-                // Bu değer artık sadece manual test veya başka komutlar için kullanılabilir.
-                // Auto-aim sadece hedef takibi yapar.
-                edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.setDefaultNumber("Shooter/ManualSpeedRPM", 3000);
         }
 
         // ==================== AUTONOMOUS ====================

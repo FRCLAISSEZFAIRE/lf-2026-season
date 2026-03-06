@@ -58,27 +58,16 @@ public class LEDSubsystem extends SubsystemBase {
      * Feeder durumuna göre LED'leri güncelle
      */
     private void updateBasedOnFeeder() {
-        if (feeder == null)
-            return;
-
-        if (feeder.isFuelSystemFull()) {
-            // DOLU -> YEŞİL
-            setAll(Color.kGreen);
-        } else if (feeder.getFuelLevel() > 0) {
-            // KISMEN DOLU -> SARI (Yanıp sönme efekti eklenebilir)
-            setAll(Color.kYellow);
-        } else {
-            // BOŞ -> ALLIANCE RENGİ veya KAPALI
-            var alliance = DriverStation.getAlliance();
-            if (alliance.isPresent()) {
-                if (alliance.get() == DriverStation.Alliance.Red) {
-                    setAll(Color.kRed);
-                } else {
-                    setAll(Color.kBlue);
-                }
+        // Alliance rengini göster
+        var alliance = DriverStation.getAlliance();
+        if (alliance.isPresent()) {
+            if (alliance.get() == DriverStation.Alliance.Red) {
+                setAll(Color.kRed);
             } else {
-                setAll(Color.kBlack); // Off
+                setAll(Color.kBlue);
             }
+        } else {
+            setAll(Color.kBlack); // Off
         }
     }
 

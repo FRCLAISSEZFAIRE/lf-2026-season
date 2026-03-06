@@ -8,11 +8,11 @@ import frc.robot.subsystems.feeder.FeederSubsystem;
 import java.util.function.Supplier;
 
 /**
- * Pose-Based Shooting Command.
+ * Pose Tabanlı Atış Komutu.
  * 
- * - Continuously updates Aiming (Turret, Hood, Flywheel) based on Robot Pose.
- * - Feeder ONLY runs when shooter is READY (PID checks pass).
- * - "Hold Fire" logic: Automatically stops feeding if accuracy is lost.
+ * - Robot pozisyonuna göre sürekli hedefleme günceller (Taret, Hood, Flywheel).
+ * - Feeder SADECE shooter hazır olduğunda çalışır (PID kontrolü geçerse).
+ * - "Ateşi Tut" mantığı: Flywheel hazır olduğunda feeder kilitlenerek çalışır.
  */
 public class ShootCommand extends Command {
 
@@ -20,16 +20,15 @@ public class ShootCommand extends Command {
     private final FeederSubsystem feeder;
     private final Supplier<Pose2d> poseSupplier;
 
-    // Optional: Single shot state, but "Hold Fire" implies continuous fire
-    // capability if held
+    // Ateş kilidi — bir kez başladıktan sonra feeder durmaz
     private boolean hasShot = false;
 
     /**
-     * Creates a new ShootCommand.
+     * Yeni bir ShootCommand oluşturur.
      * 
-     * @param shooter      Subsystem
-     * @param feeder       Subsystem
-     * @param poseSupplier Supply current robot pose (e.g. from DriveSubsystem)
+     * @param shooter      Shooter alt sistemi
+     * @param feeder       Feeder alt sistemi
+     * @param poseSupplier Robot pose kaynağı (DriveSubsystem'den)
      */
     public ShootCommand(
             ShooterSubsystem shooter,
@@ -45,68 +44,61 @@ public class ShootCommand extends Command {
     @Override
     public void initialize() {
         hasShot = false;
-        System.out.println("[ShootCommand] Started - Pose Targeting");
+        System.out.println("[ShootCommand] Başlatıldı — Pose Hedefleme");
     }
 
     @Override
     public void execute() {
-        // 1. Get Current Pose
+        // 1. Güncel robot pozisyonunu al
         Pose2d currentPose = poseSupplier.get();
         if (currentPose == null) {
-            // Safety fallback? Just don't update aiming, or stop?
-            // Usually pose is never null if initialized correctly.
             feeder.stop();
             return;
         }
 
-        // 2. Update Aiming (Turret, Hood, RPM)
-        // CHECK ZONE: Inside Alliance Zone -> Score (Hub), Outside -> Pass (Feed)
+        // 2. Hedefleme güncelle (Taret, Hood, RPM)
+        // İttifak alanındaysa Hub'a at, değilse Pass yap
         if (shooter.isInAllianceZone()) {
             shooter.updateAiming(currentPose);
         } else {
             shooter.updateAimingForPass(currentPose);
         }
 
-        // 3. "Hold Fire" Logic with LATCH
-        // Once we start shooting (isFeeding = true), we ignore RPM drops.
-        // We only stop if the command ends (trigger released).
+        // 3. "Ateşi Tut" Mantığı — LATCH (Kilitleme)
+        // Bir kez ateşlemeye başladıktan sonra RPM düşmesi göz ardı edilir.
+        // Sadece komut sonlandığında (tetik bırakıldığında) durur.
 
-        // RELAXED READY CHECK:
-        // Only require Flywheel RPM to be ready.
-        // We ignore Turret/Hood alignment to prevent "stuttering" if the robot is
-        // moving.
+        // ESNEK HAZIR KONTROLÜ:
+        // Sadece Flywheel RPM hazır olmasını kontrol eder.
+        // Taret/Hood hizalaması kontrol edilmez (robot hareket ederken takılmayı
+        // önler).
         boolean ready = shooter.isFlywheelAtTarget();
 
-        // Optional: Uncomment to FORCE FEED always (Debug only)
-        // ready = true;
-
         if (ready && !hasShot) {
-            hasShot = true; // Mark that we have started shooting
+            hasShot = true; // Ateşleme başladı olarak işaretle
         }
 
-        // LATCH LOGIC:
-        // If we are ready OR we have already started shooting (latched), FEED!
+        // KİLİTLEME MANTIĞI:
+        // Hazırsa VEYA daha önce ateş başladıysa (kilitli) → FEEDER ÇALIŞTIR
         if (ready || hasShot) {
-            if (!feeder.isLoading()) {
-                feeder.feed();
-            }
+            feeder.feed();
         } else {
-            // Not ready and haven't started yet -> Wait
+            // Hazır değil ve henüz başlamadı → Bekle
             feeder.stop();
         }
     }
 
     @Override
     public void end(boolean interrupted) {
-        // Stop everything when trigger released
+        // Tetik bırakıldığında her şeyi durdur
         shooter.stopFlywheel();
         feeder.stop();
-        System.out.println("[ShootCommand] Stopped");
+        System.out.println("[ShootCommand] Durduruldu");
     }
 
     @Override
     public boolean isFinished() {
-        // Run while button is held
+        // Buton basılı tutulduğu sürece çalışır
         return false;
     }
 }

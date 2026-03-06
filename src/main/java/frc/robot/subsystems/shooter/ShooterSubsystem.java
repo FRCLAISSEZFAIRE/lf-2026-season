@@ -80,6 +80,8 @@ public class ShooterSubsystem extends SubsystemBase {
     private double hoodTargetDeg = ShooterConstants.kHoodMidAngle;
     private double flywheelTargetRPM = ShooterConstants.kIdleFlywheelRPM;
     private double autoAimOffsetDeg = 0.0;
+    private double hubOffsetX = 0.0; // Hub X offset (metre)
+    private double hubOffsetY = 0.0; // Hub Y offset (metre)
 
     // =====================================================================
     // CALIBRATION MAPS
@@ -572,6 +574,9 @@ public class ShooterSubsystem extends SubsystemBase {
         var alliance = DriverStation.getAlliance();
         Translation2d hubLocation = frc.robot.constants.FieldConstants.getHubCenter(alliance);
 
+        // Apply Hub Position Offset
+        hubLocation = hubLocation.plus(new Translation2d(hubOffsetX, hubOffsetY));
+
         // 2. Calculate Distance to Hub
         double distance = robotPose.getTranslation().getDistance(hubLocation);
 
@@ -616,6 +621,8 @@ public class ShooterSubsystem extends SubsystemBase {
         Logger.recordOutput("Tuning/Shooter/Aiming/HubX", hubLocation.getX());
         Logger.recordOutput("Tuning/Shooter/Aiming/HubY", hubLocation.getY());
         Logger.recordOutput("Tuning/Shooter/Aiming/OffsetDeg", autoAimOffsetDeg);
+        Logger.recordOutput("Tuning/Shooter/Aiming/HubOffsetX", hubOffsetX);
+        Logger.recordOutput("Tuning/Shooter/Aiming/HubOffsetY", hubOffsetY);
     }
 
     /**
@@ -629,6 +636,9 @@ public class ShooterSubsystem extends SubsystemBase {
         // 2. Determine Target Hub based on Alliance
         var alliance = DriverStation.getAlliance();
         Translation2d hubLocation = frc.robot.constants.FieldConstants.getHubCenter(alliance);
+
+        // Apply Hub Position Offset
+        hubLocation = hubLocation.plus(new Translation2d(hubOffsetX, hubOffsetY));
 
         // 3. Calculate Distance (Only for Hood and Turret logic if needed)
         double distance = robotPose.getTranslation().getDistance(hubLocation);
@@ -1095,6 +1105,33 @@ public class ShooterSubsystem extends SubsystemBase {
      */
     public double getAutoAimOffset() {
         return autoAimOffsetDeg;
+    }
+
+    /**
+     * Hub pozisyon offset'ini artırır/azaltır (metre).
+     * POV tuşları ile çağrılır.
+     * 
+     * @param deltaX X offset değişimi (metre, saha ileri/geri)
+     * @param deltaY Y offset değişimi (metre, saha sol/sağ)
+     */
+    public void adjustHubOffset(double deltaX, double deltaY) {
+        this.hubOffsetX += deltaX;
+        this.hubOffsetY += deltaY;
+        System.out.println("[Shooter] Hub Offset: X=" + hubOffsetX + "m, Y=" + hubOffsetY + "m");
+    }
+
+    /**
+     * Hub X offset değerini döndürür (metre).
+     */
+    public double getHubOffsetX() {
+        return hubOffsetX;
+    }
+
+    /**
+     * Hub Y offset değerini döndürür (metre).
+     */
+    public double getHubOffsetY() {
+        return hubOffsetY;
     }
 
     // =====================================================================

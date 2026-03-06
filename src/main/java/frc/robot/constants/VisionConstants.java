@@ -6,87 +6,83 @@ import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.math.util.Units;
 
 /**
- * Vision system constants for dual Limelight pose estimation and intake camera.
+ * Çift Limelight pose tahmini ve sürücü kamerası için vision sabitleri.
  * 
- * <h2>Camera Configuration:</h2>
+ * <h2>Kamera Yapılandırması:</h2>
  * <ul>
- * <li><b>limelight-left:</b> Rear-left corner, 45° outward - Pose Estimation
+ * <li><b>limelight-left:</b> Sol arka köşe, 45° dışa dönük — Pose Tahmini
  * (MegaTag 2)</li>
- * <li><b>limelight-right:</b> Rear-right corner, 45° outward - Pose Estimation
+ * <li><b>limelight-right:</b> Sağ arka köşe, 45° dışa dönük — Pose Tahmini
  * (MegaTag 2)</li>
- * <li><b>intake-cam:</b> Near intake - Game Piece Detection (PhotonVision)</li>
+ * <li><b>driver-cam:</b> Intake yakınında — Sürücü Kamerası (Sadece Video
+ * Akışı)</li>
  * </ul>
  */
 public final class VisionConstants {
 
-        // ==================== CAMERA NAMES ====================
-        /** Left Limelight 3A - rear-left corner, pose estimation */
+        // ==================== KAMERA İSİMLERİ ====================
+        /** Sol Limelight 3A — sol arka köşe, pose tahmini */
         public static final String kLimelightLeft = "limelight-left";
 
-        /** Right Limelight 3 - rear-right corner, pose estimation */
+        /** Sağ Limelight 3 — sağ arka köşe, pose tahmini */
         public static final String kLimelightRight = "limelight-right";
 
-        /** Intake camera - game piece detection */
-        public static final String kIntakeCamera = "intake-cam";
+        /** Sürücü kamerası — sadece video akışı (algılama yok) */
+        public static final String kDriverCamera = "driver-cam";
 
-        // ==================== CAMERA TRANSFORMS ====================
-        // Robot coordinate system: X = forward, Y = left, Z = up
-        // Transforms are Robot Center → Camera
+        // ==================== KAMERA DÖNÜŞÜMLERİ ====================
+        // Robot koordinat sistemi: X = ileri, Y = sol, Z = yukarı
+        // Dönüşümler: Robot Merkezi → Kamera
 
-        // Physical measurements (adjust these to match your robot!)
-        private static final double kCameraXBackOffset = Units.inchesToMeters(-12.0); // 12" behind center
-        private static final double kCameraYSideOffset = Units.inchesToMeters(10.0); // 10" from center
-        private static final double kCameraZHeight = Units.inchesToMeters(8.0); // 8" above ground
-        private static final double kCameraPitchDegrees = -15.0; // Tilted down 15°
+        // Fiziksel ölçümler (robotunuza göre ayarlayın!)
+        private static final double kCameraXBackOffset = Units.inchesToMeters(-12.0); // Merkezin 12" arkasında
+        private static final double kCameraYSideOffset = Units.inchesToMeters(10.0); // Merkezden 10" yanda
+        private static final double kCameraZHeight = Units.inchesToMeters(8.0); // Yerden 8" yükseklikte
+        private static final double kCameraPitchDegrees = -15.0; // 15° aşağı eğik
 
         /**
-         * Left camera transform: rear-left corner, angled 45° outward (looking
-         * back-left).
-         * Yaw = -135° means camera faces back-left diagonal.
+         * Sol kamera dönüşümü: sol arka köşe, 45° dışa dönük (arka-sola bakıyor).
+         * Yaw = -135° → kamera arka-sol çaprazına bakar.
          */
         public static final Transform3d kLeftCameraToRobot = new Transform3d(
                         new Translation3d(
-                                        kCameraXBackOffset, // X: behind robot center
-                                        kCameraYSideOffset, // Y: left of center
-                                        kCameraZHeight // Z: height
+                                        kCameraXBackOffset, // X: robot merkezinin arkasında
+                                        kCameraYSideOffset, // Y: merkezin solunda
+                                        kCameraZHeight // Z: yükseklik
                         ),
                         new Rotation3d(
                                         0, // Roll: 0
-                                        Math.toRadians(kCameraPitchDegrees), // Pitch: tilted down
-                                        Math.toRadians(-135) // Yaw: facing back-left (45° outward)
+                                        Math.toRadians(kCameraPitchDegrees), // Pitch: aşağı eğik
+                                        Math.toRadians(-135) // Yaw: arka-sola bakıyor (45° dışa)
                         ));
 
         /**
-         * Right camera transform: rear-right corner, angled 45° outward (looking
-         * back-right).
-         * Yaw = 135° means camera faces back-right diagonal.
+         * Sağ kamera dönüşümü: sağ arka köşe, 45° dışa dönük (arka-sağa bakıyor).
+         * Yaw = 135° → kamera arka-sağ çaprazına bakar.
          */
         public static final Transform3d kRightCameraToRobot = new Transform3d(
                         new Translation3d(
-                                        kCameraXBackOffset, // X: behind robot center
-                                        -kCameraYSideOffset, // Y: right of center (negative)
-                                        kCameraZHeight // Z: height
+                                        kCameraXBackOffset, // X: robot merkezinin arkasında
+                                        -kCameraYSideOffset, // Y: merkezin sağında (negatif)
+                                        kCameraZHeight // Z: yükseklik
                         ),
                         new Rotation3d(
                                         0, // Roll: 0
-                                        Math.toRadians(kCameraPitchDegrees), // Pitch: tilted down
-                                        Math.toRadians(135) // Yaw: facing back-right (45° outward)
+                                        Math.toRadians(kCameraPitchDegrees), // Pitch: aşağı eğik
+                                        Math.toRadians(135) // Yaw: arka-sağa bakıyor (45° dışa)
                         ));
 
-        // ==================== PIPELINES ====================
-        /** AprilTag detection pipeline index */
+        // ==================== PIPELINE'LAR ====================
+        /** AprilTag algılama pipeline indeksi */
         public static final int kAprilTagPipelineIndex = 0;
 
-        /** Game piece detection pipeline index */
-        public static final int kGamePiecePipelineIndex = 1;
-
-        // ==================== FILTERING THRESHOLDS ====================
-        /** Maximum gyro rate (deg/sec) before rejecting vision data */
+        // ==================== FİLTRELEME EŞİKLERİ ====================
+        /** Vision verisi reddedilmeden önceki maksimum gyro hızı (derece/saniye) */
         public static final double kMaxGyroRateForVision = 720.0;
 
-        /** Maximum tag distance (meters) before increasing uncertainty */
+        /** Belirsizlik artırılmadan önceki maksimum tag mesafesi (metre) */
         public static final double kMaxReliableTagDistance = 4.0;
 
-        /** Minimum tag distance threshold for high uncertainty */
+        /** Yüksek belirsizlik için minimum tag mesafesi eşiği */
         public static final double kHighUncertaintyTagDistance = 3.0;
 }

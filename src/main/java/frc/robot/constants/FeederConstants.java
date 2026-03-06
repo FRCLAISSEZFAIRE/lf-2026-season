@@ -9,10 +9,6 @@ public final class FeederConstants {
     // --- MOTOR ID (RobotMap'ten) ---
     public static final int kFeederMotorID = RobotMap.kFeederMotorID;
 
-    // --- SENSOR IDS (MZ80 - DIO) ---
-    public static final int kSensorBottomID = RobotMap.kFeederSensorBottomID; // Hazne girişi
-    public static final int kSensorTopID = RobotMap.kFeederSensorTopID; // Hazne çıkışı
-
     // --- PID CONFIG ---
     public static final double kP = 0.0001;
     public static final double kI = 0.0;

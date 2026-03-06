@@ -40,12 +40,6 @@ public final class RobotMap {
     public static final int kClimberLeftMotorID = 20; // NEO
     public static final int kClimberRightMotorID = 21; // NEO
 
-    // ==================== DIO PORTS ====================
-    // MZ80 Sensörler
-    // MZ80 Sensörler (Feeder)
-    public static final int kFeederSensorBottomID = 0;
-    public static final int kFeederSensorTopID = 1;
-
     // ==================== PWM PORTS ====================
     // LED
     public static final int kLEDPort = 9;

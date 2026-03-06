@@ -14,10 +14,6 @@ public final class MechanismConstants {
     public static final int kIntakeID = RobotMap.kIntakeMotorID;
     public static final int kIntakePivotID = RobotMap.kIntakePivotMotorID;
 
-    // --- MZ80 SENSÖR PORTLARI (RobotMap'ten) ---
-    // public static final int kIntakeMZ80Port = RobotMap.kIntakeMZ80Port;
-    // public static final int kShooterMZ80Port = RobotMap.kShooterMZ80Port;
-
     // --- NESNE SAYACI ---
     public static final int kMaxItemCount = 3;
 }
