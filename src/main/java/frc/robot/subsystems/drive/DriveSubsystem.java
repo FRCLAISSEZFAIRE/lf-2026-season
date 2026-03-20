@@ -18,11 +18,6 @@ import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.constants.DriveConstants;
 import frc.robot.constants.FieldConstants;
 
-import com.pathplanner.lib.auto.AutoBuilder;
-import com.pathplanner.lib.config.PIDConstants;
-import com.pathplanner.lib.config.RobotConfig;
-import com.pathplanner.lib.controllers.PPHolonomicDriveController;
-
 import org.littletonrobotics.junction.Logger;
 
 // Studica NavX Import
@@ -70,11 +65,15 @@ public class DriveSubsystem extends SubsystemBase {
     // Field visualization
     private final Field2d field = new Field2d();
 
-    // Tunable Numbers
-    private final TunableNumber autoTranslationP = new TunableNumber("Drive/Auto", "Translation kP", 1.0);
-    private final TunableNumber autoRotationP = new TunableNumber("Drive/Auto", "Rotation kP", 1.0);
+    // Auto Speed Multiplier
+    private final TunableNumber autoSpeedMultiplier = new TunableNumber("Tuning/Auto", "SpeedMultiplier", 1.0);
 
-    private final TunableNumber moduleDriveP = new TunableNumber("Drive/Module", "Drive kP", 0.04);
+    // Feed Speed Multiplier — Feed/Intake toplama sırasında ek yavaşlatma
+    private final TunableNumber feedSpeedMultiplier = new TunableNumber("Tuning/Auto", "FeedSpeedMultiplier", 0.5);
+    private boolean feedMode = false;
+
+    // Module PID Tunables
+    private final TunableNumber moduleDriveP = new TunableNumber("Tuning/Drive", "ModuleDrive_kP", 0.04);
     private final TunableNumber moduleTurnP = new TunableNumber("Drive/Module", "Turn kP", 1.0);
 
     private final TunableNumber maxAccel = new TunableNumber("Drive/Limits", "Max Accel (mps2)", 3.0);
@@ -86,6 +85,9 @@ public class DriveSubsystem extends SubsystemBase {
     private static final double FIELD_LENGTH = 16.54;
     private static final double FIELD_WIDTH = 8.21;
     private boolean safeDriveEnabled = true;
+
+    // Center of Rotation (robot frame, varsayılan: robot merkezi)
+    private Translation2d centerOfRotation = new Translation2d(0, 0);
 
     /** Creates a new DriveSubsystem. */
     public DriveSubsystem() {
@@ -106,9 +108,6 @@ public class DriveSubsystem extends SubsystemBase {
                 VecBuilder.fill(0.1, 0.1, 0.1), // State StdDevs
                 VecBuilder.fill(0.9, 0.9, 0.9) // Vision StdDevs
         );
-
-        // Config PathPlanner
-        setupPathPlanner();
 
         SmartDashboard.putData("Field", field);
 
@@ -172,32 +171,6 @@ public class DriveSubsystem extends SubsystemBase {
                 + (alliance.isPresent() ? alliance.get() : "Unknown") + ")");
     }
 
-    /**
-     * PathPlanner AutoBuilder konfigürasyonu.
-     */
-    public void setupPathPlanner() {
-        try {
-            RobotConfig config = RobotConfig.fromGUISettings();
-
-            AutoBuilder.configure(
-                    this::getPose,
-                    this::resetOdometry,
-                    this::getRobotVelocity,
-                    this::driveRobotRelative,
-                    new PPHolonomicDriveController(
-                            new PIDConstants(autoTranslationP.get(), 0.0, 0.0),
-                            new PIDConstants(autoRotationP.get(), 0.0, 0.0)),
-                    config,
-                    () -> {
-                        var alliance = DriverStation.getAlliance();
-                        return alliance.isPresent() && alliance.get() == DriverStation.Alliance.Red;
-                    },
-                    this);
-        } catch (Exception e) {
-            DriverStation.reportError("Failed to load PathPlanner config: " + e.getMessage(), false);
-        }
-    }
-
     @Override
     public void periodic() {
         // Update the pose estimator in the periodic block
@@ -223,19 +196,6 @@ public class DriveSubsystem extends SubsystemBase {
         Logger.recordOutput("Tuning/Drive/ModuleStates/FrontRight", m_frontRight.getState());
         Logger.recordOutput("Tuning/Drive/ModuleStates/RearLeft", m_rearLeft.getState());
         Logger.recordOutput("Tuning/Drive/ModuleStates/RearRight", m_rearRight.getState());
-
-        // === DIAGNOSTIC LOGGING for Odometry Inversion Debug ===
-        Logger.recordOutput("Debug/Gyro/RawAngle", m_gyro.getAngle());
-        Logger.recordOutput("Debug/Gyro/ComputedHeadingDeg", getRotation2d().getDegrees());
-        Logger.recordOutput("Debug/Modules/FL_DrivePos", m_frontLeft.getPosition().distanceMeters);
-        Logger.recordOutput("Debug/Modules/FR_DrivePos", m_frontRight.getPosition().distanceMeters);
-        Logger.recordOutput("Debug/Modules/RL_DrivePos", m_rearLeft.getPosition().distanceMeters);
-        Logger.recordOutput("Debug/Modules/RR_DrivePos", m_rearRight.getPosition().distanceMeters);
-
-        // Dynamic Updates
-        if (autoTranslationP.hasChanged() || autoRotationP.hasChanged()) {
-            setupPathPlanner();
-        }
 
         if (moduleDriveP.hasChanged() || moduleTurnP.hasChanged()) {
             double dP = moduleDriveP.get();
@@ -330,8 +290,21 @@ public class DriveSubsystem extends SubsystemBase {
     }
 
     public void driveRobotRelative(ChassisSpeeds speeds) {
-        // Convert ChassisSpeeds to ModuleStates
-        SwerveModuleState[] swerveModuleStates = DriveConstants.kDriveKinematics.toSwerveModuleStates(speeds);
+        // Auto Speed Multiplier (0.1 to 1.0)
+        if (DriverStation.isAutonomous()) {
+            double multiplier = Math.max(0.1, Math.min(1.0, autoSpeedMultiplier.get()));
+            // Feed mode: ek yavaşlatma çarpanı uygula
+            if (feedMode) {
+                multiplier *= Math.max(0.1, Math.min(1.0, feedSpeedMultiplier.get()));
+            }
+            speeds.vxMetersPerSecond *= multiplier;
+            speeds.vyMetersPerSecond *= multiplier;
+            speeds.omegaRadiansPerSecond *= multiplier;
+        }
+
+        // Convert ChassisSpeeds to ModuleStates with center of rotation
+        SwerveModuleState[] swerveModuleStates = DriveConstants.kDriveKinematics
+                .toSwerveModuleStates(speeds, centerOfRotation);
         SwerveDriveKinematics.desaturateWheelSpeeds(swerveModuleStates, DriveConstants.kMaxSpeedMetersPerSecond);
 
         m_frontLeft.setDesiredState(swerveModuleStates[0]);
@@ -343,6 +316,15 @@ public class DriveSubsystem extends SubsystemBase {
     // Compatibility: runVelocity was an alias for driveRobotRelative
     public void runVelocity(ChassisSpeeds speeds) {
         driveRobotRelative(speeds);
+    }
+
+    /** Feed modu: intake toplama sırasında ek yavaşlatma çarpanı aktif eder */
+    public void setFeedMode(boolean enabled) {
+        this.feedMode = enabled;
+    }
+
+    public boolean isFeedMode() {
+        return feedMode;
     }
 
     // Compatibility: 5-arg drive for AutoClimbCommand (vX, vY, rot, fieldRelative,
@@ -413,6 +395,34 @@ public class DriveSubsystem extends SubsystemBase {
         m_frontRight.setDesiredState(new SwerveModuleState(0, Rotation2d.fromDegrees(-45)));
         m_rearLeft.setDesiredState(new SwerveModuleState(0, Rotation2d.fromDegrees(-45)));
         m_rearRight.setDesiredState(new SwerveModuleState(0, Rotation2d.fromDegrees(45)));
+    }
+
+    // =====================================================================
+    // CENTER OF ROTATION
+    // =====================================================================
+
+    /**
+     * Dönüş merkezini ayarlar (robot frame, metre).
+     * Atış sırasında taret merkezine ayarlanır.
+     *
+     * @param center Robot merkezine göre dönüş noktası (x=ileri, y=sol)
+     */
+    public void setCenterOfRotation(Translation2d center) {
+        this.centerOfRotation = center;
+    }
+
+    /**
+     * Dönüş merkezini robot merkezine (0,0) sıfırlar.
+     */
+    public void resetCenterOfRotation() {
+        this.centerOfRotation = new Translation2d(0, 0);
+    }
+
+    /**
+     * Mevcut dönüş merkezini döndürür.
+     */
+    public Translation2d getCenterOfRotation() {
+        return centerOfRotation;
     }
 
     public ChassisSpeeds getRobotVelocity() {

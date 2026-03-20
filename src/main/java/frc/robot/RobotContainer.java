@@ -22,7 +22,6 @@ import frc.robot.subsystems.vision.*;
 import frc.robot.subsystems.intake.*;
 import frc.robot.subsystems.led.LEDSubsystem;
 import frc.robot.subsystems.shooter.*;
-import frc.robot.subsystems.climber.*;
 import frc.robot.subsystems.feeder.*;
 
 // --- COMMANDS ---
@@ -73,7 +72,6 @@ public class RobotContainer {
         private final VisionSubsystem visionSubsystem;
         private final IntakeSubsystem intakeSubsystem;
         private final ShooterSubsystem shooterSubsystem;
-        private final ClimberSubsystem climberSubsystem;
         private final FeederSubsystem feederSubsystem;
         private final LEDSubsystem ledSubsystem;
 
@@ -115,7 +113,6 @@ public class RobotContainer {
                 shooterSubsystem = new ShooterSubsystem(driveSubsystem::getPose);
                 feederSubsystem = new FeederSubsystem();
                 intakeSubsystem = new IntakeSubsystem();
-                climberSubsystem = new ClimberSubsystem();
 
                 // LED Subsystem requires FeederState
                 ledSubsystem = new LEDSubsystem(feederSubsystem);
@@ -149,7 +146,6 @@ public class RobotContainer {
                                 shooterSubsystem,
                                 feederSubsystem,
                                 intakeSubsystem,
-                                climberSubsystem,
                                 ledSubsystem);
                 configureDefaultCommands();
                 bindings.configureAll();
@@ -160,7 +156,7 @@ public class RobotContainer {
                 // 5. AutoChooser Oluştur (senaryolar AutonomousScenarios sınıfında)
                 autoChooser = AutonomousScenarios.buildChooser(
                                 driveSubsystem, shooterSubsystem, feederSubsystem,
-                                intakeSubsystem, climberSubsystem);
+                                intakeSubsystem);
 
                 // Elastic Dashboard butonları
                 edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.putData("Commands/TrenchPass",
@@ -174,8 +170,8 @@ public class RobotContainer {
                 // AutoIntake: İleri sürüş + roller + feeder (10 saniye, Dashboard'dan
                 // başlatılabilir)
                 edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.putData("Commands/AutoIntake",
-                                new frc.robot.commands.intake.AutoIntakeCommand(
-                                                driveSubsystem, intakeSubsystem, feederSubsystem, 10.0));
+                                new frc.robot.commands.intake.FeedPassCommand(
+                                                driveSubsystem, intakeSubsystem));
 
                 // Taret Offset ayarı (her basışta ±3 derece)
                 edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.putData("Commands/TurretOffset +3",

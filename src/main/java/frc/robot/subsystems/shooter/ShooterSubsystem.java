@@ -116,11 +116,30 @@ public class ShooterSubsystem extends SubsystemBase {
     private final TunableNumber turretMaxOutput = new TunableNumber("Shooter", "Turret MaxOutput",
             ShooterConstants.kTurretMaxOutput);
 
+    // Turret Center Offset (Mekanik merkez kayması - Dashboard'dan ayarlanabilir)
+    // Encoder 0° pozisyonu ile gerçek mekanik merkez arasındaki fark (derece)
+    private final TunableNumber turretCenterOffset = new TunableNumber("Shooter", "Turret Center", 0.0);
+
     // Turret Soft Limits (Dashboard'dan ayarlanabilir)
     private final TunableNumber turretMinAngle = new TunableNumber("Shooter", "Turret MinAngle",
             ShooterConstants.kTurretMinAngle);
     private final TunableNumber turretMaxAngle = new TunableNumber("Shooter", "Turret MaxAngle",
             ShooterConstants.kTurretMaxAngle);
+
+    // Turret Gear Ratios (Tunable for calibration)
+    private final TunableNumber turretGearRatio = new TunableNumber("Shooter", "Turret Gear Ratio",
+            ShooterConstants.kTurretGearRatio);
+    private final TunableNumber turretEncoderToTurretRatio = new TunableNumber("Shooter",
+            "Enc to Turret Ratio", ShooterConstants.kTurretEncoderToTurretRatio);
+
+    // Hood Gear Ratio
+    private final TunableNumber hoodGearRatio = new TunableNumber("Shooter", "Hood Gear Ratio",
+            ShooterConstants.kHoodGearRatio);
+
+    // Turret Physical Position (Robot frame — robot merkezine göre taret pozisyonu, metre)
+    // x = ileri (pozitif), y = sol (pozitif)
+    private final TunableNumber turretPositionX = new TunableNumber("Shooter", "Turret Center X", 0.0);
+    private final TunableNumber turretPositionY = new TunableNumber("Shooter", "Turret Center Y", 0.0);
 
     // =====================================================================
     // CONSTRUCTOR
@@ -316,7 +335,8 @@ public class ShooterSubsystem extends SubsystemBase {
     private void configureTurretMotor() {
         // Relative encoder yapılandırması (dahili encoder)
         // Motor:Turret oranı 40:1 → 1 motor tur = 9 derece turret
-        double degreesPerMotorRot = 360.0 / ShooterConstants.kTurretGearRatio; // 360/40 = 9 deg/motor-rot
+        double currentRatio = turretGearRatio.get();
+        double degreesPerMotorRot = 360.0 / currentRatio;
         turretConfig.encoder
                 .positionConversionFactor(degreesPerMotorRot)
                 .velocityConversionFactor(degreesPerMotorRot / 60.0);
@@ -358,7 +378,8 @@ public class ShooterSubsystem extends SubsystemBase {
 
     private void configureHoodMotor() {
         // Relative encoder dönüşümü (motor rotasyonu → derece)
-        double degreesPerMotorRot = 360.0 / ShooterConstants.kHoodGearRatio;
+        double currentRatio = hoodGearRatio.get();
+        double degreesPerMotorRot = 360.0 / currentRatio;
         hoodConfig.encoder
                 .positionConversionFactor(degreesPerMotorRot)
                 .velocityConversionFactor(degreesPerMotorRot / 60.0);
@@ -408,21 +429,21 @@ public class ShooterSubsystem extends SubsystemBase {
         // Original config: flywheelConfig.MotorOutput.Inverted =
         // InvertedValue.Clockwise_Positive;
         // Let's assume this is the "Normal" (false) state for the toggle.
-        edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.setDefaultBoolean("Shooter/InvertFlywheel", false);
+        edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.setDefaultBoolean("Tuning/Shooter/InvertFlywheel", false);
 
         // Initialize Auto-Aim Toggle (Boolean)
         // This allows using a Toggle Button or Checkbox on Dashboard
-        edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.setDefaultBoolean("Shooter/EnableAutoAim", false);
+        edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.setDefaultBoolean("Tuning/Shooter/EnableAutoAim", false);
 
         // Initialize Auto-Aim Inversion Toggle (Boolean)
         // Adds 180 degrees to the target angle (Failsafe)
-        edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.setDefaultBoolean("Shooter/InvertAiming", false);
+        edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.setDefaultBoolean("Tuning/Shooter/InvertAiming", false);
     }
 
     private boolean lastFlywheelInvertState = false;
 
     private void checkFlywheelInversion() {
-        boolean invert = edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.getBoolean("Shooter/InvertFlywheel",
+        boolean invert = edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.getBoolean("Tuning/Shooter/InvertFlywheel",
                 false);
         if (invert != lastFlywheelInvertState) {
             lastFlywheelInvertState = invert;
@@ -501,6 +522,16 @@ public class ShooterSubsystem extends SubsystemBase {
             flywheelMotor.getConfigurator().apply(flywheelConfig);
             System.out.println("[Shooter] Flywheel PID Updated");
         }
+
+        // --- MECHANICS UPDATE (Gear Ratios) ---
+        if (turretGearRatio.hasChanged()) {
+            configureTurretMotor();
+            System.out.println("[Shooter] Turret Gear Ratio Updated: " + turretGearRatio.get());
+        }
+        if (hoodGearRatio.hasChanged()) {
+            configureHoodMotor();
+            System.out.println("[Shooter] Hood Gear Ratio Updated: " + hoodGearRatio.get());
+        }
     }
 
     // =====================================================================
@@ -508,7 +539,7 @@ public class ShooterSubsystem extends SubsystemBase {
     @Override
     public void periodic() {
         // Sync Dashboard Toggle for Auto-Aim
-        boolean dashEnabled = edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.getBoolean("Shooter/EnableAutoAim",
+        boolean dashEnabled = edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.getBoolean("Tuning/Shooter/EnableAutoAim",
                 false);
         if (dashEnabled != isAutoAimActive) {
             if (dashEnabled) {
@@ -570,6 +601,10 @@ public class ShooterSubsystem extends SubsystemBase {
      * @param robotPose Current robot pose from DriveSubsystem
      */
     public void updateAiming(Pose2d robotPose) {
+        // --- Calculate Turret Field Position ---
+        Translation2d turretFieldPosition = robotPose.getTranslation()
+                .plus(getTurretCenterOfRotation().rotateBy(robotPose.getRotation()));
+
         // 1. Determine Target Hub based on Alliance (Dynamic from FieldConstants)
         var alliance = DriverStation.getAlliance();
         Translation2d hubLocation = frc.robot.constants.FieldConstants.getHubCenter(alliance);
@@ -577,14 +612,14 @@ public class ShooterSubsystem extends SubsystemBase {
         // Apply Hub Position Offset
         hubLocation = hubLocation.plus(new Translation2d(hubOffsetX, hubOffsetY));
 
-        // 2. Calculate Distance to Hub
-        double distance = robotPose.getTranslation().getDistance(hubLocation);
+        // 2. Calculate Distance to Hub from Turret
+        double distance = turretFieldPosition.getDistance(hubLocation);
 
         // 3. Calculate Turret Angle
-        // Angle to target from field origin
+        // Angle to target from turret origin
         double angleToTargetRad = Math.atan2(
-                hubLocation.getY() - robotPose.getY(),
-                hubLocation.getX() - robotPose.getX());
+                hubLocation.getY() - turretFieldPosition.getY(),
+                hubLocation.getX() - turretFieldPosition.getX());
 
         // Robot's heading
         double robotHeadingRad = robotPose.getRotation().getRadians();
@@ -633,6 +668,10 @@ public class ShooterSubsystem extends SubsystemBase {
         // 1. Get Robot Pose
         Pose2d robotPose = robotPoseSupplier.get();
 
+        // --- Calculate Turret Field Position ---
+        Translation2d turretFieldPosition = robotPose.getTranslation()
+                .plus(getTurretCenterOfRotation().rotateBy(robotPose.getRotation()));
+
         // 2. Determine Target Hub based on Alliance
         var alliance = DriverStation.getAlliance();
         Translation2d hubLocation = frc.robot.constants.FieldConstants.getHubCenter(alliance);
@@ -640,13 +679,13 @@ public class ShooterSubsystem extends SubsystemBase {
         // Apply Hub Position Offset
         hubLocation = hubLocation.plus(new Translation2d(hubOffsetX, hubOffsetY));
 
-        // 3. Calculate Distance (Only for Hood and Turret logic if needed)
-        double distance = robotPose.getTranslation().getDistance(hubLocation);
+        // 3. Calculate Distance from Turret
+        double distance = turretFieldPosition.getDistance(hubLocation);
 
         // 4. Calculate Turret Angle
         double angleToTargetRad = Math.atan2(
-                hubLocation.getY() - robotPose.getY(),
-                hubLocation.getX() - robotPose.getX());
+                hubLocation.getY() - turretFieldPosition.getY(),
+                hubLocation.getX() - turretFieldPosition.getX());
 
         double robotHeadingRad = robotPose.getRotation().getRadians();
         double targetTurretRad = angleToTargetRad - robotHeadingRad;
@@ -685,17 +724,21 @@ public class ShooterSubsystem extends SubsystemBase {
      * @param robotPose Current robot pose
      */
     public void updateAimingForPass(Pose2d robotPose) {
+        // --- Calculate Turret Field Position ---
+        Translation2d turretFieldPosition = robotPose.getTranslation()
+                .plus(getTurretCenterOfRotation().rotateBy(robotPose.getRotation()));
+
         // 1. Determine Pass Target (Closest Left/Right)
         var alliance = DriverStation.getAlliance();
         Translation2d targetLocation = FieldConstants.getPassTarget(alliance, robotPose);
 
-        // 2. Calculate Distance
-        double distance = robotPose.getTranslation().getDistance(targetLocation);
+        // 2. Calculate Distance from Turret
+        double distance = turretFieldPosition.getDistance(targetLocation);
 
         // 3. Calculate Turret Angle
         double angleToTargetRad = Math.atan2(
-                targetLocation.getY() - robotPose.getY(),
-                targetLocation.getX() - robotPose.getX());
+                targetLocation.getY() - turretFieldPosition.getY(),
+                targetLocation.getX() - turretFieldPosition.getX());
 
         double robotHeadingRad = robotPose.getRotation().getRadians();
         double targetTurretRad = angleToTargetRad - robotHeadingRad;
@@ -751,24 +794,30 @@ public class ShooterSubsystem extends SubsystemBase {
     // =====================================================================
     /**
      * Turret hedef açısını ayarlar (derece).
+     * Turret center offset otomatik olarak uygulanır.
      * REVLib onboard PID kullanır.
      * 
-     * @param angleDeg Hedef açı (-180 ile +180 arası)
+     * @param angleDeg Hedef açı (mekanik merkeze göre, derece)
      */
     public void setTurretAngle(double angleDeg) {
         turretTargetDeg = MathUtil.clamp(angleDeg,
                 turretMinAngle.get(),
                 turretMaxAngle.get());
 
+        // Center offset'i encoder pozisyonuna çevir:
+        // Encoder 0° = mekanik merkez + offset
+        double encoderTarget = turretTargetDeg + turretCenterOffset.get();
+
         // setSetpoint ile onboard PID'e hedef gönder
-        turretMotor.getClosedLoopController().setSetpoint(turretTargetDeg, ControlType.kPosition);
+        turretMotor.getClosedLoopController().setSetpoint(encoderTarget, ControlType.kPosition);
     }
 
     /**
-     * Turret'in mevcut açısını döndürür (derece).
+     * Turret'in mevcut açısını döndürür (mekanik merkeze göre, derece).
+     * Center offset otomatik olarak çıkarılır.
      */
     public double getTurretAngle() {
-        return turretMotor.getEncoder().getPosition();
+        return turretMotor.getEncoder().getPosition() - turretCenterOffset.get();
     }
 
     /**
@@ -870,8 +919,8 @@ public class ShooterSubsystem extends SubsystemBase {
     public void enableAutoAim() {
         isAutoAimActive = true;
         // Sync with Dashboard
-        edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.putBoolean("Shooter/EnableAutoAim", true);
-        tuningTable.getEntry("Shooter/EnableAutoAim").setBoolean(true);
+        edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.putBoolean("Tuning/Shooter/EnableAutoAim", true);
+        tuningTable.getEntry("Tuning/Shooter/EnableAutoAim").setBoolean(true);
         System.out.println("[Shooter] Auto-aim ENABLED - Alliance: " + getAllianceString());
     }
 
@@ -881,8 +930,8 @@ public class ShooterSubsystem extends SubsystemBase {
     public void disableAutoAim() {
         isAutoAimActive = false;
         // Sync with Dashboard
-        edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.putBoolean("Shooter/EnableAutoAim", false);
-        tuningTable.getEntry("Shooter/EnableAutoAim").setBoolean(false);
+        edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.putBoolean("Tuning/Shooter/EnableAutoAim", false);
+        tuningTable.getEntry("Tuning/Shooter/EnableAutoAim").setBoolean(false);
         System.out.println("[Shooter] Auto-aim DISABLED");
         // Optional: Stop Turret/Hood or keep at last position?
         // Usually safer to stop or just let them stay.
@@ -935,6 +984,10 @@ public class ShooterSubsystem extends SubsystemBase {
         // 1. Get Robot Pose
         Pose2d robotPose = robotPoseSupplier.get();
 
+        // --- Calculate Turret Field Position ---
+        Translation2d turretFieldPosition = robotPose.getTranslation()
+                .plus(getTurretCenterOfRotation().rotateBy(robotPose.getRotation()));
+
         // 2. Determine Target (Hub or Pass) based on Zone
         Translation2d targetLocation;
         boolean isPassing = !isInAllianceZone();
@@ -947,19 +1000,19 @@ public class ShooterSubsystem extends SubsystemBase {
             targetLocation = getTargetHub();
         }
 
-        // 3. Calculate Distance
-        double distance = robotPose.getTranslation().getDistance(targetLocation);
+        // 3. Calculate Distance from Turret
+        double distance = turretFieldPosition.getDistance(targetLocation);
 
         // 4. Calculate Turret Angle
         double angleToTargetRad = Math.atan2(
-                targetLocation.getY() - robotPose.getY(),
-                targetLocation.getX() - robotPose.getX());
+                targetLocation.getY() - turretFieldPosition.getY(),
+                targetLocation.getX() - turretFieldPosition.getX());
 
         double robotHeadingRad = robotPose.getRotation().getRadians();
         double targetTurretRad = angleToTargetRad - robotHeadingRad;
 
         // --- INVERT AIMING FAILSAFE ---
-        boolean invertAiming = edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.getBoolean("Shooter/InvertAiming",
+        boolean invertAiming = edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.getBoolean("Tuning/Shooter/InvertAiming",
                 false);
         if (invertAiming) {
             targetTurretRad += Math.PI; // Add 180 degrees (in radians)
@@ -1033,6 +1086,13 @@ public class ShooterSubsystem extends SubsystemBase {
         // --- OVERRIDE LOGIC END ---
 
         return hubLocation;
+    }
+
+    /**
+     * Taretin robot merkezine göre fiziksel pozisyonunu (dönüş merkezi) döndürür.
+     */
+    public Translation2d getTurretCenterOfRotation() {
+        return new Translation2d(turretPositionX.get(), turretPositionY.get());
     }
 
     /**
@@ -1145,14 +1205,15 @@ public class ShooterSubsystem extends SubsystemBase {
         Logger.recordOutput("Tuning/Shooter/AutoAimActive", isAutoAimActive);
         Logger.recordOutput("Tuning/Shooter/AutoAim/OffsetDeg", autoAimOffsetDeg);
 
-        // Turret soft limit değerlerini logla
-        Logger.recordOutput("Tuning/Shooter/Turret/MinAngle", turretMinAngle.get());
-        Logger.recordOutput("Tuning/Shooter/Turret/MaxAngle", turretMaxAngle.get());
-
         if (Constants.tuningMode) {
             Logger.recordOutput("Tuning/Shooter/Turret/TargetDeg", turretTargetDeg);
             Logger.recordOutput("Tuning/Shooter/Hood/TargetDeg", hoodTargetDeg);
             Logger.recordOutput("Tuning/Shooter/Flywheel/TargetRPM", flywheelTargetRPM);
+
+            Logger.recordOutput("Tuning/Shooter/Turret/MinAngle", turretMinAngle.get());
+            Logger.recordOutput("Tuning/Shooter/Turret/MaxAngle", turretMaxAngle.get());
+            Logger.recordOutput("Tuning/Shooter/TurretGearRatio", turretGearRatio.get());
+            Logger.recordOutput("Tuning/Shooter/HoodGearRatio", hoodGearRatio.get());
         }
     }
 

@@ -4,8 +4,6 @@
 
 package frc.robot;
 
-import java.util.HashSet;
-import java.util.Set;
 
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
@@ -24,8 +22,7 @@ public class Robot extends LoggedRobot {
 
   private final RobotContainer m_robotContainer;
 
-  // Aktif komutları takip eden set
-  private final Set<Command> activeCommands = new HashSet<>();
+
 
   /**
    * This function is run when the robot is first started up and should be used
@@ -48,39 +45,10 @@ public class Robot extends LoggedRobot {
 
     Logger.start();
 
-    // CommandScheduler dinleyicileri (Listener) ekle
-    setupCommandListeners();
-
     // Instantiate our RobotContainer. This will perform all our button bindings,
     // and put our
     // autonomous chooser on the dashboard.
     m_robotContainer = new RobotContainer();
-  }
-
-  /**
-   * CommandScheduler'a dinleyiciler ekler.
-   * Komut başladığında, bittiğinde veya kesildiğinde listeyi günceller.
-   */
-  private void setupCommandListeners() {
-    CommandScheduler scheduler = CommandScheduler.getInstance();
-
-    // Komut başladığında listeye ekle
-    scheduler.onCommandInitialize(command -> {
-      activeCommands.add(command);
-      logCommandsOnChange();
-    });
-
-    // Komut bittiğinde listeden çıkar
-    scheduler.onCommandFinish(command -> {
-      activeCommands.remove(command);
-      logCommandsOnChange();
-    });
-
-    // Komut kesildiğinde listeden çıkar
-    scheduler.onCommandInterrupt(command -> {
-      activeCommands.remove(command);
-      logCommandsOnChange();
-    });
   }
 
   /**
@@ -103,31 +71,6 @@ public class Robot extends LoggedRobot {
     // robot's periodic
     // block in order for anything in the Command-based framework to work.
     CommandScheduler.getInstance().run();
-
-    // Aktif komutları AdvantageKit ile logla
-    logActiveCommands();
-  }
-
-  /**
-   * O an aktif olarak çalışan tüm komutları AdvantageKit Logger ile loglar.
-   */
-  private void logActiveCommands() {
-    // Sadece komut seti değiştiyse logla
-    // Note: commandListeners listens for changes, so we could theoretically just
-    // log
-    // there, but periodic logging is safer to ensure it catches everything.
-    // Optimization: Check for changes is expensive if we copy set every time.
-    // Better Optimization: Update on listener events.
-  }
-
-  // New method to log immediately when changed
-  private void logCommandsOnChange() {
-    String[] commandNames = activeCommands.stream()
-        .map(Command::getName)
-        .toArray(String[]::new);
-
-    Logger.recordOutput("ActiveCommands", commandNames);
-    Logger.recordOutput("ActiveCommandCount", commandNames.length);
   }
 
   /** This function is called once each time the robot enters Disabled mode. */

@@ -33,8 +33,9 @@ public final class RobotMap {
     public static final int kTurretMotorID = 14; // NEO
     public static final int kHoodMotorID = 15; // NEO 550
 
-    // Feeder
-    public static final int kFeederMotorID = 16; // NEO
+    // Feeder (Indexer + Kicker)
+    public static final int kIndexerMotorID = 16; // NEO v1.1 (Indexer)
+    public static final int kKickerMotorID = 17;  // NEO v1.1 (Kicker)
 
     // ==================== LIFT / CLIMBER (20-29) ====================
     public static final int kClimberLeftMotorID = 20; // NEO
@@ -43,9 +44,8 @@ public final class RobotMap {
     // ==================== PWM PORTS ====================
     // LED
     public static final int kLEDPort = 9;
-    public static final int kLEDLength = 30; // 15 Sol + 15 Sağ
+    public static final int kLEDLength = 11;
 
     // ==================== CONTROLLERS ====================
     public static final int kDriverControllerPort = 0;
-    public static final int kOperatorControllerPort = 1;
 }

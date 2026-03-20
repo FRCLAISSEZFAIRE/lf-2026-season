@@ -31,6 +31,15 @@ public final class Configs {
                                         .pid(0.04, 0, 0)
                                         .outputRange(-1, 1).feedForward.kV(drivingVelocityFeedForward);
 
+                        // CAN Optimization: Swerve Driving Motor
+                        // Keep encoder data at 20ms (odometry), slow down unused signals
+                        drivingConfig.signals
+                                        .primaryEncoderPositionPeriodMs(20)
+                                        .primaryEncoderVelocityPeriodMs(20)
+                                        .analogVoltagePeriodMs(500)
+                                        .absoluteEncoderPositionPeriodMs(500)
+                                        .absoluteEncoderVelocityPeriodMs(500);
+
                         turningConfig
                                         .idleMode(IdleMode.kBrake)
                                         .smartCurrentLimit(25); // NEO 550 için güvenli limit (20-25A önerilir)
@@ -49,6 +58,15 @@ public final class Configs {
                                         .outputRange(-1, 1)
                                         .positionWrappingEnabled(true)
                                         .positionWrappingInputRange(0, turningFactor);
+
+                        // CAN Optimization: Swerve Turning Motor
+                        // Keep absolute encoder at 20ms (odometry), slow down unused signals
+                        turningConfig.signals
+                                        .absoluteEncoderPositionPeriodMs(20)
+                                        .absoluteEncoderVelocityPeriodMs(500)
+                                        .primaryEncoderPositionPeriodMs(500)
+                                        .primaryEncoderVelocityPeriodMs(500)
+                                        .analogVoltagePeriodMs(500);
                 }
         }
 }

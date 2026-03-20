@@ -131,6 +131,57 @@ public final class FieldConstants {
         private static final TunableNumber transitionRedD_Angle = new TunableNumber("Field", "TransitionRedD/Angle",
                         180.0);
 
+        // OUTPOST POSITIONS (Per Alliance)
+        private static final TunableNumber outpostBlueX = new TunableNumber("Field", "OutpostBlue/X", 15.0);
+        private static final TunableNumber outpostBlueY = new TunableNumber("Field", "OutpostBlue/Y", 7.0);
+        private static final TunableNumber outpostBlueAngle = new TunableNumber("Field", "OutpostBlue/Angle", 180.0);
+
+        private static final TunableNumber outpostRedX = new TunableNumber("Field", "OutpostRed/X", 1.49);
+        private static final TunableNumber outpostRedY = new TunableNumber("Field", "OutpostRed/Y", 7.0);
+        private static final TunableNumber outpostRedAngle = new TunableNumber("Field", "OutpostRed/Angle", 0.0);
+
+        // =====================================================================
+        // FEED PASS POSITIONS (Auto Collection Paths)
+        // =====================================================================
+        
+        // --- BLUE ALLIANCE FEED PASS (Diagonal Paths for Maximum Collection) ---
+        // Left Path (Y High to Low Diagonal)
+        private static final TunableNumber feedStartBlueLeftX = new TunableNumber("Field", "FeedStartBlueLeft/X", 10.0);
+        private static final TunableNumber feedStartBlueLeftY = new TunableNumber("Field", "FeedStartBlueLeft/Y", 7.0);
+        private static final TunableNumber feedStartBlueLeftAngle = new TunableNumber("Field", "FeedStartBlueLeft/Angle", 0.0);
+        
+        private static final TunableNumber feedStopBlueLeftX = new TunableNumber("Field", "FeedStopBlueLeft/X", 6.0);
+        private static final TunableNumber feedStopBlueLeftY = new TunableNumber("Field", "FeedStopBlueLeft/Y", 1.0);
+        private static final TunableNumber feedStopBlueLeftAngle = new TunableNumber("Field", "FeedStopBlueLeft/Angle", 0.0);
+
+        // Right Path (Y Low to High Diagonal)
+        private static final TunableNumber feedStartBlueRightX = new TunableNumber("Field", "FeedStartBlueRight/X", 10.0);
+        private static final TunableNumber feedStartBlueRightY = new TunableNumber("Field", "FeedStartBlueRight/Y", 1.0);
+        private static final TunableNumber feedStartBlueRightAngle = new TunableNumber("Field", "FeedStartBlueRight/Angle", 0.0);
+        
+        private static final TunableNumber feedStopBlueRightX = new TunableNumber("Field", "FeedStopBlueRight/X", 6.0);
+        private static final TunableNumber feedStopBlueRightY = new TunableNumber("Field", "FeedStopBlueRight/Y", 7.0);
+        private static final TunableNumber feedStopBlueRightAngle = new TunableNumber("Field", "FeedStopBlueRight/Angle", 0.0);
+
+        // --- RED ALLIANCE FEED PASS (Diagonal Paths for Maximum Collection) ---
+        // Left Path (Y High to Low Diagonal)
+        private static final TunableNumber feedStartRedLeftX = new TunableNumber("Field", "FeedStartRedLeft/X", 6.0);
+        private static final TunableNumber feedStartRedLeftY = new TunableNumber("Field", "FeedStartRedLeft/Y", 7.0);
+        private static final TunableNumber feedStartRedLeftAngle = new TunableNumber("Field", "FeedStartRedLeft/Angle", 180.0);
+        
+        private static final TunableNumber feedStopRedLeftX = new TunableNumber("Field", "FeedStopRedLeft/X", 10.0);
+        private static final TunableNumber feedStopRedLeftY = new TunableNumber("Field", "FeedStopRedLeft/Y", 1.0);
+        private static final TunableNumber feedStopRedLeftAngle = new TunableNumber("Field", "FeedStopRedLeft/Angle", 180.0);
+
+        // Right Path (Y Low to High Diagonal)
+        private static final TunableNumber feedStartRedRightX = new TunableNumber("Field", "FeedStartRedRight/X", 6.0);
+        private static final TunableNumber feedStartRedRightY = new TunableNumber("Field", "FeedStartRedRight/Y", 1.0);
+        private static final TunableNumber feedStartRedRightAngle = new TunableNumber("Field", "FeedStartRedRight/Angle", 180.0);
+        
+        private static final TunableNumber feedStopRedRightX = new TunableNumber("Field", "FeedStopRedRight/X", 10.0);
+        private static final TunableNumber feedStopRedRightY = new TunableNumber("Field", "FeedStopRedRight/Y", 7.0);
+        private static final TunableNumber feedStopRedRightAngle = new TunableNumber("Field", "FeedStopRedRight/Angle", 180.0);
+
         // === LEGACY CONSTANTS (Restored & Linked) ===
         public static final double kHubHeightMeters = 1.83;
 
@@ -280,6 +331,48 @@ public final class FieldConstants {
                                 Rotation2d.fromDegrees(transitionRedD_Angle.get()));
         }
 
+        // --- FEED PASS TARGET GETTERS ---
+        
+        public static Pose2d getFeedStartBlueLeft() {
+                return new Pose2d(feedStartBlueLeftX.get(), feedStartBlueLeftY.get(),
+                                Rotation2d.fromDegrees(feedStartBlueLeftAngle.get()));
+        }
+
+        public static Pose2d getFeedStopBlueLeft() {
+                return new Pose2d(feedStopBlueLeftX.get(), feedStopBlueLeftY.get(),
+                                Rotation2d.fromDegrees(feedStopBlueLeftAngle.get()));
+        }
+
+        public static Pose2d getFeedStartBlueRight() {
+                return new Pose2d(feedStartBlueRightX.get(), feedStartBlueRightY.get(),
+                                Rotation2d.fromDegrees(feedStartBlueRightAngle.get()));
+        }
+
+        public static Pose2d getFeedStopBlueRight() {
+                return new Pose2d(feedStopBlueRightX.get(), feedStopBlueRightY.get(),
+                                Rotation2d.fromDegrees(feedStopBlueRightAngle.get()));
+        }
+
+        public static Pose2d getFeedStartRedLeft() {
+                return new Pose2d(feedStartRedLeftX.get(), feedStartRedLeftY.get(),
+                                Rotation2d.fromDegrees(feedStartRedLeftAngle.get()));
+        }
+
+        public static Pose2d getFeedStopRedLeft() {
+                return new Pose2d(feedStopRedLeftX.get(), feedStopRedLeftY.get(),
+                                Rotation2d.fromDegrees(feedStopRedLeftAngle.get()));
+        }
+
+        public static Pose2d getFeedStartRedRight() {
+                return new Pose2d(feedStartRedRightX.get(), feedStartRedRightY.get(),
+                                Rotation2d.fromDegrees(feedStartRedRightAngle.get()));
+        }
+
+        public static Pose2d getFeedStopRedRight() {
+                return new Pose2d(feedStopRedRightX.get(), feedStopRedRightY.get(),
+                                Rotation2d.fromDegrees(feedStopRedRightAngle.get()));
+        }
+
         /**
          * Gets the Pass Target (Feeding Station area) for the specified alliance.
          * Selects the closest target (Left/Right) based on Robot's Y position.
@@ -339,6 +432,18 @@ public final class FieldConstants {
                 }
                 return new Pose2d(climbBlueX.get(), climbBlueY.get(),
                                 Rotation2d.fromDegrees(climbBlueAngle.get()));
+        }
+
+        /**
+         * Gets the Outpost Pose for the specified alliance.
+         */
+        public static Pose2d getOutpostPose(Optional<Alliance> alliance) {
+                if (alliance.isPresent() && alliance.get() == Alliance.Red) {
+                        return new Pose2d(outpostRedX.get(), outpostRedY.get(),
+                                        Rotation2d.fromDegrees(outpostRedAngle.get()));
+                }
+                return new Pose2d(outpostBlueX.get(), outpostBlueY.get(),
+                                Rotation2d.fromDegrees(outpostBlueAngle.get()));
         }
 
         private FieldConstants() {

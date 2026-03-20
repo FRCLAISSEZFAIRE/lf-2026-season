@@ -4,6 +4,7 @@ import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.wpilibj2.command.Command;
 import frc.robot.subsystems.shooter.ShooterSubsystem;
 import frc.robot.subsystems.feeder.FeederSubsystem;
+import frc.robot.subsystems.drive.DriveSubsystem;
 
 import java.util.function.Supplier;
 
@@ -18,6 +19,7 @@ public class ShootCommand extends Command {
 
     private final ShooterSubsystem shooter;
     private final FeederSubsystem feeder;
+    private final DriveSubsystem drive;
     private final Supplier<Pose2d> poseSupplier;
 
     // Ateş kilidi — bir kez başladıktan sonra feeder durmaz
@@ -26,16 +28,20 @@ public class ShootCommand extends Command {
     /**
      * Yeni bir ShootCommand oluşturur.
      * 
+     * 
      * @param shooter      Shooter alt sistemi
      * @param feeder       Feeder alt sistemi
+     * @param drive        Drive alt sistemi
      * @param poseSupplier Robot pose kaynağı (DriveSubsystem'den)
      */
     public ShootCommand(
             ShooterSubsystem shooter,
             FeederSubsystem feeder,
+            DriveSubsystem drive,
             Supplier<Pose2d> poseSupplier) {
         this.shooter = shooter;
         this.feeder = feeder;
+        this.drive = drive;
         this.poseSupplier = poseSupplier;
 
         addRequirements(shooter, feeder);
@@ -44,7 +50,11 @@ public class ShootCommand extends Command {
     @Override
     public void initialize() {
         hasShot = false;
-        System.out.println("[ShootCommand] Başlatıldı — Pose Hedefleme");
+        
+        // Atış süresince dönüş merkezini taretin fiziksel merkezine ayarla
+        drive.setCenterOfRotation(shooter.getTurretCenterOfRotation());
+        
+        System.out.println("[ShootCommand] Başlatıldı — Pose Hedefleme, Dönüş Merkezi Taret");
     }
 
     @Override
@@ -93,6 +103,10 @@ public class ShootCommand extends Command {
         // Tetik bırakıldığında her şeyi durdur
         shooter.stopFlywheel();
         feeder.stop();
+        
+        // Dönüş merkezini tekrar robot merkezine sıfırla
+        drive.resetCenterOfRotation();
+        
         System.out.println("[ShootCommand] Durduruldu");
     }
 

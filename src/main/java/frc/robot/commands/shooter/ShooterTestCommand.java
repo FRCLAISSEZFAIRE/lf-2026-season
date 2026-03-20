@@ -1,6 +1,7 @@
 package frc.robot.commands.shooter;
 
 import edu.wpi.first.wpilibj2.command.Command;
+import frc.robot.constants.Constants;
 import frc.robot.subsystems.shooter.ShooterSubsystem;
 import frc.robot.util.TunableNumber;
 import org.littletonrobotics.junction.Logger;
@@ -49,7 +50,7 @@ public class ShooterTestCommand extends Command {
         System.out.println("========================================");
         System.out.println("[ShooterTest] Test modu başlatıldı!");
         System.out.println("[ShooterTest] Dashboard: /Tuning/ShooterTest/");
-        System.out.println("[ShooterTest] Auto-aim: SmartDashboard/Shooter/EnableAutoAim");
+        System.out.println("[ShooterTest] Auto-aim: SmartDashboard/Tuning/Shooter/EnableAutoAim");
         System.out.println("========================================");
     }
 
@@ -102,6 +103,11 @@ public class ShooterTestCommand extends Command {
         }
 
         // Test mode log
+        if (Constants.tuningMode) {
+            Logger.recordOutput("Tuning/Shooter/Test/TargetRPM", autoAimEnabled ? shooter.getFlywheelOffset() : testFlywheelRPM.get());
+            Logger.recordOutput("Tuning/Shooter/Test/TargetTurret", autoAimEnabled ? shooter.getAutoAimOffset() : testTurretAngle.get());
+            Logger.recordOutput("Tuning/Shooter/Test/TargetHood", autoAimEnabled ? shooter.getHoodOffset() : testHoodAngle.get());
+        }
         Logger.recordOutput("Tuning/Shooter/Test/Mode", autoAimEnabled ? "AUTO-AIM" : "MANUAL");
     }
 

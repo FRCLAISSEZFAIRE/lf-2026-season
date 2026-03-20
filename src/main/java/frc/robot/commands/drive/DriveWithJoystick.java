@@ -50,9 +50,9 @@ public class DriveWithJoystick extends Command {
         boolean savedInvertRotation = edu.wpi.first.wpilibj.Preferences.getBoolean("Drive/InvertRotation", true);
 
         // Dashboard'a koy
-        edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.setDefaultBoolean("Drive/InvertJoystick",
+        edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.setDefaultBoolean("Tuning/Drive/InvertJoystick",
                 savedInvertJoystick);
-        edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.setDefaultBoolean("Drive/InvertRotation",
+        edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.setDefaultBoolean("Tuning/Drive/InvertRotation",
                 savedInvertRotation);
 
         this.lastInvertJoystick = savedInvertJoystick;
@@ -62,9 +62,9 @@ public class DriveWithJoystick extends Command {
     @Override
     public void execute() {
         // Dashboard'dan ters çevirme ayarlarını oku
-        boolean invertJoystick = edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.getBoolean("Drive/InvertJoystick",
+        boolean invertJoystick = edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.getBoolean("Tuning/Drive/InvertJoystick",
                 lastInvertJoystick);
-        boolean invertRotation = edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.getBoolean("Drive/InvertRotation",
+        boolean invertRotation = edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.getBoolean("Tuning/Drive/InvertRotation",
                 lastInvertRotation);
 
         // Değiştiyse RIO Preferences'a kaydet
@@ -109,17 +109,8 @@ public class DriveWithJoystick extends Command {
         double ySpeed = MathUtil.applyDeadband(rawY, OIConstants.kDriveDeadband);
         double rotSpeed = MathUtil.applyDeadband(rawRot, OIConstants.kDriveDeadband);
 
-        // DEBUG: Joystick değerlerini logla
-        Logger.recordOutput("Drive/RawX", rawX);
-        Logger.recordOutput("Drive/RawY", rawY);
-        Logger.recordOutput("Drive/RawRot", rawRot);
-
         // Squared Sensitivity for Rotation (daha hassas dönüş kontrolü)
         rotSpeed = Math.copySign(rotSpeed * rotSpeed, rotSpeed);
-
-        Logger.recordOutput("Drive/AfterDeadbandX", xSpeed);
-        Logger.recordOutput("Drive/AfterDeadbandY", ySpeed);
-        Logger.recordOutput("Drive/AfterDeadbandRot", rotSpeed);
 
         // 2. Hızları ölçeklendir
         xSpeed *= DriveConstants.kMaxSpeedMetersPerSecond;

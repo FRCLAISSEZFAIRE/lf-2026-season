@@ -68,18 +68,7 @@ public class SimpleDriveToPose extends Command {
         ySpeed = clamp(ySpeed, -3.0, 3.0);
         rotSpeed = clamp(rotSpeed, -2.0, 2.0);
 
-        // === HATA AYIKLAMA LOGLARI ===
-        org.littletonrobotics.junction.Logger.recordOutput("SimpleDrive/TargetX", targetPose.getX());
-        org.littletonrobotics.junction.Logger.recordOutput("SimpleDrive/TargetY", targetPose.getY());
-        org.littletonrobotics.junction.Logger.recordOutput("SimpleDrive/CurrentX", currentPose.getX());
-        org.littletonrobotics.junction.Logger.recordOutput("SimpleDrive/CurrentY", currentPose.getY());
-        org.littletonrobotics.junction.Logger.recordOutput("SimpleDrive/PID_xSpeed", xSpeed);
-        org.littletonrobotics.junction.Logger.recordOutput("SimpleDrive/PID_ySpeed", ySpeed);
-        org.littletonrobotics.junction.Logger.recordOutput("SimpleDrive/PID_rotSpeed", rotSpeed);
-        org.littletonrobotics.junction.Logger.recordOutput("SimpleDrive/ErrorX",
-                targetPose.getX() - currentPose.getX());
-        org.littletonrobotics.junction.Logger.recordOutput("SimpleDrive/ErrorY",
-                targetPose.getY() - currentPose.getY());
+        // Log: Hedef poz
         org.littletonrobotics.junction.Logger.recordOutput("SimpleDrive/Target", targetPose);
 
         // Saha-referanslı sürüş

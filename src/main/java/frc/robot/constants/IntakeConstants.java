@@ -2,65 +2,68 @@ package frc.robot.constants;
 
 /**
  * Intake alt sistemi için sabitler.
- * Pivot ve Roller motor ayarları.
- * Tüm açılar DERECE cinsinden (çıkış açısı).
+ * Pivot(Extension) ve Roller motor ayarları.
+ * Pivot artık rack-and-pinion sistemi ile SANTİMETRE (cm) cinsinden kontrol edilecek.
  */
 public final class IntakeConstants {
 
     // ===========================================================================
-    // PIVOT GEAR RATIO
+    // EXTENSION GEAR RATIO & PINION DIAMETER
     // ===========================================================================
 
-    /** Pivot dişli oranı (motor devri / çıkış devri) */
-    public static final double kPivotGearRatio = 25.0;
+    /** Uzama (Extension) dişli oranı (motor devri / çıkış devri) */
+    public static final double kExtensionGearRatio = 25.0;
+
+    /** Kramayer dişli pinion mili çapı (cm) */
+    public static final double kExtensionPinionDiameterCm = 5.0;
 
     // ===========================================================================
-    // PIVOT POSITIONS (çıkış derece)
+    // EXTENSION POSITIONS (çıkış santimetre)
     // ===========================================================================
 
-    /** Pivot açık pozisyonu (çıkış derece) - Maç boyunca bu konumda kalacak */
-    public static final double kPivotDeployedDeg = 70.0;
+    /** Intake tam açık (uzamış) pozisyonu (çıkış cm) - Maç boyunca bu konumda kalacak */
+    public static final double kExtensionDeployedCm = 30.0;
 
-    /** Pivot kapalı pozisyonu (çıkış derece) */
-    public static final double kPivotRetractedDeg = 0.0;
+    /** Intake tam kapalı (içeride) pozisyonu (çıkış cm) */
+    public static final double kExtensionRetractedCm = 0.0;
 
-    /** Pivot pozisyon toleransı (çıkış derece) */
-    public static final double kPivotToleranceDeg = 5.0;
-
-    // ===========================================================================
-    // PIVOT PID (Closed Loop - RIO'ya kaydedilir)
-    // ===========================================================================
-
-    public static final double kPivotP = 0.02;
-    public static final double kPivotI = 0.0;
-    public static final double kPivotD = 0.001;
-
-    public static final double kPivotMaxVelocity = 120.0;
-    public static final double kPivotMaxAcceleration = 120.0;
+    /** Uzama pozisyon toleransı (çıkış cm) */
+    public static final double kExtensionToleranceCm = 1.0;
 
     // ===========================================================================
-    // PIVOT LIMITS (çıkış derece - dashboard'dan ayarlanabilir)
+    // EXTENSION PID (Closed Loop - RIO'ya kaydedilir)
     // ===========================================================================
 
-    public static final double kPivotMinDeg = -5.0;
-    public static final double kPivotMaxDeg = 120.0;
+    public static final double kExtensionP = 0.02;
+    public static final double kExtensionI = 0.0;
+    public static final double kExtensionD = 0.001;
+
+    public static final double kExtensionMaxVelocity = 120.0;
+    public static final double kExtensionMaxAcceleration = 120.0;
 
     // ===========================================================================
-    // PIVOT HOMING
+    // EXTENSION LIMITS (çıkış santimetre - dashboard'dan ayarlanabilir)
     // ===========================================================================
 
-    /** Homing voltajı (negatif = geriye doğru) */
-    public static final double kPivotHomingVoltage = -2.0;
+    public static final double kExtensionMinCm = -2.0;
+    public static final double kExtensionMaxCm = 40.0;
+
+    // ===========================================================================
+    // EXTENSION HOMING
+    // ===========================================================================
+
+    /** Homing voltajı (negatif = içeriye/geriye doğru çekme) */
+    public static final double kExtensionHomingVoltage = -2.0;
 
     /** Homing süresi (saniye) */
-    public static final double kPivotHomingDurationSec = 1.0;
+    public static final double kExtensionHomingDurationSec = 1.0;
 
     // ===========================================================================
-    // PIVOT MOTOR
+    // EXTENSION MOTOR
     // ===========================================================================
 
-    public static final boolean kPivotMotorInverted = false;
-    public static final int kPivotCurrentLimit = 40;
+    public static final boolean kExtensionMotorInverted = false;
+    public static final int kExtensionCurrentLimit = 40;
 
     // ===========================================================================
     // ROLLER (Kraken X60 - Velocity Control, RPM)

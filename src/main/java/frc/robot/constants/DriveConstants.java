@@ -66,7 +66,7 @@ public final class DriveConstants {
     public static final double kTurningI = 0;
     public static final double kTurningD = 0;
 
-    // Drive PID (For DriveWithAiming / PathPlanner)
+    // Drive PID (For DriveWithAiming / SimpleDriveToPose)
     public static final double kDriveP = 0.1;
     public static final double kDriveI = 0.0;
     public static final double kDriveD = 0.0;

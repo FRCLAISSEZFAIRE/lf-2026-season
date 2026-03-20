@@ -39,9 +39,9 @@ import org.littletonrobotics.junction.Logger;
 public class IntakeSubsystem extends SubsystemBase {
 
     private final TalonFX rollerMotor;
-    private final SparkMax pivotMotor;
-    private final SparkClosedLoopController pivotPID;
-    private final RelativeEncoder pivotEncoder;
+    private final SparkMax extensionMotor;
+    private final SparkClosedLoopController extensionPID;
+    private final RelativeEncoder extensionEncoder;
 
     // Control Requests
     private final VelocityVoltage velocityRequest = new VelocityVoltage(0);
@@ -50,59 +50,62 @@ public class IntakeSubsystem extends SubsystemBase {
     // =====================================================================
     // ROLLER PID (RIO'ya kaydedilir)
     // =====================================================================
-    private final TunableNumber rollerKP = new TunableNumber("Intake/Roller", "kP", IntakeConstants.kRollerkP);
-    private final TunableNumber rollerKI = new TunableNumber("Intake/Roller", "kI", IntakeConstants.kRollerkI);
-    private final TunableNumber rollerKD = new TunableNumber("Intake/Roller", "kD", IntakeConstants.kRollerkD);
-    private final TunableNumber rollerKV = new TunableNumber("Intake/Roller", "kV", IntakeConstants.kRollerkV);
+    private final TunableNumber rollerKP = new TunableNumber("Intake/Extension", "Roller kP", IntakeConstants.kRollerkP);
+    private final TunableNumber rollerKI = new TunableNumber("Intake/Extension", "Roller kI", IntakeConstants.kRollerkI);
+    private final TunableNumber rollerKD = new TunableNumber("Intake/Extension", "Roller kD", IntakeConstants.kRollerkD);
+    private final TunableNumber rollerKV = new TunableNumber("Intake/Extension", "Roller kV", IntakeConstants.kRollerkV);
 
     // =====================================================================
     // ROLLER LIMITS (RIO'ya kaydedilir)
     // =====================================================================
-    private final TunableNumber rollerTargetRPM = new TunableNumber("Intake/Roller", "Target RPM",
+    private final TunableNumber rollerTargetRPM = new TunableNumber("Intake/Extension", "Roller Target RPM",
             IntakeConstants.kRollerTargetRPM);
-    private final TunableNumber rollerMinRPM = new TunableNumber("Intake/Roller", "Min RPM",
+    private final TunableNumber rollerMinRPM = new TunableNumber("Intake/Extension", "Roller Min RPM",
             IntakeConstants.kRollerMinRPM);
-    private final TunableNumber rollerMaxRPM = new TunableNumber("Intake/Roller", "Max RPM",
+    private final TunableNumber rollerMaxRPM = new TunableNumber("Intake/Extension", "Roller Max RPM",
             IntakeConstants.kRollerMaxRPM);
 
     // =====================================================================
-    // PIVOT PID (RIO'ya kaydedilir)
+    // EXTENSION PID (RIO'ya kaydedilir)
     // =====================================================================
-    private final TunableNumber pivotKP = new TunableNumber("Intake/Pivot", "kP", IntakeConstants.kPivotP);
-    private final TunableNumber pivotKI = new TunableNumber("Intake/Pivot", "kI", IntakeConstants.kPivotI);
-    private final TunableNumber pivotKD = new TunableNumber("Intake/Pivot", "kD", IntakeConstants.kPivotD);
+    private final TunableNumber extensionKP = new TunableNumber("Intake/Extension", "kP", IntakeConstants.kExtensionP);
+    private final TunableNumber extensionKI = new TunableNumber("Intake/Extension", "kI", IntakeConstants.kExtensionI);
+    private final TunableNumber extensionKD = new TunableNumber("Intake/Extension", "kD", IntakeConstants.kExtensionD);
 
     // =====================================================================
-    // PIVOT POSITIONS & LIMITS (çıkış derece — RIO'ya kaydedilir)
+    // EXTENSION POSITIONS & LIMITS (çıkış santimetre — RIO'ya kaydedilir)
     // =====================================================================
-    private final TunableNumber pivotDeployedDeg = new TunableNumber("Intake/Pivot", "Deployed Deg",
-            IntakeConstants.kPivotDeployedDeg);
-    private final TunableNumber pivotRetractedDeg = new TunableNumber("Intake/Pivot", "Retracted Deg",
-            IntakeConstants.kPivotRetractedDeg);
-    private final TunableNumber pivotMinDeg = new TunableNumber("Intake/Pivot", "Min Deg",
-            IntakeConstants.kPivotMinDeg);
-    private final TunableNumber pivotMaxDeg = new TunableNumber("Intake/Pivot", "Max Deg",
-            IntakeConstants.kPivotMaxDeg);
+    private final TunableNumber extensionDeployedCm = new TunableNumber("Intake/Extension", "Deployed Cm",
+            IntakeConstants.kExtensionDeployedCm);
+    private final TunableNumber extensionRetractedCm = new TunableNumber("Intake/Extension", "Retracted Cm",
+            IntakeConstants.kExtensionRetractedCm);
+    private final TunableNumber extensionMinCm = new TunableNumber("Intake/Extension", "Min Cm",
+            IntakeConstants.kExtensionMinCm);
+    private final TunableNumber extensionMaxCm = new TunableNumber("Intake/Extension", "Max Cm",
+            IntakeConstants.kExtensionMaxCm);
 
     // =====================================================================
-    // DİŞLİ ORANI (RIO'ya kaydedilir — Elastic'ten değiştirilebilir)
+    // DİŞLİ ORANI VE PİNYON ÇAPI (RIO'ya kaydedilir — Elastic'ten değiştirilebilir)
     // =====================================================================
-    private final TunableNumber pivotGearRatio = new TunableNumber("Intake/Pivot", "Gear Ratio",
-            IntakeConstants.kPivotGearRatio);
+    private final TunableNumber extensionGearRatio = new TunableNumber("Intake/Extension", "Gear Ratio",
+            IntakeConstants.kExtensionGearRatio);
+    private final TunableNumber extensionPinionDiameterCm = new TunableNumber("Intake/Extension", "Pinion Diameter Cm",
+            IntakeConstants.kExtensionPinionDiameterCm);
 
     // =====================================================================
     // HOMING (RIO'ya kaydedilir)
     // =====================================================================
-    private final TunableNumber homingVoltage = new TunableNumber("Intake/Pivot", "Homing Voltage",
-            IntakeConstants.kPivotHomingVoltage);
-    private final TunableNumber homingDuration = new TunableNumber("Intake/Pivot", "Homing Duration",
-            IntakeConstants.kPivotHomingDurationSec);
+    private final TunableNumber homingVoltage = new TunableNumber("Intake/Extension", "Homing Voltage",
+            IntakeConstants.kExtensionHomingVoltage);
+    private final TunableNumber homingDuration = new TunableNumber("Intake/Extension", "Homing Duration",
+            IntakeConstants.kExtensionHomingDurationSec);
 
     // =====================================================================
-    // MOTOR INVERT (Dashboard toggle — RIO'ya kaydedilir)
+    // TELETUNING (Dashboard toggle — RIO'ya kaydedilir)
     // =====================================================================
-    private boolean lastPivotMotorInvertState;
+    private boolean lastExtensionMotorInvertState;
     private boolean lastRollerInvertState;
+    private boolean lastEnableSoftLimitsState;
 
     // =====================================================================
     // STATE
@@ -114,35 +117,39 @@ public class IntakeSubsystem extends SubsystemBase {
     // =====================================================================
     // SIMULATION
     // =====================================================================
-    private double simPivotDeg = 0.0;
+    private double simExtensionCm = 0.0;
     private double simRollerRPM = 0.0;
-    private double lastPivotSetpointDeg = 0.0;
+    private double lastExtensionSetpointCm = 0.0;
     private double lastRollerSetpointRPM = 0.0;
 
     public IntakeSubsystem() {
         // --- FIRST: Read Saved Preferences and Push to Dashboard ---
-        boolean savedPivotMotorInvert = edu.wpi.first.wpilibj.Preferences.getBoolean(
-                "Intake/Pivot/MotorInvert", IntakeConstants.kPivotMotorInverted);
+        boolean savedExtensionMotorInvert = edu.wpi.first.wpilibj.Preferences.getBoolean(
+                "Intake/Extension/MotorInvert", IntakeConstants.kExtensionMotorInverted);
         boolean savedRollerInvert = edu.wpi.first.wpilibj.Preferences.getBoolean(
-                "Intake/Roller/Invert", IntakeConstants.kRollerInverted);
+                "Intake/Extension/RollerInvert", IntakeConstants.kRollerInverted);
+        boolean savedEnableSoftLimits = edu.wpi.first.wpilibj.Preferences.getBoolean(
+                "Intake/Extension/EnableSoftLimits", true);
 
-        SmartDashboard.setDefaultBoolean("Intake/Pivot/MotorInvert", savedPivotMotorInvert);
-        SmartDashboard.setDefaultBoolean("Intake/Roller/Invert", savedRollerInvert);
+        SmartDashboard.setDefaultBoolean("Tuning/Intake/Extension/MotorInvert", savedExtensionMotorInvert);
+        SmartDashboard.setDefaultBoolean("Tuning/Intake/Extension/RollerInvert", savedRollerInvert);
+        SmartDashboard.setDefaultBoolean("Tuning/Intake/Extension/EnableSoftLimits", savedEnableSoftLimits);
 
-        lastPivotMotorInvertState = savedPivotMotorInvert;
+        lastExtensionMotorInvertState = savedExtensionMotorInvert;
         lastRollerInvertState = savedRollerInvert;
+        lastEnableSoftLimitsState = savedEnableSoftLimits;
 
         // --- SECOND: Initialize Motors ---
         // --- ROLLER (Kraken X60) ---
         rollerMotor = new TalonFX(RobotMap.kIntakeMotorID);
         configureRoller();
 
-        // --- PIVOT (NEO 1.2 — Relative Encoder) ---
-        pivotMotor = new SparkMax(RobotMap.kIntakePivotMotorID, MotorType.kBrushless);
-        pivotPID = pivotMotor.getClosedLoopController();
-        pivotEncoder = pivotMotor.getEncoder();
+        // --- EXTENSION (NEO 1.2 — Relative Encoder) ---
+        extensionMotor = new SparkMax(RobotMap.kIntakePivotMotorID, MotorType.kBrushless);
+        extensionPID = extensionMotor.getClosedLoopController();
+        extensionEncoder = extensionMotor.getEncoder();
 
-        configurePivot();
+        configureExtension();
 
         // Dashboard komutları
         edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.putData("Tuning/Intake/IntakeAşagı(Deploy)",
@@ -150,7 +157,7 @@ public class IntakeSubsystem extends SubsystemBase {
         edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.putData("Tuning/Intake/IntakeYukarı(Retract)",
                 retractCommand());
 
-        System.out.println("[Intake] Pivot: Relative Encoder, Gear Ratio=" + pivotGearRatio.get()
+        System.out.println("[Intake] Extension: Relative Encoder, Gear Ratio=" + extensionGearRatio.get()
                 + ":1, HOMING gerekli");
     }
 
@@ -161,7 +168,7 @@ public class IntakeSubsystem extends SubsystemBase {
         TalonFXConfiguration rollerConfig = new TalonFXConfiguration();
 
         rollerConfig.MotorOutput.NeutralMode = NeutralModeValue.Coast;
-        boolean rollerInvert = SmartDashboard.getBoolean("Intake/Roller/Invert", IntakeConstants.kRollerInverted);
+        boolean rollerInvert = SmartDashboard.getBoolean("Tuning/Intake/Extension/RollerInvert", IntakeConstants.kRollerInverted);
         rollerConfig.MotorOutput.Inverted = rollerInvert
                 ? InvertedValue.Clockwise_Positive
                 : InvertedValue.CounterClockwise_Positive;
@@ -178,43 +185,49 @@ public class IntakeSubsystem extends SubsystemBase {
     }
 
     // =====================================================================
-    // PIVOT CONFIGURATION (Relative Encoder)
+    // EXTENSION CONFIGURATION (Relative Encoder)
     // Encoder motor devri cinsinden okur.
-    // Conversion factor: 1 motor devri = 360° (motor açısı)
-    // Çıkış açısı = motor_açısı / gear_ratio
+    // Conversion factor: 1 motor devri = 360° (motor açısı) -> İptal edildi, 1 motor devri = 1.0 devir olarak bırakıldı
+    // Çıkış (cm) = (motor_açısı_devri / gear_ratio) * (Math.PI * PinionDiameter)
     // =====================================================================
-    private void configurePivot() {
-        SparkMaxConfig pivotConfig = new SparkMaxConfig();
+    private void configureExtension() {
+        SparkMaxConfig extensionConfig = new SparkMaxConfig();
 
-        boolean motorInvert = SmartDashboard.getBoolean("Intake/Pivot/MotorInvert",
-                IntakeConstants.kPivotMotorInverted);
-        pivotConfig.inverted(motorInvert);
-        pivotConfig.idleMode(IdleMode.kCoast); // Serbest düşüş için Coast
-        pivotConfig.smartCurrentLimit(IntakeConstants.kPivotCurrentLimit);
+        boolean motorInvert = SmartDashboard.getBoolean("Tuning/Intake/Extension/MotorInvert",
+                IntakeConstants.kExtensionMotorInverted);
+        extensionConfig.inverted(motorInvert);
+        extensionConfig.idleMode(IdleMode.kCoast); // Serbest hareket için Coast
+        extensionConfig.smartCurrentLimit(IntakeConstants.kExtensionCurrentLimit);
 
         // PID — Tunable, RIO'ya kaydedilir
-        pivotConfig.closedLoop.pid(pivotKP.get(), pivotKI.get(), pivotKD.get());
+        extensionConfig.closedLoop.pid(extensionKP.get(), extensionKI.get(), extensionKD.get());
 
         // Relative Encoder: motor devri cinsinden (conversion yok, raw motor devri)
         // PID setpoint'e MOTOR DEVRİ cinsinden gönderilecek
-        // Çıkış açısı dönüşümü yazılımda yapılacak
-        pivotConfig.encoder.positionConversionFactor(1.0); // 1 motor devri = 1 birim
-        pivotConfig.encoder.velocityConversionFactor(1.0 / 60.0);
+        // Çıkış santimetre dönüşümü yazılımda yapılacak
+        extensionConfig.encoder.positionConversionFactor(1.0); // 1 motor devri = 1 birim
+        extensionConfig.encoder.velocityConversionFactor(1.0 / 60.0);
 
         // Soft Limits — MOTOR DEVRİ cinsinden
-        double gearRatio = pivotGearRatio.get();
-        double motorMinRev = pivotMinDeg.get() / 360.0 * gearRatio;
-        double motorMaxRev = pivotMaxDeg.get() / 360.0 * gearRatio;
-        pivotConfig.softLimit.reverseSoftLimit((float) motorMinRev);
-        pivotConfig.softLimit.reverseSoftLimitEnabled(true);
-        pivotConfig.softLimit.forwardSoftLimit((float) motorMaxRev);
-        pivotConfig.softLimit.forwardSoftLimitEnabled(true);
+        double gearRatio = extensionGearRatio.get();
+        double circumferenceCm = Math.PI * extensionPinionDiameterCm.get();
+        
+        // Formül: motor_tur = (hedef_cm / cevre) * disli_orani
+        double motorMinRev = (extensionMinCm.get() / circumferenceCm) * gearRatio;
+        double motorMaxRev = (extensionMaxCm.get() / circumferenceCm) * gearRatio;
+        
+        boolean enableSoftLimits = SmartDashboard.getBoolean("Tuning/Intake/Extension/EnableSoftLimits", true);
+        
+        extensionConfig.softLimit.reverseSoftLimit((float) motorMinRev);
+        extensionConfig.softLimit.reverseSoftLimitEnabled(enableSoftLimits);
+        extensionConfig.softLimit.forwardSoftLimit((float) motorMaxRev);
+        extensionConfig.softLimit.forwardSoftLimitEnabled(enableSoftLimits);
 
-        pivotMotor.configure(pivotConfig, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
+        extensionMotor.configure(extensionConfig, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
 
-        System.out.println("[Intake] Pivot: GearRatio=" + gearRatio
+        System.out.println("[Intake] Extension: GearRatio=" + gearRatio
                 + ", Motor Limits [" + motorMinRev + ", " + motorMaxRev + "] rev"
-                + ", Output Limits [" + pivotMinDeg.get() + "°, " + pivotMaxDeg.get() + "°]");
+                + ", Output Limits [" + extensionMinCm.get() + "cm, " + extensionMaxCm.get() + "cm]");
     }
 
     // =====================================================================
@@ -222,17 +235,17 @@ public class IntakeSubsystem extends SubsystemBase {
     // =====================================================================
 
     /**
-     * Pivot homing komutu.
+     * Extension (rack and pinion) homing komutu.
      * Düşük voltajda geriye sürer, sonra encoder'ı 0'a sıfırlar.
      */
     public Command getHomePivotCommand() {
-        return Commands.run(() -> pivotMotor.setVoltage(homingVoltage.get()), this)
+        return Commands.run(() -> extensionMotor.setVoltage(homingVoltage.get()), this)
                 .withTimeout(homingDuration.get())
                 .finallyDo(() -> {
-                    pivotMotor.setVoltage(0);
-                    pivotEncoder.setPosition(0.0);
+                    extensionMotor.setVoltage(0);
+                    extensionEncoder.setPosition(0.0);
                     isHomed = true;
-                    System.out.println("[Intake] Pivot Homed & Encoder Reset to 0°");
+                    System.out.println("[Intake] Extension Homed & Encoder Reset to 0 cm");
                 });
     }
 
@@ -246,7 +259,7 @@ public class IntakeSubsystem extends SubsystemBase {
     @Override
     public void periodic() {
         checkTunableUpdates();
-        checkInvertChanges();
+        checkDashboardToggles();
         logTelemetry();
     }
 
@@ -256,44 +269,53 @@ public class IntakeSubsystem extends SubsystemBase {
             System.out.println("[Intake] Roller PID güncellendi");
         }
 
-        if (pivotKP.hasChanged() || pivotKI.hasChanged() || pivotKD.hasChanged()) {
-            configurePivot();
-            System.out.println("[Intake] Pivot PID güncellendi");
+        if (extensionKP.hasChanged() || extensionKI.hasChanged() || extensionKD.hasChanged()) {
+            configureExtension();
+            System.out.println("[Intake] Extension PID güncellendi");
         }
 
-        if (pivotMinDeg.hasChanged() || pivotMaxDeg.hasChanged() || pivotGearRatio.hasChanged()) {
-            configurePivot();
-            System.out.println("[Intake] Pivot limitleri/gear ratio güncellendi");
+        if (extensionMinCm.hasChanged() || extensionMaxCm.hasChanged() || extensionGearRatio.hasChanged() || extensionPinionDiameterCm.hasChanged()) {
+            configureExtension();
+            System.out.println("[Intake] Extension limitleri/pinion/gear ratio güncellendi");
         }
     }
 
-    private void checkInvertChanges() {
-        boolean pivotMotorInvert = SmartDashboard.getBoolean("Intake/Pivot/MotorInvert",
-                IntakeConstants.kPivotMotorInverted);
-        if (pivotMotorInvert != lastPivotMotorInvertState) {
-            lastPivotMotorInvertState = pivotMotorInvert;
-            edu.wpi.first.wpilibj.Preferences.setBoolean("Intake/Pivot/MotorInvert", pivotMotorInvert);
-            configurePivot();
-            System.out.println("[Intake] Pivot Motor Invert: " + pivotMotorInvert);
+    private void checkDashboardToggles() {
+        boolean extensionMotorInvert = SmartDashboard.getBoolean("Tuning/Intake/Extension/MotorInvert",
+                IntakeConstants.kExtensionMotorInverted);
+        if (extensionMotorInvert != lastExtensionMotorInvertState) {
+            lastExtensionMotorInvertState = extensionMotorInvert;
+            edu.wpi.first.wpilibj.Preferences.setBoolean("Intake/Extension/MotorInvert", extensionMotorInvert);
+            configureExtension();
+            System.out.println("[Intake] Extension Motor Invert: " + extensionMotorInvert);
         }
 
-        boolean rollerInvert = SmartDashboard.getBoolean("Intake/Roller/Invert", IntakeConstants.kRollerInverted);
+        boolean rollerInvert = SmartDashboard.getBoolean("Tuning/Intake/Extension/RollerInvert", IntakeConstants.kRollerInverted);
         if (rollerInvert != lastRollerInvertState) {
             lastRollerInvertState = rollerInvert;
-            edu.wpi.first.wpilibj.Preferences.setBoolean("Intake/Roller/Invert", rollerInvert);
+            edu.wpi.first.wpilibj.Preferences.setBoolean("Intake/Extension/RollerInvert", rollerInvert);
             configureRoller();
             System.out.println("[Intake] Roller Invert: " + rollerInvert);
+        }
+        
+        boolean enableSoftLimits = SmartDashboard.getBoolean("Tuning/Intake/Extension/EnableSoftLimits", true);
+        if (enableSoftLimits != lastEnableSoftLimitsState) {
+            lastEnableSoftLimitsState = enableSoftLimits;
+            edu.wpi.first.wpilibj.Preferences.setBoolean("Intake/Extension/EnableSoftLimits", enableSoftLimits);
+            configureExtension();
+            System.out.println("[Intake] Extension Soft Limits Enabled: " + enableSoftLimits);
         }
     }
 
     private void logTelemetry() {
-        double outputDeg = RobotBase.isSimulation() ? simPivotDeg : getOutputDegrees();
+        double outputCm = RobotBase.isSimulation() ? simExtensionCm : getOutputCm();
         double rollerRPM = RobotBase.isSimulation() ? simRollerRPM : getRollerRPM();
 
-        Logger.recordOutput("Tuning/Intake/PivotOutputDeg", outputDeg);
-        Logger.recordOutput("Tuning/Intake/PivotMotorRev", getMotorRevolutions());
-        Logger.recordOutput("Tuning/Intake/PivotSetpointDeg", lastPivotSetpointDeg);
-        Logger.recordOutput("Tuning/Intake/PivotGearRatio", pivotGearRatio.get());
+        Logger.recordOutput("Tuning/Intake/ExtensionOutputCm", outputCm);
+        Logger.recordOutput("Tuning/Intake/ExtensionMotorRev", getMotorRevolutions());
+        Logger.recordOutput("Tuning/Intake/ExtensionSetpointCm", lastExtensionSetpointCm);
+        Logger.recordOutput("Tuning/Intake/ExtensionGearRatio", extensionGearRatio.get());
+        Logger.recordOutput("Tuning/Intake/ExtensionPinionDiameterCm", extensionPinionDiameterCm.get());
         Logger.recordOutput("Tuning/Intake/RollerRPM", rollerRPM);
         Logger.recordOutput("Tuning/Intake/RollerSetpointRPM", lastRollerSetpointRPM);
         Logger.recordOutput("Tuning/Intake/IsHomed", isHomed);
@@ -343,46 +365,46 @@ public class IntakeSubsystem extends SubsystemBase {
     }
 
     // =========================================================================
-    // PIVOT COMMANDS
-    // Kullanıcı ÇIKIŞ DERECESİ girer → motor devrine çevrilir
-    // motor_rev = output_deg / 360.0 * gear_ratio
+    // EXTENSION COMMANDS
     // =========================================================================
 
     /**
-     * Pivot'u çıkış açısına gönderir (derece).
-     * İçeride dişli oranına göre motor devrine çevrilir.
+     * Extension'ı hedeflenen cm'e gönderir.
+     * İçeride dişli oranı ve pinyon çapına göre motor devrine çevrilir.
      */
-    public void setPivotPosition(double outputDegrees) {
-        double clampedDeg = Math.max(pivotMinDeg.get(), Math.min(outputDegrees, pivotMaxDeg.get()));
-        lastPivotSetpointDeg = clampedDeg;
-        double motorRev = clampedDeg / 360.0 * pivotGearRatio.get();
-        pivotPID.setReference(motorRev, com.revrobotics.spark.SparkBase.ControlType.kPosition);
+    public void setExtensionPosition(double targetCm) {
+        double clampedCm = Math.max(extensionMinCm.get(), Math.min(targetCm, extensionMaxCm.get()));
+        lastExtensionSetpointCm = clampedCm;
+        double circumferenceCm = Math.PI * extensionPinionDiameterCm.get();
+        double motorRev = (clampedCm / circumferenceCm) * extensionGearRatio.get();
+        extensionPID.setReference(motorRev, com.revrobotics.spark.SparkBase.ControlType.kPosition);
     }
 
     /** Motor encoder ham değeri (motor devri). */
     public double getMotorRevolutions() {
-        return pivotEncoder.getPosition();
+        return extensionEncoder.getPosition();
     }
 
-    /** Çıkış açısı (derece) — motor devrinden hesaplanır. */
-    public double getOutputDegrees() {
-        double gearRatio = pivotGearRatio.get();
+    /** Çıkış mesafesi (cm) — motor devrinden hesaplanır. */
+    public double getOutputCm() {
+        double gearRatio = extensionGearRatio.get();
         if (gearRatio == 0)
             return 0;
-        return pivotEncoder.getPosition() / gearRatio * 360.0;
+        double circumferenceCm = Math.PI * extensionPinionDiameterCm.get();
+        return (extensionEncoder.getPosition() / gearRatio) * circumferenceCm;
     }
 
-    /** Anlık çıkış açısı (getPivotPosition alias). */
-    public double getPivotPosition() {
-        return getOutputDegrees();
+    /** Anlık uzama mesafesi (cm). */
+    public double getExtensionPositionCm() {
+        return getOutputCm();
     }
 
     public Command deployCommand() {
-        return runOnce(() -> setPivotPosition(pivotDeployedDeg.get()));
+        return runOnce(() -> setExtensionPosition(extensionDeployedCm.get()));
     }
 
     public Command retractCommand() {
-        return runOnce(() -> setPivotPosition(pivotRetractedDeg.get()));
+        return runOnce(() -> setExtensionPosition(extensionRetractedCm.get()));
     }
 
     // =========================================================================
@@ -396,7 +418,7 @@ public class IntakeSubsystem extends SubsystemBase {
     public void disableMotors() {
         motorsEnabled = false;
         rollerMotor.stopMotor();
-        pivotMotor.stopMotor();
+        extensionMotor.stopMotor();
     }
 
     public boolean areMotorsEnabled() {
@@ -413,8 +435,8 @@ public class IntakeSubsystem extends SubsystemBase {
 
     public void stopAll() {
         rollerMotor.stopMotor();
-        pivotMotor.stopMotor();
-        lastPivotSetpointDeg = 0;
+        extensionMotor.stopMotor();
+        lastExtensionSetpointCm = 0;
         lastRollerSetpointRPM = 0;
     }
 
@@ -423,7 +445,7 @@ public class IntakeSubsystem extends SubsystemBase {
     // =========================================================================
     @Override
     public void simulationPeriodic() {
-        simPivotDeg += (lastPivotSetpointDeg - simPivotDeg) * 0.1;
+        simExtensionCm += (lastExtensionSetpointCm - simExtensionCm) * 0.1;
         simRollerRPM += (lastRollerSetpointRPM - simRollerRPM) * 0.2;
     }
 }

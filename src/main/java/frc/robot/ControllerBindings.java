@@ -9,7 +9,6 @@ import frc.robot.subsystems.shooter.ShooterSubsystem;
 import frc.robot.subsystems.feeder.FeederSubsystem;
 import frc.robot.subsystems.led.LEDSubsystem;
 import frc.robot.subsystems.intake.IntakeSubsystem;
-import frc.robot.subsystems.climber.ClimberSubsystem;
 
 /**
  * Controller binding'lerini yöneten sınıf.
@@ -24,7 +23,6 @@ public class ControllerBindings {
         private final ShooterSubsystem shooterSubsystem;
         private final FeederSubsystem feederSubsystem;
         private final IntakeSubsystem intakeSubsystem;
-        private final ClimberSubsystem climberSubsystem;
         private final LEDSubsystem ledSubsystem;
 
         // Intake toggle durumu
@@ -37,7 +35,6 @@ public class ControllerBindings {
                         ShooterSubsystem shooterSubsystem,
                         FeederSubsystem feederSubsystem,
                         IntakeSubsystem intakeSubsystem,
-                        ClimberSubsystem climberSubsystem,
                         LEDSubsystem ledSubsystem) {
 
                 this.driverController = driverController;
@@ -46,7 +43,6 @@ public class ControllerBindings {
                 this.shooterSubsystem = shooterSubsystem;
                 this.feederSubsystem = feederSubsystem;
                 this.intakeSubsystem = intakeSubsystem;
-                this.climberSubsystem = climberSubsystem;
                 this.ledSubsystem = ledSubsystem;
         }
 
@@ -64,6 +60,11 @@ public class ControllerBindings {
                 driverController.rightBumper()
                                 .whileTrue(new frc.robot.commands.drive.TrenchPassCommand(driveSubsystem,
                                                 shooterSubsystem));
+
+                // [B BUTTON] OTOMATİK FEED PASS (Top Toplama Rotası)
+                driverController.b()
+                                .whileTrue(new frc.robot.commands.intake.FeedPassCommand(driveSubsystem,
+                                                intakeSubsystem));
 
                 // ==================== HUB POZİSYON OFFSET (POV) ====================
                 // Hub hedef noktasını kaydırarak RPM/açı hesaplamasını ince ayar yapar
@@ -84,6 +85,7 @@ public class ControllerBindings {
                                 new frc.robot.commands.shooter.ShootCommand(
                                                 shooterSubsystem,
                                                 feederSubsystem,
+                                                driveSubsystem,
                                                 driveSubsystem::getPose));
 
                 // [SOL TETİK] INTAKE ROLLER TOGGLE
@@ -117,17 +119,6 @@ public class ControllerBindings {
                                                 driveSubsystem,
                                                 getShootingPose()));
 
-                // [A BUTTON] CLIMBER EXTEND (Yukarı)
-                // Basılı tutulduğu sürece climber uzar, bırakılınca durur
-                driverController.a().whileTrue(
-                                Commands.run(climberSubsystem::extend, climberSubsystem)
-                                                .finallyDo(() -> climberSubsystem.stop()));
-
-                // [B BUTTON] CLIMBER RETRACT (Aşağı)
-                // Basılı tutulduğu sürece climber çekilir, bırakılınca durur
-                driverController.b().whileTrue(
-                                Commands.run(climberSubsystem::retract, climberSubsystem)
-                                                .finallyDo(() -> climberSubsystem.stop()));
         }
 
         /**

@@ -7,65 +7,73 @@ import org.littletonrobotics.junction.Logger;
 
 /**
  * Test modunda Feeder PID ayarlaması için komut.
- * Feeder RPM değeri dashboard'dan girilerek canlı tuning yapılır.
+ * Indexer ve Kicker RPM değerleri dashboard'dan girilerek canlı tuning yapılır.
  * 
  * <h2>Dashboard Erişimi:</h2>
  * <ul>
- * <li><code>/Tuning/Feeder/Test/Target RPM</code> - Feeder hedef hızı
- * (RPM)</li>
+ * <li><code>/Tuning/Feeder/Test/Indexer Target RPM</code></li>
+ * <li><code>/Tuning/Feeder/Test/Kicker Target RPM</code></li>
  * </ul>
  * 
  * <h2>Mevcut PID Tuning Yolları (FeederSubsystem):</h2>
  * <ul>
- * <li><code>/Tuning/Feeder/kP</code></li>
- * <li><code>/Tuning/Feeder/kI</code></li>
- * <li><code>/Tuning/Feeder/kD</code></li>
- * <li><code>/Tuning/Feeder/kFF</code></li>
+ * <li><code>/Tuning/Feeder/Indexer/kP, kI, kD, kFF</code></li>
+ * <li><code>/Tuning/Feeder/Kicker/kP, kI, kD, kFF</code></li>
  * </ul>
  */
 public class FeederTestCommand extends Command {
 
     private final FeederSubsystem feeder;
 
-    // Dashboard'dan girilen hedef değer
-    private final TunableNumber testTargetRPM;
+    private final TunableNumber testIndexerRPM;
+    private final TunableNumber testKickerRPM;
 
     public FeederTestCommand(FeederSubsystem feeder) {
         this.feeder = feeder;
         addRequirements(feeder);
 
-        // TunableNumber - Dashboard'dan RPM girilecek
-        testTargetRPM = new TunableNumber("Feeder/Test", "Target RPM", 0.0);
+        testIndexerRPM = new TunableNumber("Feeder/Test", "Indexer Target RPM", 0.0);
+        testKickerRPM = new TunableNumber("Feeder/Test", "Kicker Target RPM", 0.0);
     }
 
     @Override
     public void initialize() {
-        // Manual override aç - Shooter'dan bağımsız çalışsın
         feeder.enableManualOverride();
 
         System.out.println("========================================");
         System.out.println("[FeederTest] Test modu başlatıldı!");
         System.out.println("[FeederTest] Dashboard: /Tuning/Feeder/Test/");
-        System.out.println("[FeederTest] Target RPM: /Tuning/Feeder/Test/Target RPM");
-        System.out.println("[FeederTest] PID tuning: /Tuning/Feeder/");
-        System.out.println("[FeederTest] Manual Override ENABLED - Shooter bağımsız");
+        System.out.println("[FeederTest] Indexer RPM: /Tuning/Feeder/Test/Indexer Target RPM");
+        System.out.println("[FeederTest] Kicker RPM:  /Tuning/Feeder/Test/Kicker Target RPM");
+        System.out.println("[FeederTest] PID tuning:  /Tuning/Feeder/Indexer/ & /Tuning/Feeder/Kicker/");
+        System.out.println("[FeederTest] Manual Override ENABLED");
         System.out.println("========================================");
     }
 
     @Override
     public void execute() {
-        // =========== FEEDER ===========
-        double targetRPM = testTargetRPM.get();
+        double indexerRPM = testIndexerRPM.get();
+        double kickerRPM = testKickerRPM.get();
 
-        if (Math.abs(targetRPM) > 10) {
-            feeder.setManualOverrideRPM(targetRPM);
+        // Indexer
+        if (Math.abs(indexerRPM) > 10) {
+            feeder.setManualIndexerRPM(indexerRPM);
         } else {
-            feeder.manualStop();
+            feeder.setManualIndexerRPM(0);
         }
 
-        // =========== LOG ===========
-        Logger.recordOutput("Tuning/Feeder/Test/TargetRPM", targetRPM);
-        Logger.recordOutput("Tuning/Feeder/Test/ActualRPM", feeder.getVelocityRPM());
+        // Kicker
+        if (Math.abs(kickerRPM) > 10) {
+            feeder.setManualKickerRPM(kickerRPM);
+        } else {
+            feeder.setManualKickerRPM(0);
+        }
+
+        // Telemetri
+        Logger.recordOutput("Tuning/Feeder/Test/IndexerTargetRPM", indexerRPM);
+        Logger.recordOutput("Tuning/Feeder/Test/IndexerActualRPM", feeder.getIndexerVelocityRPM());
+        Logger.recordOutput("Tuning/Feeder/Test/KickerTargetRPM", kickerRPM);
+        Logger.recordOutput("Tuning/Feeder/Test/KickerActualRPM", feeder.getKickerVelocityRPM());
         Logger.recordOutput("Tuning/Feeder/Test/AtTarget", feeder.isAtTarget());
     }
 
@@ -73,7 +81,7 @@ public class FeederTestCommand extends Command {
     public void end(boolean interrupted) {
         feeder.manualStop();
         feeder.disableManualOverride();
-        System.out.println("[FeederTest] Test modu sonlandırıldı - Manual Override kapatıldı");
+        System.out.println("[FeederTest] Test modu sonlandırıldı — Manual Override kapatıldı");
     }
 
     @Override
@@ -81,4 +89,3 @@ public class FeederTestCommand extends Command {
         return false; // Test modunda sürekli çalışır
     }
 }
-

@@ -4,7 +4,6 @@ import frc.robot.constants.Constants.JoystickType;
 
 public final class OIConstants {
     public static final int kDriverControllerPort = RobotMap.kDriverControllerPort;
-    public static final int kOperatorControllerPort = RobotMap.kOperatorControllerPort;
     public static final double kDriveDeadband = 0.1;
     public static final double kDriveSensitivity = 0.8; // Genel sürüş hassasiyeti (0.0 - 1.0)
     public static final double kTurnSensitivity = 0.6; // Dönüş hassasiyeti (0.0 - 1.0)
