@@ -223,6 +223,14 @@ public class IntakeSubsystem extends SubsystemBase {
         extensionConfig.softLimit.forwardSoftLimit((float) motorMaxRev);
         extensionConfig.softLimit.forwardSoftLimitEnabled(enableSoftLimits);
 
+        // CAN Optimization: Extension Motor
+        extensionConfig.signals
+                .absoluteEncoderPositionPeriodMs(500)
+                .absoluteEncoderVelocityPeriodMs(500)
+                .analogVoltagePeriodMs(500)
+                // We use position control so keep position at default (20ms), slow down velocity
+                .primaryEncoderVelocityPeriodMs(500);
+
         extensionMotor.configure(extensionConfig, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
 
         System.out.println("[Intake] Extension: GearRatio=" + gearRatio

@@ -80,6 +80,21 @@ public class DriveSubsystem extends SubsystemBase {
     private final TunableNumber maxAngularAccelRad = new TunableNumber("Drive/Limits", "Max Angular Accel (radps2)",
             12.0);
 
+    // ===========================================================================
+    // LIVE INVERSION TUNABLES (Saved to RIO)
+    // ===========================================================================
+    // Driving Motors (SparkFlex)
+    private final TunableNumber invertDriveFL = new TunableNumber("Drive/Inverts/Driving", "FrontLeft (1)", DriveConstants.kFrontLeftDrivingInverted ? 1.0 : 0.0);
+    private final TunableNumber invertDriveFR = new TunableNumber("Drive/Inverts/Driving", "FrontRight (3)", DriveConstants.kFrontRightDrivingInverted ? 1.0 : 0.0);
+    private final TunableNumber invertDriveRL = new TunableNumber("Drive/Inverts/Driving", "RearLeft (5)", DriveConstants.kRearLeftDrivingInverted ? 1.0 : 0.0);
+    private final TunableNumber invertDriveRR = new TunableNumber("Drive/Inverts/Driving", "RearRight (7)", DriveConstants.kRearRightDrivingInverted ? 1.0 : 0.0);
+
+    // Turning Motors (SparkMax)
+    private final TunableNumber invertTurnFL = new TunableNumber("Drive/Inverts/Turning", "FrontLeft (2)", 0.0);
+    private final TunableNumber invertTurnFR = new TunableNumber("Drive/Inverts/Turning", "FrontRight (4)", 0.0);
+    private final TunableNumber invertTurnRL = new TunableNumber("Drive/Inverts/Turning", "RearLeft (6)", 0.0);
+    private final TunableNumber invertTurnRR = new TunableNumber("Drive/Inverts/Turning", "RearRight (8)", 0.0);
+
     // Safety Layer Configuration
     private static final double ROBOT_RADIUS = 0.6; // 70x65cm frame + 8cm bumpers
     private static final double FIELD_LENGTH = 16.54;
@@ -204,6 +219,20 @@ public class DriveSubsystem extends SubsystemBase {
             m_frontRight.updatePID(dP, tP);
             m_rearLeft.updatePID(dP, tP);
             m_rearRight.updatePID(dP, tP);
+        }
+
+        // Check for inversion changes
+        if (invertDriveFL.hasChanged() || invertTurnFL.hasChanged()) {
+            m_frontLeft.updateInversions(invertDriveFL.get() > 0.5, invertTurnFL.get() > 0.5);
+        }
+        if (invertDriveFR.hasChanged() || invertTurnFR.hasChanged()) {
+            m_frontRight.updateInversions(invertDriveFR.get() > 0.5, invertTurnFR.get() > 0.5);
+        }
+        if (invertDriveRL.hasChanged() || invertTurnRL.hasChanged()) {
+            m_rearLeft.updateInversions(invertDriveRL.get() > 0.5, invertTurnRL.get() > 0.5);
+        }
+        if (invertDriveRR.hasChanged() || invertTurnRR.hasChanged()) {
+            m_rearRight.updateInversions(invertDriveRR.get() > 0.5, invertTurnRR.get() > 0.5);
         }
     }
 

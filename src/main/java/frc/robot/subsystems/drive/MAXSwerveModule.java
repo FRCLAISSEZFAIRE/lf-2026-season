@@ -117,6 +117,22 @@ public class MAXSwerveModule {
         m_turningSpark.configure(turnConfig, ResetMode.kNoResetSafeParameters, PersistMode.kNoPersistParameters);
     }
 
+    /**
+     * Updates the inversion state for the driving and turning motors dynamically.
+     * 
+     * @param driveInverted Whether the driving motor should be inverted.
+     * @param turnInverted  Whether the turning motor should be inverted.
+     */
+    public void updateInversions(boolean driveInverted, boolean turnInverted) {
+        SparkFlexConfig driveConfig = new SparkFlexConfig();
+        driveConfig.inverted(driveInverted);
+        m_drivingSpark.configure(driveConfig, ResetMode.kNoResetSafeParameters, PersistMode.kPersistParameters);
+
+        SparkMaxConfig turnConfig = new SparkMaxConfig();
+        turnConfig.inverted(turnInverted);
+        m_turningSpark.configure(turnConfig, ResetMode.kNoResetSafeParameters, PersistMode.kPersistParameters);
+    }
+
     /** Zeroes all the SwerveModule encoders. */
     public void resetEncoders() {
         m_drivingEncoder.setPosition(0);

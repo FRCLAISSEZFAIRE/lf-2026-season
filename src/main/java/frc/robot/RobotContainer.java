@@ -270,12 +270,7 @@ public class RobotContainer {
          * Başlangıç pozisyonu artık dashboard butonlarıyla manuel ayarlanır.
          */
         public void onAutonomousInit() {
-                // Intake Homing & Deploy
-                if (!intakeSubsystem.isHomed()) {
-                        intakeSubsystem.getHomePivotCommand().andThen(intakeSubsystem.deployCommand()).schedule();
-                } else {
-                        intakeSubsystem.deployCommand().schedule();
-                }
+             
         }
 
         /**
@@ -290,12 +285,7 @@ public class RobotContainer {
                         resetToAllianceStart();
                 }
 
-                // Intake Homing & Deploy
-                if (!intakeSubsystem.isHomed()) {
-                        intakeSubsystem.getHomePivotCommand().andThen(intakeSubsystem.deployCommand()).schedule();
-                } else {
-                        intakeSubsystem.deployCommand().schedule();
-                }
+         
         }
 
         /**

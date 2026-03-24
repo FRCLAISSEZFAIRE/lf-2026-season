@@ -117,6 +117,14 @@ public class FeederSubsystem extends SubsystemBase {
         indexerConfig.idleMode(IdleMode.kCoast);
         indexerConfig.smartCurrentLimit(FeederConstants.kCurrentLimit);
 
+        // CAN Optimization: Indexer Motor
+        indexerConfig.signals
+                .absoluteEncoderPositionPeriodMs(500)
+                .absoluteEncoderVelocityPeriodMs(500)
+                .analogVoltagePeriodMs(500)
+                // We use velocity, so keep velocity fast (20ms default), but we can slow down position
+                .primaryEncoderPositionPeriodMs(500);
+
         indexerMotor.configure(indexerConfig, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
     }
 
@@ -131,6 +139,14 @@ public class FeederSubsystem extends SubsystemBase {
         kickerConfig.inverted(false);
         kickerConfig.idleMode(IdleMode.kCoast);
         kickerConfig.smartCurrentLimit(FeederConstants.kCurrentLimit);
+
+        // CAN Optimization: Kicker Motor
+        kickerConfig.signals
+                .absoluteEncoderPositionPeriodMs(500)
+                .absoluteEncoderVelocityPeriodMs(500)
+                .analogVoltagePeriodMs(500)
+                // We use velocity, so keep velocity fast (20ms default), but we can slow down position
+                .primaryEncoderPositionPeriodMs(500);
 
         kickerMotor.configure(kickerConfig, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
     }

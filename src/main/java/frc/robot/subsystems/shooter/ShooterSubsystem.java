@@ -136,7 +136,8 @@ public class ShooterSubsystem extends SubsystemBase {
     private final TunableNumber hoodGearRatio = new TunableNumber("Shooter", "Hood Gear Ratio",
             ShooterConstants.kHoodGearRatio);
 
-    // Turret Physical Position (Robot frame — robot merkezine göre taret pozisyonu, metre)
+    // Turret Physical Position (Robot frame — robot merkezine göre taret pozisyonu,
+    // metre)
     // x = ileri (pozitif), y = sol (pozitif)
     private final TunableNumber turretPositionX = new TunableNumber("Shooter", "Turret Center X", 0.0);
     private final TunableNumber turretPositionY = new TunableNumber("Shooter", "Turret Center Y", 0.0);
@@ -349,7 +350,7 @@ public class ShooterSubsystem extends SubsystemBase {
                 .outputRange(-turretMaxOutput.get(), turretMaxOutput.get()); // Dashboard'dan ayarlanabilir hız
 
         // Motor ayarları
-        turretConfig.inverted(false);
+        turretConfig.inverted(true);
         turretConfig.idleMode(IdleMode.kBrake);
 
         // Soft limits (derece olarak)
@@ -366,6 +367,14 @@ public class ShooterSubsystem extends SubsystemBase {
         turretConfig.limitSwitch
                 .reverseLimitSwitchEnabled(false)
                 .reverseLimitSwitchType(com.revrobotics.spark.config.LimitSwitchConfig.Type.kNormallyOpen);
+
+        // CAN Optimization: Turret Motor
+        turretConfig.signals
+                .absoluteEncoderPositionPeriodMs(500)
+                .absoluteEncoderVelocityPeriodMs(500)
+                .analogVoltagePeriodMs(500)
+                // We use position control so keep position at default (20ms), slow down velocity
+                .primaryEncoderVelocityPeriodMs(500);
 
         turretMotor.configure(turretConfig, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
 
@@ -395,6 +404,14 @@ public class ShooterSubsystem extends SubsystemBase {
         hoodConfig.inverted(true);
         hoodConfig.idleMode(IdleMode.kBrake);
         hoodConfig.smartCurrentLimit(ShooterConstants.kHoodCurrentLimit);
+
+        // CAN Optimization: Hood Motor
+        hoodConfig.signals
+                .absoluteEncoderPositionPeriodMs(500)
+                .absoluteEncoderVelocityPeriodMs(500)
+                .analogVoltagePeriodMs(500)
+                // We use position control so keep position at default (20ms), slow down velocity
+                .primaryEncoderVelocityPeriodMs(500);
 
         hoodMotor.configure(hoodConfig, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
 
@@ -539,7 +556,8 @@ public class ShooterSubsystem extends SubsystemBase {
     @Override
     public void periodic() {
         // Sync Dashboard Toggle for Auto-Aim
-        boolean dashEnabled = edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.getBoolean("Tuning/Shooter/EnableAutoAim",
+        boolean dashEnabled = edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.getBoolean(
+                "Tuning/Shooter/EnableAutoAim",
                 false);
         if (dashEnabled != isAutoAimActive) {
             if (dashEnabled) {
@@ -745,7 +763,7 @@ public class ShooterSubsystem extends SubsystemBase {
         targetTurretRad = MathUtil.angleModulus(targetTurretRad);
 
         // No manual offset for pass (usually)
-        turretTargetDeg = -Math.toDegrees(targetTurretRad);
+        turretTargetDeg = Math.toDegrees(targetTurretRad);
 
         // Clamp Turret
         if (ShooterConstants.kTurretSoftLimitsEnabled) {
@@ -1012,7 +1030,8 @@ public class ShooterSubsystem extends SubsystemBase {
         double targetTurretRad = angleToTargetRad - robotHeadingRad;
 
         // --- INVERT AIMING FAILSAFE ---
-        boolean invertAiming = edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.getBoolean("Tuning/Shooter/InvertAiming",
+        boolean invertAiming = edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.getBoolean(
+                "Tuning/Shooter/InvertAiming",
                 false);
         if (invertAiming) {
             targetTurretRad += Math.PI; // Add 180 degrees (in radians)
