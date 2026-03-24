@@ -82,6 +82,7 @@ public final class AutonomousScenarios {
                         FeederSubsystem feeder, IntakeSubsystem intake) {
 
                 return Commands.sequence(
+                                intake.deployCommand(),
                                 new TrenchPassCommand(drive, shooter),
                                 autoIntake(drive, intake, feeder),
                                 new TrenchPassCommand(drive, shooter),
@@ -96,6 +97,7 @@ public final class AutonomousScenarios {
                         FeederSubsystem feeder, IntakeSubsystem intake) {
 
                 return Commands.sequence(
+                                intake.deployCommand(),
                                 new TrenchPassCommand(drive, shooter),
                                 autoIntake(drive, intake, feeder),
                                 new TrenchPassCommand(drive, shooter),
@@ -111,6 +113,7 @@ public final class AutonomousScenarios {
                         FeederSubsystem feeder, IntakeSubsystem intake) {
 
                 return Commands.sequence(
+                                intake.deployCommand(),
                                 // 1. Tur
                                 new TrenchPassCommand(drive, shooter),
                                 autoIntake(drive, intake, feeder),
