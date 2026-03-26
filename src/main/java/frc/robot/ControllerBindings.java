@@ -86,6 +86,7 @@ public class ControllerBindings {
                                                 shooterSubsystem,
                                                 feederSubsystem,
                                                 driveSubsystem,
+                                                intakeSubsystem,
                                                 driveSubsystem::getPose));
 
                 // [SOL TETİK] INTAKE ROLLER TOGGLE

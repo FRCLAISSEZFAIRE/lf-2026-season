@@ -1,80 +1,32 @@
 [
   {
-    "name": "/Preferences/Shooter/Manual/Flywheel RPM",
+    "name": "/Preferences/Tuning/Auto/SpeedMultiplier",
     "type": "double",
-    "value": 0.0,
+    "value": 1.0,
     "properties": {
       "persistent": true
     }
   },
   {
-    "name": "/Preferences/Shooter/Test/Target RPM",
+    "name": "/Preferences/Tuning/Auto/FeedSpeedMultiplier",
     "type": "double",
-    "value": 4000.0,
+    "value": 0.5,
     "properties": {
       "persistent": true
     }
   },
   {
-    "name": "/Preferences/Shooter/Manual/Hood Angle",
+    "name": "/Preferences/Tuning/Drive/ModuleDrive_kP",
     "type": "double",
-    "value": 40.0,
+    "value": 0.04,
     "properties": {
       "persistent": true
     }
   },
   {
-    "name": "/Preferences/Shooter/Manual/Turret Angle",
+    "name": "/Preferences/Drive/Module/Turn kP",
     "type": "double",
-    "value": 90.0,
-    "properties": {
-      "persistent": true
-    }
-  },
-  {
-    "name": "/Preferences/Shooter/Flywheel kP",
-    "type": "double",
-    "value": 1.1,
-    "properties": {
-      "persistent": true
-    }
-  },
-  {
-    "name": "/Preferences/Shooter/Flywheel kD",
-    "type": "double",
-    "value": 0.1,
-    "properties": {
-      "persistent": true
-    }
-  },
-  {
-    "name": "/Preferences/Shooter/Turret kP",
-    "type": "double",
-    "value": 1.3,
-    "properties": {
-      "persistent": true
-    }
-  },
-  {
-    "name": "/Preferences/ShooterTest/Flywheel RPM",
-    "type": "double",
-    "value": 0.0,
-    "properties": {
-      "persistent": true
-    }
-  },
-  {
-    "name": "/Preferences/ShooterTest/Hood Angle",
-    "type": "double",
-    "value": 40.0,
-    "properties": {
-      "persistent": true
-    }
-  },
-  {
-    "name": "/Preferences/ShooterTest/Turret Angle",
-    "type": "double",
-    "value": 0.0,
+    "value": 1.0,
     "properties": {
       "persistent": true
     }
@@ -88,47 +40,15 @@
     }
   },
   {
-    "name": "/Preferences/Shooter/Target/OverrideX",
+    "name": "/Preferences/Drive/Limits/Max Angular Accel (radps2)",
     "type": "double",
-    "value": -3.0,
+    "value": 12.0,
     "properties": {
       "persistent": true
     }
   },
   {
-    "name": "/Preferences/Shooter/Flywheel Tolerance",
-    "type": "double",
-    "value": 600.0,
-    "properties": {
-      "persistent": true
-    }
-  },
-  {
-    "name": "/Preferences/Intake/Test/Pivot Angle",
-    "type": "double",
-    "value": 50.0,
-    "properties": {
-      "persistent": true
-    }
-  },
-  {
-    "name": "/Preferences/Intake/Test/Roller RPS",
-    "type": "double",
-    "value": 5000.0,
-    "properties": {
-      "persistent": true
-    }
-  },
-  {
-    "name": "/Preferences/Intake/Test/Roller RPM",
-    "type": "double",
-    "value": 5000.0,
-    "properties": {
-      "persistent": true
-    }
-  },
-  {
-    "name": "/Preferences/Intake/Pivot/EncoderInvert",
+    "name": "/Preferences/Drive/Inverts/Driving/FL (1)",
     "type": "boolean",
     "value": false,
     "properties": {
@@ -136,7 +56,7 @@
     }
   },
   {
-    "name": "/Preferences/Intake/Roller/Invert",
+    "name": "/Preferences/Drive/Inverts/Driving/FR (3)",
     "type": "boolean",
     "value": true,
     "properties": {
@@ -144,7 +64,15 @@
     }
   },
   {
-    "name": "/Preferences/Intake/Pivot/MotorInvert",
+    "name": "/Preferences/Drive/Inverts/Driving/RL (5)",
+    "type": "boolean",
+    "value": true,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Drive/Inverts/Driving/RR (7)",
     "type": "boolean",
     "value": false,
     "properties": {
@@ -152,9 +80,1537 @@
     }
   },
   {
-    "name": "/Preferences/Intake/Pivot/Min Deg",
+    "name": "/Preferences/Drive/Inverts/Turning/FL (2)",
+    "type": "boolean",
+    "value": false,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Drive/Inverts/Turning/FR (4)",
+    "type": "boolean",
+    "value": false,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Drive/Inverts/Turning/RL (6)",
+    "type": "boolean",
+    "value": false,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Drive/Inverts/Turning/RR (8)",
+    "type": "boolean",
+    "value": false,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Shooter/Turret kP",
+    "type": "double",
+    "value": 0.1,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Shooter/Turret kI",
     "type": "double",
     "value": 0.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Shooter/Turret kD",
+    "type": "double",
+    "value": 0.005,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Shooter/Hood kP",
+    "type": "double",
+    "value": 2.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Shooter/Hood kI",
+    "type": "double",
+    "value": 0.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Shooter/Hood kD",
+    "type": "double",
+    "value": 0.05,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Shooter/Flywheel kP",
+    "type": "double",
+    "value": 0.2,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Shooter/Flywheel kI",
+    "type": "double",
+    "value": 0.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Shooter/Flywheel kD",
+    "type": "double",
+    "value": 0.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Shooter/Flywheel kV",
+    "type": "double",
+    "value": 0.12,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Shooter/Flywheel Tolerance",
+    "type": "double",
+    "value": 200.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Shooter/Turret MaxOutput",
+    "type": "double",
+    "value": 0.2,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Shooter/Turret Center",
+    "type": "double",
+    "value": 0.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Shooter/Turret MinAngle",
+    "type": "double",
+    "value": -200.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Shooter/Turret MaxAngle",
+    "type": "double",
+    "value": 200.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Shooter/Turret Gear Ratio",
+    "type": "double",
+    "value": 40.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Shooter/Enc to Turret Ratio",
+    "type": "double",
+    "value": 10.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Shooter/Hood Gear Ratio",
+    "type": "double",
+    "value": 100.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Shooter/Turret Center X",
+    "type": "double",
+    "value": 0.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Shooter/Turret Center Y",
+    "type": "double",
+    "value": 0.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Shooter/Target/OverrideX",
+    "type": "double",
+    "value": 0.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Shooter/Target/OverrideY",
+    "type": "double",
+    "value": 0.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/ShooterMap/Hub/Point0/Dist",
+    "type": "double",
+    "value": 0.5,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/ShooterMap/Hub/Point0/RPM",
+    "type": "double",
+    "value": 2000.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/ShooterMap/Hub/Point0/Hood",
+    "type": "double",
+    "value": 0.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/ShooterMap/Hub/Point1/Dist",
+    "type": "double",
+    "value": 1.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/ShooterMap/Hub/Point1/RPM",
+    "type": "double",
+    "value": 2650.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/ShooterMap/Hub/Point1/Hood",
+    "type": "double",
+    "value": 0.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/ShooterMap/Hub/Point2/Dist",
+    "type": "double",
+    "value": 2.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/ShooterMap/Hub/Point2/RPM",
+    "type": "double",
+    "value": 3000.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/ShooterMap/Hub/Point2/Hood",
+    "type": "double",
+    "value": 15.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/ShooterMap/Hub/Point3/Dist",
+    "type": "double",
+    "value": 3.5,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/ShooterMap/Hub/Point3/RPM",
+    "type": "double",
+    "value": 4500.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/ShooterMap/Hub/Point3/Hood",
+    "type": "double",
+    "value": 30.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/ShooterMap/Hub/Point4/Dist",
+    "type": "double",
+    "value": 4.5,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/ShooterMap/Hub/Point4/RPM",
+    "type": "double",
+    "value": 5500.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/ShooterMap/Hub/Point4/Hood",
+    "type": "double",
+    "value": 45.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/ShooterMap/Pass/Point0/Dist",
+    "type": "double",
+    "value": 4.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/ShooterMap/Pass/Point0/RPM",
+    "type": "double",
+    "value": 3000.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/ShooterMap/Pass/Point0/Hood",
+    "type": "double",
+    "value": 50.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/ShooterMap/Pass/Point1/Dist",
+    "type": "double",
+    "value": 5.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/ShooterMap/Pass/Point1/RPM",
+    "type": "double",
+    "value": 3500.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/ShooterMap/Pass/Point1/Hood",
+    "type": "double",
+    "value": 50.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/ShooterMap/Pass/Point2/Dist",
+    "type": "double",
+    "value": 6.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/ShooterMap/Pass/Point2/RPM",
+    "type": "double",
+    "value": 4000.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/ShooterMap/Pass/Point2/Hood",
+    "type": "double",
+    "value": 50.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/ShooterMap/Pass/Point3/Dist",
+    "type": "double",
+    "value": 7.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/ShooterMap/Pass/Point3/RPM",
+    "type": "double",
+    "value": 4500.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/ShooterMap/Pass/Point3/Hood",
+    "type": "double",
+    "value": 50.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/ShooterMap/Pass/Point4/Dist",
+    "type": "double",
+    "value": 8.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/ShooterMap/Pass/Point4/RPM",
+    "type": "double",
+    "value": 5000.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/ShooterMap/Pass/Point4/Hood",
+    "type": "double",
+    "value": 50.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Feeder/Indexer/kP",
+    "type": "double",
+    "value": 0.0001,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Feeder/Indexer/kI",
+    "type": "double",
+    "value": 0.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Feeder/Indexer/kD",
+    "type": "double",
+    "value": 0.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Feeder/Indexer/kFF",
+    "type": "double",
+    "value": 0.00017,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Feeder/Kicker/kP",
+    "type": "double",
+    "value": 0.0001,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Feeder/Kicker/kI",
+    "type": "double",
+    "value": 0.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Feeder/Kicker/kD",
+    "type": "double",
+    "value": 0.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Feeder/Kicker/kFF",
+    "type": "double",
+    "value": 0.00017,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Feeder/Indexer/Feed RPM",
+    "type": "double",
+    "value": 4500.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Feeder/Indexer/Slow Feed RPM",
+    "type": "double",
+    "value": 1000.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Feeder/Indexer/Reverse RPM",
+    "type": "double",
+    "value": -1000.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Feeder/Kicker/Feed RPM",
+    "type": "double",
+    "value": 4500.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Feeder/Kicker/Slow Feed RPM",
+    "type": "double",
+    "value": 1000.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Feeder/Kicker/Reverse RPM",
+    "type": "double",
+    "value": -1000.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Intake/Extension/Roller kP",
+    "type": "double",
+    "value": 0.11,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Intake/Extension/Roller kI",
+    "type": "double",
+    "value": 0.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Intake/Extension/Roller kD",
+    "type": "double",
+    "value": 0.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Intake/Extension/Roller kV",
+    "type": "double",
+    "value": 0.12,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Intake/Extension/Roller Target RPM",
+    "type": "double",
+    "value": 4800.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Intake/Extension/Roller Min RPM",
+    "type": "double",
+    "value": 0.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Intake/Extension/Roller Max RPM",
+    "type": "double",
+    "value": 6000.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Intake/Extension/kP",
+    "type": "double",
+    "value": 0.02,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Intake/Extension/kI",
+    "type": "double",
+    "value": 0.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Intake/Extension/kD",
+    "type": "double",
+    "value": 0.001,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Intake/Extension/Deployed Cm",
+    "type": "double",
+    "value": 30.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Intake/Extension/Retracted Cm",
+    "type": "double",
+    "value": 0.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Intake/Extension/Min Cm",
+    "type": "double",
+    "value": -2.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Intake/Extension/Max Cm",
+    "type": "double",
+    "value": 40.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Intake/Extension/Gear Ratio",
+    "type": "double",
+    "value": 25.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Intake/Extension/Pinion Diameter Cm",
+    "type": "double",
+    "value": 5.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Intake/Extension/Homing Voltage",
+    "type": "double",
+    "value": -2.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Intake/Extension/Homing Duration",
+    "type": "double",
+    "value": 1.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Shooter/Test/AutoShoot Duration Sec",
+    "type": "double",
+    "value": 2.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/BlueHub/X",
+    "type": "double",
+    "value": 4.05,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/BlueHub/Y",
+    "type": "double",
+    "value": 4.05,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/RedHub/X",
+    "type": "double",
+    "value": 12.44,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/RedHub/Y",
+    "type": "double",
+    "value": 4.05,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/BlueFeeding/X",
+    "type": "double",
+    "value": 3.5,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/BlueFeeding/Y",
+    "type": "double",
+    "value": 4.05,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/RedFeeding/X",
+    "type": "double",
+    "value": 12.99,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/RedFeeding/Y",
+    "type": "double",
+    "value": 4.05,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/BluePassRight/X",
+    "type": "double",
+    "value": 2.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/BluePassRight/Y",
+    "type": "double",
+    "value": 1.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/BluePassLeft/X",
+    "type": "double",
+    "value": 2.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/BluePassLeft/Y",
+    "type": "double",
+    "value": 7.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/RedPassRight/X",
+    "type": "double",
+    "value": 14.5,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/RedPassRight/Y",
+    "type": "double",
+    "value": 1.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/RedPassLeft/X",
+    "type": "double",
+    "value": 14.5,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/RedPassLeft/Y",
+    "type": "double",
+    "value": 7.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/Tower/X",
+    "type": "double",
+    "value": 8.245,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/Tower/Y",
+    "type": "double",
+    "value": 4.05,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/ClimbBlue/X",
+    "type": "double",
+    "value": 1.44,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/ClimbBlue/Y",
+    "type": "double",
+    "value": 3.75,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/ClimbBlue/Angle",
+    "type": "double",
+    "value": -90.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/ClimbRed/X",
+    "type": "double",
+    "value": 15.16,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/ClimbRed/Y",
+    "type": "double",
+    "value": 4.34,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/ClimbRed/Angle",
+    "type": "double",
+    "value": 270.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/TrenchBlueA/X",
+    "type": "double",
+    "value": 3.27,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/TrenchBlueA/Y",
+    "type": "double",
+    "value": 0.65,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/TrenchBlueA/Angle",
+    "type": "double",
+    "value": 0.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/TrenchBlueB/X",
+    "type": "double",
+    "value": 5.7,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/TrenchBlueB/Y",
+    "type": "double",
+    "value": 0.65,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/TrenchBlueB/Angle",
+    "type": "double",
+    "value": 0.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/TrenchBlueC/X",
+    "type": "double",
+    "value": 3.27,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/TrenchBlueC/Y",
+    "type": "double",
+    "value": 7.41,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/TrenchBlueC/Angle",
+    "type": "double",
+    "value": 0.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/TrenchBlueD/X",
+    "type": "double",
+    "value": 5.7,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/TrenchBlueD/Y",
+    "type": "double",
+    "value": 7.41,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/TrenchBlueD/Angle",
+    "type": "double",
+    "value": 0.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/TrenchRedA/X",
+    "type": "double",
+    "value": 13.4,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/TrenchRedA/Y",
+    "type": "double",
+    "value": 7.47,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/TrenchRedA/Angle",
+    "type": "double",
+    "value": 180.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/TrenchRedB/X",
+    "type": "double",
+    "value": 10.8,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/TrenchRedB/Y",
+    "type": "double",
+    "value": 7.47,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/TrenchRedB/Angle",
+    "type": "double",
+    "value": 180.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/TrenchRedC/X",
+    "type": "double",
+    "value": 13.4,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/TrenchRedC/Y",
+    "type": "double",
+    "value": 0.65,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/TrenchRedC/Angle",
+    "type": "double",
+    "value": 180.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/TrenchRedD/X",
+    "type": "double",
+    "value": 10.8,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/TrenchRedD/Y",
+    "type": "double",
+    "value": 0.65,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/TrenchRedD/Angle",
+    "type": "double",
+    "value": 180.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/BumpBlueA/X",
+    "type": "double",
+    "value": 3.27,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/BumpBlueA/Y",
+    "type": "double",
+    "value": 2.7,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/BumpBlueA/Angle",
+    "type": "double",
+    "value": 0.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/BumpBlueB/X",
+    "type": "double",
+    "value": 5.9,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/BumpBlueB/Y",
+    "type": "double",
+    "value": 2.3,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/BumpBlueB/Angle",
+    "type": "double",
+    "value": 0.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/BumpBlueC/X",
+    "type": "double",
+    "value": 3.27,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/BumpBlueC/Y",
+    "type": "double",
+    "value": 5.5,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/BumpBlueC/Angle",
+    "type": "double",
+    "value": 0.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/BumpBlueD/X",
+    "type": "double",
+    "value": 5.9,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/BumpBlueD/Y",
+    "type": "double",
+    "value": 5.5,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/BumpBlueD/Angle",
+    "type": "double",
+    "value": 0.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/BumpRedA/X",
+    "type": "double",
+    "value": 13.3,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/BumpRedA/Y",
+    "type": "double",
+    "value": 5.58,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/BumpRedA/Angle",
+    "type": "double",
+    "value": 180.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/BumpRedB/X",
+    "type": "double",
+    "value": 10.4,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/BumpRedB/Y",
+    "type": "double",
+    "value": 5.58,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/BumpRedB/Angle",
+    "type": "double",
+    "value": 180.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/BumpRedC/X",
+    "type": "double",
+    "value": 13.3,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/BumpRedC/Y",
+    "type": "double",
+    "value": 2.42,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/BumpRedC/Angle",
+    "type": "double",
+    "value": 180.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/BumpRedD/X",
+    "type": "double",
+    "value": 10.4,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/BumpRedD/Y",
+    "type": "double",
+    "value": 2.42,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/BumpRedD/Angle",
+    "type": "double",
+    "value": 180.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/OutpostBlue/X",
+    "type": "double",
+    "value": 0.4,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/OutpostBlue/Y",
+    "type": "double",
+    "value": 0.6,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/OutpostBlue/Angle",
+    "type": "double",
+    "value": 90.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/OutpostRed/X",
+    "type": "double",
+    "value": 16.1,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/OutpostRed/Y",
+    "type": "double",
+    "value": 7.4,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/OutpostRed/Angle",
+    "type": "double",
+    "value": -90.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/FeedStartBlueLeft/X",
+    "type": "double",
+    "value": 10.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/FeedStartBlueLeft/Y",
+    "type": "double",
+    "value": 7.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/FeedStartBlueLeft/Angle",
+    "type": "double",
+    "value": 0.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/FeedStopBlueLeft/X",
+    "type": "double",
+    "value": 6.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/FeedStopBlueLeft/Y",
+    "type": "double",
+    "value": 1.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/FeedStopBlueLeft/Angle",
+    "type": "double",
+    "value": 0.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/FeedStartBlueRight/X",
+    "type": "double",
+    "value": 10.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/FeedStartBlueRight/Y",
+    "type": "double",
+    "value": 1.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/FeedStartBlueRight/Angle",
+    "type": "double",
+    "value": 0.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/FeedStopBlueRight/X",
+    "type": "double",
+    "value": 6.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/FeedStopBlueRight/Y",
+    "type": "double",
+    "value": 7.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/FeedStopBlueRight/Angle",
+    "type": "double",
+    "value": 0.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/FeedStartRedLeft/X",
+    "type": "double",
+    "value": 8.8,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/FeedStartRedLeft/Y",
+    "type": "double",
+    "value": 1.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/FeedStartRedLeft/Angle",
+    "type": "double",
+    "value": 270.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/FeedStopRedLeft/X",
+    "type": "double",
+    "value": 8.8,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/FeedStopRedLeft/Y",
+    "type": "double",
+    "value": 3.5,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/FeedStopRedLeft/Angle",
+    "type": "double",
+    "value": 270.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/FeedStartRedRight/X",
+    "type": "double",
+    "value": 8.8,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/FeedStartRedRight/Y",
+    "type": "double",
+    "value": 7.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/FeedStartRedRight/Angle",
+    "type": "double",
+    "value": 90.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/FeedStopRedRight/X",
+    "type": "double",
+    "value": 8.8,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/FeedStopRedRight/Y",
+    "type": "double",
+    "value": 5.5,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/FeedStopRedRight/Angle",
+    "type": "double",
+    "value": 90.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Auto/FullShootTimeout",
+    "type": "double",
+    "value": 5.0,
     "properties": {
       "persistent": true
     }

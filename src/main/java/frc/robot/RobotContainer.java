@@ -23,12 +23,13 @@ import frc.robot.subsystems.intake.*;
 import frc.robot.subsystems.led.LEDSubsystem;
 import frc.robot.subsystems.shooter.*;
 import frc.robot.subsystems.feeder.*;
-
+import frc.robot.commands.drive.BumpPassCommand;
 // --- COMMANDS ---
 import frc.robot.commands.drive.DriveWithJoystick;
 import frc.robot.commands.drive.SimpleDriveToPose;
 
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 
 /**
  * Bu sınıf, robotunuzun ana yapısını tanımlar.
@@ -117,6 +118,9 @@ public class RobotContainer {
                 // LED Subsystem requires FeederState
                 ledSubsystem = new LEDSubsystem(feederSubsystem);
 
+                // AutoShoot dashboard butonu (FeederSubsystem gerektiriyor)
+                shooterSubsystem.initAutoShootCommand(feederSubsystem, driveSubsystem::getPose);
+
                 // --- SCHEDULE HOOD HOMING ---
                 // Runs once on robot startup to calibrate hood
                 shooterSubsystem.getHomeHoodCommand().schedule();
@@ -159,25 +163,28 @@ public class RobotContainer {
                                 intakeSubsystem);
 
                 // Elastic Dashboard butonları
-                edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.putData("Commands/TrenchPass",
+                SmartDashboard.putData("Commands/TrenchPass",
                                 new frc.robot.commands.drive.TrenchPassCommand(driveSubsystem, shooterSubsystem));
 
-                edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.putData("Commands/IntakeDeploy",
+                SmartDashboard.putData("Commands/BumpPass",
+                                new BumpPassCommand(driveSubsystem, shooterSubsystem));
+
+                SmartDashboard.putData("Commands/IntakeDeploy",
                                 intakeSubsystem.deployCommand());
-                edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.putData("Commands/IntakeRetract",
+                SmartDashboard.putData("Commands/IntakeRetract",
                                 intakeSubsystem.retractCommand());
 
                 // AutoIntake: İleri sürüş + roller + feeder (10 saniye, Dashboard'dan
                 // başlatılabilir)
-                edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.putData("Commands/AutoIntake",
+                SmartDashboard.putData("Commands/AutoIntake",
                                 new frc.robot.commands.intake.FeedPassCommand(
                                                 driveSubsystem, intakeSubsystem));
 
                 // Taret Offset ayarı (her basışta ±3 derece)
-                edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.putData("Commands/TurretOffset +3",
+                SmartDashboard.putData("Commands/TurretOffset +3",
                                 Commands.runOnce(() -> shooterSubsystem.adjustAutoAimOffset(3.0))
                                                 .ignoringDisable(true).withName("TurretOffset +3"));
-                edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.putData("Commands/TurretOffset -3",
+                SmartDashboard.putData("Commands/TurretOffset -3",
                                 Commands.runOnce(() -> shooterSubsystem.adjustAutoAimOffset(-3.0))
                                                 .ignoringDisable(true).withName("TurretOffset -3"));
         }

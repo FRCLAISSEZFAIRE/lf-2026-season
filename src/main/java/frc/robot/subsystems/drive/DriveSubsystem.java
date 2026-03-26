@@ -25,6 +25,7 @@ import com.studica.frc.AHRS;
 import com.studica.frc.AHRS.NavXComType;
 
 import frc.robot.util.TunableNumber;
+import frc.robot.util.TunableBoolean;
 
 public class DriveSubsystem extends SubsystemBase {
     // Create MAXSwerveModules
@@ -65,7 +66,8 @@ public class DriveSubsystem extends SubsystemBase {
     // Field visualization
     private final Field2d field = new Field2d();
 
-    // Auto Speed Multiplier
+    // Speed Multipliers
+    private final TunableNumber teleopSpeedMultiplier = new TunableNumber("Tuning/Drive", "TeleopSpeedMultiplier", 1.0);
     private final TunableNumber autoSpeedMultiplier = new TunableNumber("Tuning/Auto", "SpeedMultiplier", 1.0);
 
     // Feed Speed Multiplier — Feed/Intake toplama sırasında ek yavaşlatma
@@ -84,16 +86,20 @@ public class DriveSubsystem extends SubsystemBase {
     // LIVE INVERSION TUNABLES (Saved to RIO)
     // ===========================================================================
     // Driving Motors (SparkFlex)
-    private final TunableNumber invertDriveFL = new TunableNumber("Drive/Inverts/Driving", "FrontLeft (1)", DriveConstants.kFrontLeftDrivingInverted ? 1.0 : 0.0);
-    private final TunableNumber invertDriveFR = new TunableNumber("Drive/Inverts/Driving", "FrontRight (3)", DriveConstants.kFrontRightDrivingInverted ? 1.0 : 0.0);
-    private final TunableNumber invertDriveRL = new TunableNumber("Drive/Inverts/Driving", "RearLeft (5)", DriveConstants.kRearLeftDrivingInverted ? 1.0 : 0.0);
-    private final TunableNumber invertDriveRR = new TunableNumber("Drive/Inverts/Driving", "RearRight (7)", DriveConstants.kRearRightDrivingInverted ? 1.0 : 0.0);
+    private final TunableBoolean invertDriveFL = new TunableBoolean("Drive/Inverts/Driving", "FL (1)",
+            DriveConstants.kFrontLeftDrivingInverted);
+    private final TunableBoolean invertDriveFR = new TunableBoolean("Drive/Inverts/Driving", "FR (3)",
+            DriveConstants.kFrontRightDrivingInverted);
+    private final TunableBoolean invertDriveRL = new TunableBoolean("Drive/Inverts/Driving", "RL (5)",
+            DriveConstants.kRearLeftDrivingInverted);
+    private final TunableBoolean invertDriveRR = new TunableBoolean("Drive/Inverts/Driving", "RR (7)",
+            DriveConstants.kRearRightDrivingInverted);
 
     // Turning Motors (SparkMax)
-    private final TunableNumber invertTurnFL = new TunableNumber("Drive/Inverts/Turning", "FrontLeft (2)", 0.0);
-    private final TunableNumber invertTurnFR = new TunableNumber("Drive/Inverts/Turning", "FrontRight (4)", 0.0);
-    private final TunableNumber invertTurnRL = new TunableNumber("Drive/Inverts/Turning", "RearLeft (6)", 0.0);
-    private final TunableNumber invertTurnRR = new TunableNumber("Drive/Inverts/Turning", "RearRight (8)", 0.0);
+    private final TunableBoolean invertTurnFL = new TunableBoolean("Drive/Inverts/Turning", "FL (2)", false);
+    private final TunableBoolean invertTurnFR = new TunableBoolean("Drive/Inverts/Turning", "FR (4)", false);
+    private final TunableBoolean invertTurnRL = new TunableBoolean("Drive/Inverts/Turning", "RL (6)", false);
+    private final TunableBoolean invertTurnRR = new TunableBoolean("Drive/Inverts/Turning", "RR (8)", false);
 
     // Safety Layer Configuration
     private static final double ROBOT_RADIUS = 0.6; // 70x65cm frame + 8cm bumpers
@@ -157,6 +163,19 @@ public class DriveSubsystem extends SubsystemBase {
                     Pose2d c = getPose();
                     resetOdometry(new Pose2d(c.getX(), c.getY() - 0.10, c.getRotation()));
                 }, this).ignoringDisable(true));
+
+        // Apply saved TunableNumber values for inversions and PID
+        m_frontLeft.updateInversions(invertDriveFL.get(), invertTurnFL.get());
+        m_frontRight.updateInversions(invertDriveFR.get(), invertTurnFR.get());
+        m_rearLeft.updateInversions(invertDriveRL.get(), invertTurnRL.get());
+        m_rearRight.updateInversions(invertDriveRR.get(), invertTurnRR.get());
+
+        double initDP = moduleDriveP.get();
+        double initTP = moduleTurnP.get();
+        m_frontLeft.updatePID(initDP, initTP);
+        m_frontRight.updatePID(initDP, initTP);
+        m_rearLeft.updatePID(initDP, initTP);
+        m_rearRight.updatePID(initDP, initTP);
     }
 
     /**
@@ -223,16 +242,16 @@ public class DriveSubsystem extends SubsystemBase {
 
         // Check for inversion changes
         if (invertDriveFL.hasChanged() || invertTurnFL.hasChanged()) {
-            m_frontLeft.updateInversions(invertDriveFL.get() > 0.5, invertTurnFL.get() > 0.5);
+            m_frontLeft.updateInversions(invertDriveFL.get(), invertTurnFL.get());
         }
         if (invertDriveFR.hasChanged() || invertTurnFR.hasChanged()) {
-            m_frontRight.updateInversions(invertDriveFR.get() > 0.5, invertTurnFR.get() > 0.5);
+            m_frontRight.updateInversions(invertDriveFR.get(), invertTurnFR.get());
         }
         if (invertDriveRL.hasChanged() || invertTurnRL.hasChanged()) {
-            m_rearLeft.updateInversions(invertDriveRL.get() > 0.5, invertTurnRL.get() > 0.5);
+            m_rearLeft.updateInversions(invertDriveRL.get(), invertTurnRL.get());
         }
         if (invertDriveRR.hasChanged() || invertTurnRR.hasChanged()) {
-            m_rearRight.updateInversions(invertDriveRR.get() > 0.5, invertTurnRR.get() > 0.5);
+            m_rearRight.updateInversions(invertDriveRR.get(), invertTurnRR.get());
         }
     }
 
@@ -319,17 +338,20 @@ public class DriveSubsystem extends SubsystemBase {
     }
 
     public void driveRobotRelative(ChassisSpeeds speeds) {
-        // Auto Speed Multiplier (0.1 to 1.0)
+        // Speed Multiplier (0.1 to 1.0)
+        double multiplier = 1.0;
         if (DriverStation.isAutonomous()) {
-            double multiplier = Math.max(0.1, Math.min(1.0, autoSpeedMultiplier.get()));
+            multiplier = Math.max(0.1, Math.min(1.0, autoSpeedMultiplier.get()));
             // Feed mode: ek yavaşlatma çarpanı uygula
             if (feedMode) {
                 multiplier *= Math.max(0.1, Math.min(1.0, feedSpeedMultiplier.get()));
             }
-            speeds.vxMetersPerSecond *= multiplier;
-            speeds.vyMetersPerSecond *= multiplier;
-            speeds.omegaRadiansPerSecond *= multiplier;
+        } else if (DriverStation.isTeleop()) {
+            multiplier = Math.max(0.1, Math.min(1.0, teleopSpeedMultiplier.get()));
         }
+        speeds.vxMetersPerSecond *= multiplier;
+        speeds.vyMetersPerSecond *= multiplier;
+        speeds.omegaRadiansPerSecond *= multiplier;
 
         // Convert ChassisSpeeds to ModuleStates with center of rotation
         SwerveModuleState[] swerveModuleStates = DriveConstants.kDriveKinematics

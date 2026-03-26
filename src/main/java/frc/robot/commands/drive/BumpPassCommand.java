@@ -11,15 +11,16 @@ import frc.robot.subsystems.shooter.ShooterSubsystem;
 import java.util.Set;
 
 /**
- * TrenchPassCommand
+ * BumpPassCommand
  * Robotun bulunduğu konuma ve ittifak rengine göre otomatik olarak
- * A'dan B'ye veya B'den A'ya (Kırmızı için C'den D'ye veya D'den C'ye)
+ * Bump noktaları arasında (A'dan B'ye veya B'den A'ya, Kırmızı için C'den D'ye
+ * veya D'den C'ye)
  * gitmesini sağlayan sıralı komut grubunu dinamik olarak oluşturur,
  * aynı zamanda komut başlarken Hood açısını 0'a konumlar.
  */
-public class TrenchPassCommand extends DeferredCommand {
+public class BumpPassCommand extends DeferredCommand {
 
-    public TrenchPassCommand(DriveSubsystem driveSubsystem, ShooterSubsystem shooterSubsystem) {
+    public BumpPassCommand(DriveSubsystem driveSubsystem, ShooterSubsystem shooterSubsystem) {
         super(() -> Commands.parallel(
                 buildCommand(driveSubsystem),
                 Commands.runOnce(() -> shooterSubsystem.setHoodAngle(0.0), shooterSubsystem)),
@@ -37,20 +38,20 @@ public class TrenchPassCommand extends DeferredCommand {
         if (alliance.isPresent() && alliance.get() == DriverStation.Alliance.Red) {
             // KIRMIZI İTTİFAK
             if (isTopHalf) {
-                pointA = FieldConstants.getTrenchPointRedA();
-                pointB = FieldConstants.getTrenchPointRedB();
+                pointA = FieldConstants.getBumpPointRedA();
+                pointB = FieldConstants.getBumpPointRedB();
             } else {
-                pointA = FieldConstants.getTrenchPointRedC();
-                pointB = FieldConstants.getTrenchPointRedD();
+                pointA = FieldConstants.getBumpPointRedC();
+                pointB = FieldConstants.getBumpPointRedD();
             }
         } else {
             // MAVİ İTTİFAK (Varsayılan)
             if (isTopHalf) {
-                pointA = FieldConstants.getTrenchPointBlueC();
-                pointB = FieldConstants.getTrenchPointBlueD();
+                pointA = FieldConstants.getBumpPointBlueC();
+                pointB = FieldConstants.getBumpPointBlueD();
             } else {
-                pointA = FieldConstants.getTrenchPointBlueA();
-                pointB = FieldConstants.getTrenchPointBlueB();
+                pointA = FieldConstants.getBumpPointBlueA();
+                pointB = FieldConstants.getBumpPointBlueB();
             }
         }
 

@@ -1,0 +1,94 @@
+> Task :extractReleaseNative UP-TO-DATE
+> Task :compileJava UP-TO-DATE
+> Task :processResources NO-SOURCE
+> Task :classes UP-TO-DATE
+> Task :downloadDepsPreemptively
+> Task :jar
+
+> Task :simulateJavaRelease
+HAL Extensions: Attempting to load: libhalsim_gui
+Simulator GUI Initializing.
+Simulator GUI Initialized!
+HAL Extensions: Successfully loaded extension
+********** Robot program starting **********
+NT: could not open persistent file 'networktables.json': No such file or directory (this can be ignored if you aren't expecting persistent values)
+NT: Listening on NT3 port 1735, NT4 port 5810
+Instantiating navX-Sensor on roboRIO Serial Port 2.
+NavX: Library for FRC
+navX-Sensor SimDevice created.
+GUI: Field X and Y scaling substantially different: xscale=223.50262 yscale=222.57263
+NavX: Yaw Reset request ignored - startup calibration is currently in progress.
+[Shooter] Turret: Onboard PID, Relative Encoder, Soft Limits ±180°
+[Shooter] ⚠️ TARET 0° POZİSYONUNDA BAŞLATILMALI!
+[Shooter] Hood: Onboard PID, Home=15.0°
+NavX: Connected.
+NavX: Board Type 33 (unknown)
+NavX: firmware version 4.1.500
+NavX: startup initialization and startup calibration complete.
+NavX: onboard startup calibration complete.
+NavX: Yaw angle auto-reset to 0.0 due to startup calibration.
+[phoenix] CANbus Connected: sim
+[phoenix] CANbus Network Up: sim
+[Shooter] Flywheel: Phoenix6 Velocity Control
+[Shooter] REVLib 2026 setSetpoint API ile yapılandırıldı
+[Shooter] Calibration maps initialized from TunableNumbers
+[Feeder] İkili motor yapılandırıldı — Indexer(ID:16) + Kicker(ID:17) Velocity PID
+[Intake] Extension: GearRatio=25.0, Motor Limits [-3.1830988618379066, 63.66197723675814] rev, Output Limits [-2.0cm, 40.0cm]
+[Intake] Extension: Relative Encoder, Gear Ratio=25.0:1, HOMING gerekli
+[FieldConstants] ERROR: Could not load 2026-rebuilt-welded.json
+java.io.FileNotFoundException: /Users/huseyinozkan/lf/lf-2026-season/src/main/deploy/2026-rebuilt-welded.json (No such file or directory)
+	at java.base/java.io.FileInputStream.open0(Native Method)
+	at java.base/java.io.FileInputStream.open(FileInputStream.java:216)
+	at java.base/java.io.FileInputStream.<init>(FileInputStream.java:157)
+	at com.fasterxml.jackson.core.TokenStreamFactory._fileInputStream(TokenStreamFactory.java:318)
+	at com.fasterxml.jackson.core.JsonFactory.createParser(JsonFactory.java:1219)
+	at com.fasterxml.jackson.databind.ObjectMapper.readValue(ObjectMapper.java:3752)
+	at edu.wpi.first.apriltag.AprilTagFieldLayout.<init>(AprilTagFieldLayout.java:82)
+	at frc.robot.constants.FieldConstants.<clinit>(FieldConstants.java:269)
+	at frc.robot.ControllerBindings.getShootingPose(ControllerBindings.java:130)
+	at frc.robot.ControllerBindings.configureDriverBindings(ControllerBindings.java:120)
+	at frc.robot.ControllerBindings.configureAll(ControllerBindings.java:51)
+	at frc.robot.RobotContainer.<init>(RobotContainer.java:155)
+	at frc.robot.Robot.<init>(Robot.java:51)
+	at edu.wpi.first.wpilibj.RobotBase.runRobot(RobotBase.java:387)
+	at edu.wpi.first.wpilibj.RobotBase.lambda$startRobot$1(RobotBase.java:507)
+	at java.base/java.lang.Thread.run(Thread.java:840)
+[StartingPose] Blue Alliance başlangıç pozisyonu ayarlandı: Pose2d(Translation2d(X: 2,00, Y: 4,00), Rotation2d(Rads: 0,00, Deg: 0,00))
+[StartingPose] Uyarı: Alliance bilgisi mevcut değil, Blue varsayılan kullanıldı
+NavX: Software Yaw Reset completed.
+[Simulation] Reset Pose to Blue Start: Pose2d(Translation2d(X: 2,00, Y: 4,05), Rotation2d(Rads: 0,00, Deg: 0,00))
+********** Robot program startup complete **********
+[Shooter] Auto-aim DISABLED
+[Disabled] Shooter stopped and auto-aim disabled
+Warning at edu.wpi.first.wpilibj.IterativeRobotBase.printLoopOverrunMessage(IterativeRobotBase.java:436): Loop time of 0.02s overrun
+
+[phoenix] Library initialization is complete.
+	
+[phoenix-diagnostics] Server 2026.1.0 (Jan  7 2026, 19:22:38) running on port: 1250
+	
+Warning at edu.wpi.first.wpilibj.IterativeRobotBase.printLoopOverrunMessage(IterativeRobotBase.java:436): Loop time of 0.02s overrun
+
+Warning at edu.wpi.first.wpilibj.Tracer.lambda$printEpochs$0(Tracer.java:62): 	SmartDashboard.updateValues(): 0,002791s
+	robotPeriodic(): 0,020534s
+	LiveWindow.updateValues(): 0,000001s
+	Shuffleboard.update(): 0,000007s
+	disabledPeriodic(): 0,000007s
+	simulationPeriodic(): 0,000638s
+
+[TeleopInit] No FMS (Practice). Resetting to Alliance Start.
+[StartingPose] Red Alliance başlangıç pozisyonu ayarlandı: Pose2d(Translation2d(X: 14,50, Y: 4,00), Rotation2d(Rads: 3,14, Deg: 180,00))
+NavX: Software Yaw Reset completed.
+NT: Got a NT4 connection from 10.169.243.5 port 65322
+NT: CONNECTED NT4 client 'Elastic@1' (from 10.169.243.5:65322)
+NT: Got a NT4 connection from 10.169.243.5 port 65327
+NT: CONNECTED RTT client (from 10.169.243.5:65327)
+[phoenix-diagnostics] Server shutdown cleanly. (dur:21)
+	
+[phoenix] Library shutdown cleanly
+	
+NavX: DISCONNECTED!!!.
+
+> Task :simulateJava
+
+BUILD SUCCESSFUL in 36m 45s
+5 actionable tasks: 3 executed, 2 up-to-date

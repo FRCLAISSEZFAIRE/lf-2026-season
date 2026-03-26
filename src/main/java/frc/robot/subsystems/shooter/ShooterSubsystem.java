@@ -405,6 +405,13 @@ public class ShooterSubsystem extends SubsystemBase {
         hoodConfig.idleMode(IdleMode.kBrake);
         hoodConfig.smartCurrentLimit(ShooterConstants.kHoodCurrentLimit);
 
+        // Soft Limits Ekleme
+        hoodConfig.softLimit
+                .forwardSoftLimitEnabled(true)
+                .forwardSoftLimit((float) ShooterConstants.kHoodMaxAngle)
+                .reverseSoftLimitEnabled(true)
+                .reverseSoftLimit((float) ShooterConstants.kHoodMinAngle);
+
         // CAN Optimization: Hood Motor
         hoodConfig.signals
                 .absoluteEncoderPositionPeriodMs(500)
@@ -573,9 +580,9 @@ public class ShooterSubsystem extends SubsystemBase {
             checkAndApplyTunables();
             checkFlywheelInversion();
 
-            // Live update calibration maps from Dashboard
-            updateCalibrationMapsFromDashboard();
         }
+        // Live update calibration maps from Dashboard
+        updateCalibrationMapsFromDashboard();
 
         // Continuous Auto-Aim Tracking
 
@@ -1374,7 +1381,29 @@ public class ShooterSubsystem extends SubsystemBase {
                 Math.toRadians(ShooterConstants.kHoodMinAngle), Math.toRadians(ShooterConstants.kHoodMaxAngle),
                 false, Math.toRadians(ShooterConstants.kHoodHomeAngle));
     }
+       // --- AUTO SHOOT TEST COMMAND (Dashboard) ---
+        // AutoShootCommand'ı constructor'dan çağırabilmek için lazy factory
+        // kullanıyoruz.
+        // FeederSubsystem dışarıdan enjekte edilemiyor, bu yüzden komutu
+        // RobotContainer initAutoShootCommand() çağrısıyla kurar.
+    
 
+    /**
+     * Dashboard üzerinden başlatılabilecek AutoShoot komutunu oluşturup
+     * SmartDashboard'a kaydeder.
+     * Bu metod RobotContainer tarafından çağrılmalıdır.
+     *
+     * @param feeder       Feeder alt sistemi
+     * @param poseSupplier Robot konum kaynağı
+     */
+    public void initAutoShootCommand(frc.robot.subsystems.feeder.FeederSubsystem feeder,
+            java.util.function.Supplier<edu.wpi.first.math.geometry.Pose2d> poseSupplier) {
+        edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.putData(
+                "Tuning/Shooter/Test/AutoShoot",
+                new frc.robot.commands.shooter.AutoShootCommand(this, feeder, poseSupplier)
+                        .withName("AutoShoot"));
+    }
+    
     // =====================================================================
     // HOOD HOMING COMMAND
     // =====================================================================

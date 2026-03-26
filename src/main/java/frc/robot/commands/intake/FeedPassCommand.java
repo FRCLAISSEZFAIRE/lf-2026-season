@@ -14,10 +14,12 @@ import java.util.Set;
 
 /**
  * FeedPassCommand
- * Robotun konumuna ve ittifak rengine göre FeedStart noktasından FeedStop noktasını bulup 
- * (veya tam tersi en yakından başlayarak) oraya doğru gider. 
+ * Robotun konumuna ve ittifak rengine göre FeedStart noktasından FeedStop
+ * noktasını bulup
+ * (veya tam tersi en yakından başlayarak) oraya doğru gider.
  * Bu gidiş esnasında Intake dışarı uzatılır (deploy) ve Roller çalıştırılır.
- * Hareket bittiğinde (veya iptal edildiğinde) intake toplanır ve roller durdurulur.
+ * Hareket bittiğinde (veya iptal edildiğinde) intake toplanır ve roller
+ * durdurulur.
  */
 public class FeedPassCommand extends DeferredCommand {
 
@@ -37,26 +39,28 @@ public class FeedPassCommand extends DeferredCommand {
         if (alliance.isPresent() && alliance.get() == DriverStation.Alliance.Red) {
             // KIRMIZI İTTİFAK
             if (isTopHalf) {
-                startPoint = FieldConstants.getFeedStartRedLeft();
-                stopPoint = FieldConstants.getFeedStopRedLeft();
+                startPoint = FieldConstants.getFeedStopRedRight();
+                stopPoint = FieldConstants.getFeedStartRedRight();
             } else {
-                startPoint = FieldConstants.getFeedStartRedRight();
-                stopPoint = FieldConstants.getFeedStopRedRight();
+                startPoint = FieldConstants.getFeedStopRedLeft();
+                stopPoint = FieldConstants.getFeedStartRedLeft();
+
             }
         } else {
             // MAVİ İTTİFAK (Varsayılan)
             if (isTopHalf) {
-                startPoint = FieldConstants.getFeedStartBlueLeft();
-                stopPoint = FieldConstants.getFeedStopBlueLeft();
+                startPoint = FieldConstants.getFeedStopBlueLeft();
+                stopPoint = FieldConstants.getFeedStartBlueLeft();
             } else {
-                startPoint = FieldConstants.getFeedStartBlueRight();
-                stopPoint = FieldConstants.getFeedStopBlueRight();
+                startPoint = FieldConstants.getFeedStopBlueRight();
+                stopPoint = FieldConstants.getFeedStartBlueRight();
             }
         }
 
         // --- DEFENSIVE CHECKS ---
         if (startPoint == null || stopPoint == null) {
-            System.err.println("[FeedPassCommand] Start or Stop point is NULL! Alliance: " + (alliance.isPresent() ? alliance.get() : "None"));
+            System.err.println("[FeedPassCommand] Start or Stop point is NULL! Alliance: "
+                    + (alliance.isPresent() ? alliance.get() : "None"));
             return Commands.none();
         }
 
@@ -81,7 +85,7 @@ public class FeedPassCommand extends DeferredCommand {
         // Intake aç, sürüş tamamlanana kadar roller çalışsın. Bitince topla (retract).
         return Commands.sequence(
                 Commands.runOnce(() -> driveSubsystem.setFeedMode(true)),
-                Commands.parallel(
+                Commands.deadline(
                         driveSequence,
                         Commands.sequence(
                                 intakeSubsystem.deployCommand(),
