@@ -373,7 +373,8 @@ public class ShooterSubsystem extends SubsystemBase {
                 .absoluteEncoderPositionPeriodMs(500)
                 .absoluteEncoderVelocityPeriodMs(500)
                 .analogVoltagePeriodMs(500)
-                // We use position control so keep position at default (20ms), slow down velocity
+                // We use position control so keep position at default (20ms), slow down
+                // velocity
                 .primaryEncoderVelocityPeriodMs(500);
 
         turretMotor.configure(turretConfig, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
@@ -417,7 +418,8 @@ public class ShooterSubsystem extends SubsystemBase {
                 .absoluteEncoderPositionPeriodMs(500)
                 .absoluteEncoderVelocityPeriodMs(500)
                 .analogVoltagePeriodMs(500)
-                // We use position control so keep position at default (20ms), slow down velocity
+                // We use position control so keep position at default (20ms), slow down
+                // velocity
                 .primaryEncoderVelocityPeriodMs(500);
 
         hoodMotor.configure(hoodConfig, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
@@ -1381,12 +1383,11 @@ public class ShooterSubsystem extends SubsystemBase {
                 Math.toRadians(ShooterConstants.kHoodMinAngle), Math.toRadians(ShooterConstants.kHoodMaxAngle),
                 false, Math.toRadians(ShooterConstants.kHoodHomeAngle));
     }
-       // --- AUTO SHOOT TEST COMMAND (Dashboard) ---
-        // AutoShootCommand'ı constructor'dan çağırabilmek için lazy factory
-        // kullanıyoruz.
-        // FeederSubsystem dışarıdan enjekte edilemiyor, bu yüzden komutu
-        // RobotContainer initAutoShootCommand() çağrısıyla kurar.
-    
+    // --- AUTO SHOOT TEST COMMAND (Dashboard) ---
+    // AutoShootCommand'ı constructor'dan çağırabilmek için lazy factory
+    // kullanıyoruz.
+    // FeederSubsystem dışarıdan enjekte edilemiyor, bu yüzden komutu
+    // RobotContainer initAutoShootCommand() çağrısıyla kurar.
 
     /**
      * Dashboard üzerinden başlatılabilecek AutoShoot komutunu oluşturup
@@ -1397,13 +1398,15 @@ public class ShooterSubsystem extends SubsystemBase {
      * @param poseSupplier Robot konum kaynağı
      */
     public void initAutoShootCommand(frc.robot.subsystems.feeder.FeederSubsystem feeder,
+            frc.robot.subsystems.drive.DriveSubsystem drive,
+            frc.robot.subsystems.intake.IntakeSubsystem intake,
             java.util.function.Supplier<edu.wpi.first.math.geometry.Pose2d> poseSupplier) {
         edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.putData(
                 "Tuning/Shooter/Test/AutoShoot",
-                new frc.robot.commands.shooter.AutoShootCommand(this, feeder, poseSupplier)
+                new frc.robot.commands.shooter.AutoShootCommand(this, feeder, drive, intake, poseSupplier)
                         .withName("AutoShoot"));
     }
-    
+
     // =====================================================================
     // HOOD HOMING COMMAND
     // =====================================================================

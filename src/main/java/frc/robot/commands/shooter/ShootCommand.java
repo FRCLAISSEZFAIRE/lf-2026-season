@@ -115,7 +115,7 @@ public class ShootCommand extends Command {
             if (intakeDeployed) {
                 intake.setExtensionPosition(IntakeConstants.kExtensionDeployedCm);
             } else {
-                intake.setExtensionPosition(IntakeConstants.kExtensionRetractedCm);
+                intake.setExtensionPosition(IntakeConstants.kExtensionHalfRetractedCm);
             }
             cycleTimer.restart();
         }

@@ -3,7 +3,7 @@
 > Task :processResources NO-SOURCE
 > Task :classes UP-TO-DATE
 > Task :downloadDepsPreemptively
-> Task :jar
+> Task :jar UP-TO-DATE
 
 > Task :simulateJavaRelease
 HAL Extensions: Attempting to load: libhalsim_gui
@@ -11,22 +11,21 @@ Simulator GUI Initializing.
 Simulator GUI Initialized!
 HAL Extensions: Successfully loaded extension
 ********** Robot program starting **********
-NT: could not open persistent file 'networktables.json': No such file or directory (this can be ignored if you aren't expecting persistent values)
 NT: Listening on NT3 port 1735, NT4 port 5810
 Instantiating navX-Sensor on roboRIO Serial Port 2.
 NavX: Library for FRC
 navX-Sensor SimDevice created.
 GUI: Field X and Y scaling substantially different: xscale=223.50262 yscale=222.57263
 NavX: Yaw Reset request ignored - startup calibration is currently in progress.
-[Shooter] Turret: Onboard PID, Relative Encoder, Soft Limits ±180°
-[Shooter] ⚠️ TARET 0° POZİSYONUNDA BAŞLATILMALI!
-[Shooter] Hood: Onboard PID, Home=15.0°
 NavX: Connected.
 NavX: Board Type 33 (unknown)
 NavX: firmware version 4.1.500
 NavX: startup initialization and startup calibration complete.
 NavX: onboard startup calibration complete.
 NavX: Yaw angle auto-reset to 0.0 due to startup calibration.
+[Shooter] Turret: Onboard PID, Relative Encoder, Soft Limits ±180°
+[Shooter] ⚠️ TARET 0° POZİSYONUNDA BAŞLATILMALI!
+[Shooter] Hood: Onboard PID, Home=15.0°
 [phoenix] CANbus Connected: sim
 [phoenix] CANbus Network Up: sim
 [Shooter] Flywheel: Phoenix6 Velocity Control
@@ -45,8 +44,8 @@ java.io.FileNotFoundException: /Users/huseyinozkan/lf/lf-2026-season/src/main/de
 	at com.fasterxml.jackson.databind.ObjectMapper.readValue(ObjectMapper.java:3752)
 	at edu.wpi.first.apriltag.AprilTagFieldLayout.<init>(AprilTagFieldLayout.java:82)
 	at frc.robot.constants.FieldConstants.<clinit>(FieldConstants.java:269)
-	at frc.robot.ControllerBindings.getShootingPose(ControllerBindings.java:130)
-	at frc.robot.ControllerBindings.configureDriverBindings(ControllerBindings.java:120)
+	at frc.robot.ControllerBindings.getShootingPose(ControllerBindings.java:131)
+	at frc.robot.ControllerBindings.configureDriverBindings(ControllerBindings.java:121)
 	at frc.robot.ControllerBindings.configureAll(ControllerBindings.java:51)
 	at frc.robot.RobotContainer.<init>(RobotContainer.java:155)
 	at frc.robot.Robot.<init>(Robot.java:51)
@@ -62,33 +61,10 @@ NavX: Software Yaw Reset completed.
 [Disabled] Shooter stopped and auto-aim disabled
 Warning at edu.wpi.first.wpilibj.IterativeRobotBase.printLoopOverrunMessage(IterativeRobotBase.java:436): Loop time of 0.02s overrun
 
+[TeleopInit] No FMS (Practice). Resetting to Alliance Start.
+[StartingPose] Red Alliance başlangıç pozisyonu ayarlandı: Pose2d(Translation2d(X: 14,50, Y: 4,00), Rotation2d(Rads: 3,14, Deg: 180,00))
+NavX: Software Yaw Reset completed.
 [phoenix] Library initialization is complete.
 	
 [phoenix-diagnostics] Server 2026.1.0 (Jan  7 2026, 19:22:38) running on port: 1250
 	
-Warning at edu.wpi.first.wpilibj.IterativeRobotBase.printLoopOverrunMessage(IterativeRobotBase.java:436): Loop time of 0.02s overrun
-
-Warning at edu.wpi.first.wpilibj.Tracer.lambda$printEpochs$0(Tracer.java:62): 	SmartDashboard.updateValues(): 0,002791s
-	robotPeriodic(): 0,020534s
-	LiveWindow.updateValues(): 0,000001s
-	Shuffleboard.update(): 0,000007s
-	disabledPeriodic(): 0,000007s
-	simulationPeriodic(): 0,000638s
-
-[TeleopInit] No FMS (Practice). Resetting to Alliance Start.
-[StartingPose] Red Alliance başlangıç pozisyonu ayarlandı: Pose2d(Translation2d(X: 14,50, Y: 4,00), Rotation2d(Rads: 3,14, Deg: 180,00))
-NavX: Software Yaw Reset completed.
-NT: Got a NT4 connection from 10.169.243.5 port 65322
-NT: CONNECTED NT4 client 'Elastic@1' (from 10.169.243.5:65322)
-NT: Got a NT4 connection from 10.169.243.5 port 65327
-NT: CONNECTED RTT client (from 10.169.243.5:65327)
-[phoenix-diagnostics] Server shutdown cleanly. (dur:21)
-	
-[phoenix] Library shutdown cleanly
-	
-NavX: DISCONNECTED!!!.
-
-> Task :simulateJava
-
-BUILD SUCCESSFUL in 36m 45s
-5 actionable tasks: 3 executed, 2 up-to-date

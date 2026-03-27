@@ -3,7 +3,8 @@ package frc.robot.constants;
 /**
  * Intake alt sistemi için sabitler.
  * Pivot(Extension) ve Roller motor ayarları.
- * Pivot artık rack-and-pinion sistemi ile SANTİMETRE (cm) cinsinden kontrol edilecek.
+ * Pivot artık rack-and-pinion sistemi ile SANTİMETRE (cm) cinsinden kontrol
+ * edilecek.
  */
 public final class IntakeConstants {
 
@@ -21,8 +22,20 @@ public final class IntakeConstants {
     // EXTENSION POSITIONS (çıkış santimetre)
     // ===========================================================================
 
-    /** Intake tam açık (uzamış) pozisyonu (çıkış cm) - Maç boyunca bu konumda kalacak */
+    /**
+     * Intake tam açık (uzamış) pozisyonu (çıkış cm) - Maç boyunca bu konumda
+     * kalacak
+     */
     public static final double kExtensionDeployedCm = 30.0;
+
+    /**
+     * Intake tam açık (uzamış) pozisyonu (çıkış cm) - Maç boyunca bu konumda
+     * kalacak
+     */
+    public static final double kExtensionHalfDeployedCm = 15.0;
+
+    /** Intake tam kapalı (içeride) pozisyonu (çıkış cm) */
+    public static final double kExtensionHalfRetractedCm = 10.0;
 
     /** Intake tam kapalı (içeride) pozisyonu (çıkış cm) */
     public static final double kExtensionRetractedCm = 0.0;

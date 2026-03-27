@@ -786,7 +786,7 @@
   {
     "name": "/Preferences/Shooter/Test/AutoShoot Duration Sec",
     "type": "double",
-    "value": 2.0,
+    "value": 5.0,
     "properties": {
       "persistent": true
     }
@@ -1610,7 +1610,87 @@
   {
     "name": "/Preferences/Auto/FullShootTimeout",
     "type": "double",
-    "value": 5.0,
+    "value": 10.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Tuning/Drive/TeleopSpeedMultiplier",
+    "type": "double",
+    "value": 1.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Shooter/IntakeCycleTimeSec",
+    "type": "double",
+    "value": 1.5,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Shooter/IntakeShootRPM",
+    "type": "double",
+    "value": 1500.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Shooter/Test/Flywheel RPM",
+    "type": "double",
+    "value": 0.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Shooter/Test/Turret Angle",
+    "type": "double",
+    "value": 0.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Shooter/Test/Hood Angle",
+    "type": "double",
+    "value": 40.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Intake/Test/Extension Cm",
+    "type": "double",
+    "value": 0.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Intake/Test/Roller RPM",
+    "type": "double",
+    "value": 0.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Feeder/Test/Indexer Target RPM",
+    "type": "double",
+    "value": 0.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Feeder/Test/Kicker Target RPM",
+    "type": "double",
+    "value": 0.0,
     "properties": {
       "persistent": true
     }
