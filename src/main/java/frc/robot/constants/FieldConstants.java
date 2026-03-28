@@ -80,14 +80,14 @@ public final class FieldConstants {
         private static final TunableNumber towerX = new TunableNumber("Field", "Tower/X", 8.245);
         private static final TunableNumber towerY = new TunableNumber("Field", "Tower/Y", 4.05);
 
-        // CLIMB POSITIONS (Per Alliance)
-        private static final TunableNumber climbBlueX = new TunableNumber("Field", "ClimbBlue/X", 1.44);
-        private static final TunableNumber climbBlueY = new TunableNumber("Field", "ClimbBlue/Y", 3.75);
-        private static final TunableNumber climbBlueAngle = new TunableNumber("Field", "ClimbBlue/Angle", -90.0);
+        // SOURCE / DEPOT POSITIONS (Per Alliance)
+        private static final TunableNumber depotBlueX = new TunableNumber("Field", "DepotBlue/X", 1.1);
+        private static final TunableNumber depotBlueY = new TunableNumber("Field", "DepotBlue/Y", 5.8);
+        private static final TunableNumber depotBlueAngle = new TunableNumber("Field", "DepotBlue/Angle", 180.0);
 
-        private static final TunableNumber climbRedX = new TunableNumber("Field", "ClimbRed/X", 15.16);
-        private static final TunableNumber climbRedY = new TunableNumber("Field", "ClimbRed/Y", 4.34);
-        private static final TunableNumber climbRedAngle = new TunableNumber("Field", "ClimbRed/Angle", 270.0);
+        private static final TunableNumber depotRedX = new TunableNumber("Field", "DepotRed/X", 15.4);
+        private static final TunableNumber depotRedY = new TunableNumber("Field", "DepotRed/Y", 2.0);
+        private static final TunableNumber depotRedAngle = new TunableNumber("Field", "DepotRed/Angle", 0.0);
 
         // TRENCH PASS POINTS (Blue Alliance has A, B, C, D)
         private static final TunableNumber trenchBlueA_X = new TunableNumber("Field", "TrenchBlueA/X", 3.270);
@@ -241,18 +241,8 @@ public final class FieldConstants {
 
         public static final double kIdealShootingDistanceMeters = 3.0;
 
-        public static final Pose2d kBlueDepotPose = new Pose2d(1.5, 1.0, Rotation2d.fromDegrees(0));
-        public static final Pose2d kRedDepotPose = new Pose2d(14.99, 1.0, Rotation2d.fromDegrees(180));
-
         public static final Pose2d kBlueOutpostPose = new Pose2d(15.0, 7.0, Rotation2d.fromDegrees(180));
         public static final Pose2d kRedOutpostPose = new Pose2d(1.49, 7.0, Rotation2d.fromDegrees(0));
-
-        public static final double kTowerClimbHeightMeters = 1.5;
-
-        public static final Pose2d[] kSourcePoses = new Pose2d[] {
-                        kBlueDepotPose,
-                        kBlueOutpostPose
-        };
 
         public static final double kFuelDiameterMeters = 0.15;
 
@@ -509,18 +499,6 @@ public final class FieldConstants {
         }
 
         /**
-         * Alliance'a göre asılma pozisyonunu döndürür.
-         */
-        public static Pose2d getClimbPose(Optional<Alliance> alliance) {
-                if (alliance.isPresent() && alliance.get() == Alliance.Red) {
-                        return new Pose2d(climbRedX.get(), climbRedY.get(),
-                                        Rotation2d.fromDegrees(climbRedAngle.get()));
-                }
-                return new Pose2d(climbBlueX.get(), climbBlueY.get(),
-                                Rotation2d.fromDegrees(climbBlueAngle.get()));
-        }
-
-        /**
          * Gets the Outpost Pose for the specified alliance.
          */
         public static Pose2d getOutpostPose(Optional<Alliance> alliance) {
@@ -530,6 +508,19 @@ public final class FieldConstants {
                 }
                 return new Pose2d(outpostBlueX.get(), outpostBlueY.get(),
                                 Rotation2d.fromDegrees(outpostBlueAngle.get()));
+        }
+
+        /**
+         * Gets the Source (Depot/Station) pose for the specified alliance.
+         * Tunable from Dashboard: Field/DepotRed/*, Field/DepotBlue/*
+         */
+        public static Pose2d getSourcePose(Optional<Alliance> alliance) {
+                if (alliance.isPresent() && alliance.get() == Alliance.Red) {
+                        return new Pose2d(depotRedX.get(), depotRedY.get(),
+                                        Rotation2d.fromDegrees(depotRedAngle.get()));
+                }
+                return new Pose2d(depotBlueX.get(), depotBlueY.get(),
+                                Rotation2d.fromDegrees(depotBlueAngle.get()));
         }
 
         private FieldConstants() {

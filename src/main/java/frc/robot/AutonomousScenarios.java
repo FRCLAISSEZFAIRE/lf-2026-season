@@ -13,6 +13,7 @@ import frc.robot.commands.drive.TrenchPassCommand;
 import frc.robot.commands.intake.FeedPassCommand;
 import frc.robot.commands.shooter.ShootCommand;
 import frc.robot.constants.FieldConstants;
+import frc.robot.constants.IntakeConstants;
 import frc.robot.subsystems.drive.DriveSubsystem;
 import frc.robot.subsystems.feeder.FeederSubsystem;
 import frc.robot.subsystems.intake.IntakeSubsystem;
@@ -20,23 +21,23 @@ import frc.robot.subsystems.shooter.ShooterSubsystem;
 import frc.robot.util.TunableNumber;
 
 /**
- * Otonom senaryolarını tanımlayan sınıf.
+ * Defines autonomous scenarios.
  * 
  * <p>
- * Yeni senaryo eklemek için:
- * 1. Aşağıya yeni bir private static metot ekle
- * 2. buildChooser() içinde addOption() ile kaydet
+ * To add a new scenario:
+ * 1. Add a new private static method below
+ * 2. Register it in buildChooser() with addOption()
  * </p>
  * 
  * <p>
- * Süre ayarları Dashboard'dan düzenlenebilir:
+ * Timing settings are adjustable from the Dashboard:
  * Tuning/Auto/IntakeTimeout, StartShootTimeout, FullShootTimeout
  * </p>
  */
 public final class AutonomousScenarios {
 
         // ==========================================================================
-        // SÜRE AYARLARI — Dashboard'dan düzenlenebilir, RIO'ya kayıtlı
+        // TIMING SETTINGS - Adjustable from Dashboard, saved to RIO
         // ==========================================================================
         private static final TunableNumber fullShootTimeout = new TunableNumber("Auto", "FullShootTimeout", 5.0);
 
@@ -46,8 +47,8 @@ public final class AutonomousScenarios {
         }
 
         /**
-         * Tüm otonom senaryolarını içeren SendableChooser oluşturur.
-         * RobotContainer'dan çağrılır.
+         * Creates the SendableChooser containing all autonomous scenarios.
+         * Called from RobotContainer.
          */
         public static SendableChooser<Command> buildChooser(
                         DriveSubsystem drive,
@@ -57,15 +58,15 @@ public final class AutonomousScenarios {
 
                 SendableChooser<Command> chooser = new SendableChooser<>();
 
-                chooser.setDefaultOption("0 - Hiçbir Şey Yapma", Commands.none());
+                chooser.setDefaultOption("0 - Do Nothing", Commands.none());
 
-                chooser.addOption("1 - Topla Şut at",
+                chooser.addOption("1 - Collect and Shoot",
                                 collectAndShoot(drive, shooter, feeder, intake));
 
-                chooser.addOption("2 - Topla, Outpost, Shoot",
-                                collectShootAndClimb(drive, shooter, feeder, intake));
+                chooser.addOption("2 - Source, Shoot",
+                                sourceAndShoot(drive, shooter, feeder, intake));
 
-                chooser.addOption("3 - Çift Tur Topla & Şut",
+                chooser.addOption("3 - Double Collect & Shoot",
                                 doubleCollectAndShoot(drive, shooter, feeder, intake));
 
                 passChooser.setDefaultOption("Trench", "Trench");
@@ -78,11 +79,11 @@ public final class AutonomousScenarios {
         }
 
         // ==========================================================================
-        // SENARYO TANIMLARI
+        // SCENARIO DEFINITIONS
         // ==========================================================================
 
         /**
-         * Senaryo 1: TrenchPass -> autoIntake -> TrenchPass -> Şut at
+         * Scenario 1: TrenchPass -> autoIntake -> TrenchPass -> Shoot
          */
         private static Command collectAndShoot(
                         DriveSubsystem drive, ShooterSubsystem shooter,
@@ -96,42 +97,56 @@ public final class AutonomousScenarios {
         }
 
         /**
-         * Senaryo 2: TrenchPass -> autoIntake -> TrenchPass -> Outpost'a git -> Şut at
+         * Scenario 2: Drive to Source (intake running) -> Shoot until auto ends
          */
-        private static Command collectShootAndClimb(
+        private static Command sourceAndShoot(
                         DriveSubsystem drive, ShooterSubsystem shooter,
                         FeederSubsystem feeder, IntakeSubsystem intake) {
 
                 return Commands.sequence(
-                                getMainPassCommand(drive, shooter),
-                                autoIntake(drive, intake, feeder),
-                                getMainPassCommand(drive, shooter),
-                                driveToOutpost(drive),
+                                // Drive to source while running intake + feeder
+                                Commands.deadline(
+                                                new SimpleDriveToPose(drive,
+                                                                FieldConstants.getSourcePose(
+                                                                                DriverStation.getAlliance())),
+                                                Commands.runEnd(
+                                                                () -> {
+                                                                        intake.setExtensionPosition(IntakeConstants.kExtensionDeployedCm);
+                                                                        intake.runRollerRPM(2000);
+                                                                        feeder.feed();
+                                                                },
+                                                                () -> {
+                                                                        intake.stopRoller();
+                                                                        intake.setExtensionPosition(IntakeConstants.kExtensionRetractedCm);
+                                                                        feeder.stop();
+                                                                },
+                                                                intake, feeder)),
+                                // Shoot until auto ends
                                 fullShoot(shooter, feeder, drive, intake));
         }
 
         /**
-         * Senaryo 3: TrenchPass -> autoIntake -> TrenchPass -> Şut -> TrenchPass ->
-         * autoIntake -> Şut
+         * Scenario 3: TrenchPass -> autoIntake -> TrenchPass -> Shoot -> TrenchPass ->
+         * autoIntake -> Shoot
          */
         private static Command doubleCollectAndShoot(
                         DriveSubsystem drive, ShooterSubsystem shooter,
                         FeederSubsystem feeder, IntakeSubsystem intake) {
 
                 return Commands.sequence(
-                                // 1. Tur
+                                // Round 1
                                 getMainPassCommand(drive, shooter),
                                 autoIntake(drive, intake, feeder),
                                 getMainPassCommand(drive, shooter),
                                 fullShoot(shooter, feeder, drive, intake),
-                                // 2. Tur
+                                // Round 2
                                 getMainPassCommand(drive, shooter),
                                 autoIntake(drive, intake, feeder),
                                 fullShoot(shooter, feeder, drive, intake));
         }
 
         /**
-         * Ana geçiş komutunu (Trench veya Bump) Dashboard seçimine göre döndürür.
+         * Returns the main pass command (Trench or Bump) based on Dashboard selection.
          */
         public static Command getMainPassCommand(DriveSubsystem drive, ShooterSubsystem shooter) {
                 return new DeferredCommand(() -> {
@@ -145,8 +160,8 @@ public final class AutonomousScenarios {
         }
 
         /**
-         * Alternatif geçiş komutunu (Trench veya Bump) Dashboard seçimine göre
-         * döndürür.
+         * Returns the alternative pass command (Trench or Bump) based on Dashboard
+         * selection.
          */
         public static Command getAlternativePassCommand(DriveSubsystem drive, ShooterSubsystem shooter) {
                 return new DeferredCommand(() -> {
@@ -160,10 +175,10 @@ public final class AutonomousScenarios {
         }
 
         // ==========================================================================
-        // YARDIMCI KOMUTLAR
+        // HELPER COMMANDS
         // ==========================================================================
 
-        /** Tam şut — süre dashboard'dan ayarlanabilir */
+        /** Full shoot - timeout adjustable from dashboard */
         private static Command fullShoot(
                         ShooterSubsystem shooter, FeederSubsystem feeder, DriveSubsystem drive,
                         IntakeSubsystem intake) {
@@ -171,20 +186,14 @@ public final class AutonomousScenarios {
                                 .withTimeout(fullShootTimeout.get());
         }
 
-        /** Top toplama — FeedStart→FeedStop noktalarına giderek intake çalıştırır */
+        /**
+         * Ball collection - drives to FeedStart/FeedStop points while running intake
+         */
         private static Command autoIntake(
                         DriveSubsystem drive, IntakeSubsystem intake, FeederSubsystem feeder) {
                 return Commands.deadline(
-                        new FeedPassCommand(drive, intake),
-                        Commands.runEnd(() -> feeder.feed(), () -> feeder.stop(), feeder)
-                );
-        }
-
-        /** Outpost noktasına sürüş komutu */
-        private static Command driveToOutpost(DriveSubsystem drive) {
-                return new DeferredCommand(() -> {
-                        return new SimpleDriveToPose(drive, FieldConstants.getOutpostPose(DriverStation.getAlliance()));
-                }, java.util.Set.<edu.wpi.first.wpilibj2.command.Subsystem>of(drive));
+                                new FeedPassCommand(drive, intake),
+                                Commands.runEnd(() -> feeder.feed(), () -> feeder.stop(), feeder));
         }
 
 }

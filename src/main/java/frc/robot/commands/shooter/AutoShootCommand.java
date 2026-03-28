@@ -13,23 +13,23 @@ import frc.robot.util.TunableNumber;
 import java.util.function.Supplier;
 
 /**
- * Otonom için zamanlı atış komutu — ShootCommand'ın aynısı,
- * fakat belirtilen süre dolunca otomatik olarak durur.
+ * Timed shooting command for autonomous - same as ShootCommand,
+ * but automatically stops after the specified duration.
  *
  * <p>
- * Pose bazlı nişan alır, "Ateşi Tut" kilitleme mantığı uygular,
- * intake ajitasyonu yapar ve süre dolunca tüm alt sistemleri durdurur.
+ * Uses pose-based aiming, applies fire-latch logic,
+ * runs intake agitation, and stops all subsystems when time expires.
  * </p>
  *
- * <h3>Dashboard Ayarları:</h3>
+ * <h3>Dashboard Settings:</h3>
  * <ul>
- * <li>{@code Tuning/Shooter/Test/AutoShoot Duration Sec} — atış süresi
- * (sn)</li>
+ * <li>{@code Tuning/Shooter/Test/AutoShoot Duration Sec} - shoot duration
+ * (sec)</li>
  * </ul>
  */
 public class AutoShootCommand extends Command {
 
-    /** Dashboard'dan ayarlanabilir atış süresi (saniye). */
+    /** Dashboard-adjustable shoot duration (seconds). */
     public static final TunableNumber shootDurationSec = new TunableNumber("Shooter/Test", "AutoShoot Duration Sec",
             5.0);
 
@@ -39,17 +39,17 @@ public class AutoShootCommand extends Command {
     private final IntakeSubsystem intake;
     private final Supplier<Pose2d> poseSupplier;
 
-    // Ateş kilidi — bir kez başladıktan sonra feeder durmaz
+    // Fire latch - once started, feeder keeps running
     private boolean hasShot = false;
 
-    // Intake deploy/retract döngüsü
+    // Intake deploy/retract cycle
     private final Timer cycleTimer = new Timer();
     private boolean intakeDeployed = false;
 
-    // Zamanlayıcı
+    // Timer
     private final Timer timer = new Timer();
 
-    // Tunable: döngü süresi (saniye) ve düşük RPM (ShootCommand ile paylaşılır)
+    // Tunable: cycle time (seconds) and low RPM (shared with ShootCommand)
     private static final TunableNumber intakeCycleTime = new TunableNumber("Shooter", "IntakeCycleTimeSec", 1.5);
     private static final TunableNumber intakeShootRPM = new TunableNumber("Shooter", "IntakeShootRPM", 1500.0);
 
@@ -58,7 +58,7 @@ public class AutoShootCommand extends Command {
      * @param feeder       FeederSubsystem
      * @param drive        DriveSubsystem
      * @param intake       IntakeSubsystem
-     * @param poseSupplier Robot konum kaynağı (drive::getPose)
+     * @param poseSupplier Robot pose supplier (drive::getPose)
      */
     public AutoShootCommand(
             ShooterSubsystem shooter,
@@ -82,43 +82,43 @@ public class AutoShootCommand extends Command {
         cycleTimer.restart();
         timer.restart();
 
-        // Atış süresince dönüş merkezini taretin fiziksel merkezine ayarla
+        // Set center of rotation to turret physical center during shoot
         drive.setCenterOfRotation(shooter.getTurretCenterOfRotation());
 
-        System.out.println("[AutoShoot] Başlatıldı — süre=" + shootDurationSec.get() + "s");
+        System.out.println("[AutoShoot] Started - duration=" + shootDurationSec.get() + "s");
     }
 
     @Override
     public void execute() {
-        // 1. Güncel robot pozisyonunu al
+        // 1. Get current robot pose
         Pose2d currentPose = poseSupplier.get();
         if (currentPose == null) {
             feeder.stop();
             return;
         }
 
-        // 2. Hedefleme güncelle (Taret, Hood, RPM)
+        // 2. Update aiming (Turret, Hood, RPM)
         if (shooter.isInAllianceZone()) {
             shooter.updateAiming(currentPose);
         } else {
             shooter.updateAimingForPass(currentPose);
         }
 
-        // 3. "Ateşi Tut" Mantığı — LATCH (Kilitleme)
+        // 3. Fire-latch logic
         boolean ready = shooter.isFlywheelAtTarget();
 
         if (ready && !hasShot) {
             hasShot = true;
         }
 
-        // KİLİTLEME MANTIĞI:
+        // LATCH LOGIC:
         if (ready || hasShot) {
             feeder.feed();
         } else {
             feeder.stop();
         }
 
-        // 4. Intake Ajitasyonu — yavaş deploy/retract döngüsü + düşük RPM roller
+        // 4. Intake agitation - slow deploy/retract cycle + low RPM roller
         intake.runRollerRPM(intakeShootRPM.get());
 
         if (cycleTimer.hasElapsed(intakeCycleTime.get())) {
@@ -139,17 +139,17 @@ public class AutoShootCommand extends Command {
 
     @Override
     public void end(boolean interrupted) {
-        // Her şeyi durdur
+        // Stop everything
         shooter.stopFlywheel();
         feeder.stop();
         intake.stopRoller();
         intake.setExtensionPosition(IntakeConstants.kExtensionRetractedCm);
 
-        // Dönüş merkezini tekrar robot merkezine sıfırla
+        // Reset center of rotation back to robot center
         drive.resetCenterOfRotation();
         cycleTimer.stop();
         timer.stop();
 
-        System.out.println("[AutoShoot] Bitti — " + (interrupted ? "iptal edildi" : "süre doldu"));
+        System.out.println("[AutoShoot] Finished - " + (interrupted ? "interrupted" : "timed out"));
     }
 }

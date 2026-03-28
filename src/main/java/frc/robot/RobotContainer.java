@@ -187,6 +187,28 @@ public class RobotContainer {
                 SmartDashboard.putData("Commands/TurretOffset -3",
                                 Commands.runOnce(() -> shooterSubsystem.adjustAutoAimOffset(-3.0))
                                                 .ignoringDisable(true).withName("TurretOffset -3"));
+
+                // ==================== FIXED SHOT BUTTONS ====================
+                // Red Alliance: R1, R2, R3, R4, RP1, RP2
+                for (int i = 0; i < frc.robot.constants.ShooterConstants.FIXED_SHOT_COUNT; i++) {
+                        String name = frc.robot.constants.ShooterConstants.RED_FIXED_SHOT_NAMES[i];
+                        SmartDashboard.putData("Commands/FixedShot/" + name,
+                                        new frc.robot.commands.shooter.FixedShotCommand(
+                                                        shooterSubsystem, feederSubsystem, intakeSubsystem,
+                                                        driveSubsystem::getPose,
+                                                        i, true)
+                                                        .withName("FixedShot " + name));
+                }
+                // Blue Alliance: B1, B2, B3, B4, BP1, BP2
+                for (int i = 0; i < frc.robot.constants.ShooterConstants.FIXED_SHOT_COUNT; i++) {
+                        String name = frc.robot.constants.ShooterConstants.BLUE_FIXED_SHOT_NAMES[i];
+                        SmartDashboard.putData("Commands/FixedShot/" + name,
+                                        new frc.robot.commands.shooter.FixedShotCommand(
+                                                        shooterSubsystem, feederSubsystem, intakeSubsystem,
+                                                        driveSubsystem::getPose,
+                                                        i, false)
+                                                        .withName("FixedShot " + name));
+                }
         }
 
         // ==================== STARTING POSE ====================
