@@ -61,6 +61,15 @@ public class ControllerBindings {
                                 .whileTrue(new frc.robot.commands.drive.TrenchPassCommand(driveSubsystem,
                                                 shooterSubsystem));
 
+                // [LEFT BUMPER] İTTİFAKA VE KONUMA GÖRE GÜVENLİ BUMP PASS
+                driverController.leftBumper()
+                                .whileTrue(new frc.robot.commands.drive.BumpPassCommand(driveSubsystem,
+                                                shooterSubsystem));
+
+                // [A BUTTON] HOOD AÇISINI 0 YAP (KAPANMA)
+                driverController.a()
+                                .onTrue(Commands.runOnce(() -> shooterSubsystem.setHoodAngle(0), shooterSubsystem));
+
                 // [B BUTTON] OTOMATİK FEED PASS (Top Toplama Rotası)
                 driverController.b()
                                 .whileTrue(new frc.robot.commands.intake.FeedPassCommand(driveSubsystem,

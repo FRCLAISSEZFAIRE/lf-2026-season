@@ -48,11 +48,11 @@ public final class FieldConstants {
         // Group: "Field"
 
         // HUB
-        private static final TunableNumber blueHubX = new TunableNumber("Field", "BlueHub/X", 4.05);
-        private static final TunableNumber blueHubY = new TunableNumber("Field", "BlueHub/Y", 4.05);
+        private static final TunableNumber blueHubX = new TunableNumber("Field", "BlueHub/X", 4.6);
+        private static final TunableNumber blueHubY = new TunableNumber("Field", "BlueHub/Y", 4.0);
 
-        private static final TunableNumber redHubX = new TunableNumber("Field", "RedHub/X", 12.44);
-        private static final TunableNumber redHubY = new TunableNumber("Field", "RedHub/Y", 4.05);
+        private static final TunableNumber redHubX = new TunableNumber("Field", "RedHub/X", 12);
+        private static final TunableNumber redHubY = new TunableNumber("Field", "RedHub/Y", 4);
 
         // FEEDING (Source/Station Target)
         private static final TunableNumber blueFeedingX = new TunableNumber("Field", "BlueFeeding/X", 3.5);
@@ -180,51 +180,51 @@ public final class FieldConstants {
 
         // --- BLUE ALLIANCE FEED PASS (Diagonal Paths for Maximum Collection) ---
         // Left Path (Y High to Low Diagonal)
-        private static final TunableNumber feedStartBlueLeftX = new TunableNumber("Field", "FeedStartBlueLeft/X", 10.0);
-        private static final TunableNumber feedStartBlueLeftY = new TunableNumber("Field", "FeedStartBlueLeft/Y", 7.0);
+        private static final TunableNumber feedStartBlueLeftX = new TunableNumber("Field", "FeedStartBlueLeft/X", 7.3);
+        private static final TunableNumber feedStartBlueLeftY = new TunableNumber("Field", "FeedStartBlueLeft/Y", 6);
         private static final TunableNumber feedStartBlueLeftAngle = new TunableNumber("Field",
-                        "FeedStartBlueLeft/Angle", 0.0);
+                        "FeedStartBlueLeft/Angle", -70);
 
-        private static final TunableNumber feedStopBlueLeftX = new TunableNumber("Field", "FeedStopBlueLeft/X", 6.0);
-        private static final TunableNumber feedStopBlueLeftY = new TunableNumber("Field", "FeedStopBlueLeft/Y", 1.0);
+        private static final TunableNumber feedStopBlueLeftX = new TunableNumber("Field", "FeedStopBlueLeft/X", 7.3);
+        private static final TunableNumber feedStopBlueLeftY = new TunableNumber("Field", "FeedStopBlueLeft/Y", 5.8);
         private static final TunableNumber feedStopBlueLeftAngle = new TunableNumber("Field", "FeedStopBlueLeft/Angle",
-                        0.0);
+                        -70);
 
         // Right Path (Y Low to High Diagonal)
         private static final TunableNumber feedStartBlueRightX = new TunableNumber("Field", "FeedStartBlueRight/X",
-                        10.0);
+                        7.6);
         private static final TunableNumber feedStartBlueRightY = new TunableNumber("Field", "FeedStartBlueRight/Y",
-                        1.0);
+                        1.8);
         private static final TunableNumber feedStartBlueRightAngle = new TunableNumber("Field",
-                        "FeedStartBlueRight/Angle", 0.0);
+                        "FeedStartBlueRight/Angle", 70);
 
-        private static final TunableNumber feedStopBlueRightX = new TunableNumber("Field", "FeedStopBlueRight/X", 6.0);
-        private static final TunableNumber feedStopBlueRightY = new TunableNumber("Field", "FeedStopBlueRight/Y", 7.0);
+        private static final TunableNumber feedStopBlueRightX = new TunableNumber("Field", "FeedStopBlueRight/X", 7.6);
+        private static final TunableNumber feedStopBlueRightY = new TunableNumber("Field", "FeedStopBlueRight/Y", 1.8);
         private static final TunableNumber feedStopBlueRightAngle = new TunableNumber("Field",
-                        "FeedStopBlueRight/Angle", 0.0);
+                        "FeedStopBlueRight/Angle", 70);
 
         // --- RED ALLIANCE FEED PASS (Diagonal Paths for Maximum Collection) ---
         // Left Path (Y High to Low Diagonal)
-        private static final TunableNumber feedStartRedLeftX = new TunableNumber("Field", "FeedStartRedLeft/X", 8.8);
-        private static final TunableNumber feedStartRedLeftY = new TunableNumber("Field", "FeedStartRedLeft/Y", 1.0);
+        private static final TunableNumber feedStartRedLeftX = new TunableNumber("Field", "FeedStartRedLeft/X", 9);
+        private static final TunableNumber feedStartRedLeftY = new TunableNumber("Field", "FeedStartRedLeft/Y", 2.5);
         private static final TunableNumber feedStartRedLeftAngle = new TunableNumber("Field", "FeedStartRedLeft/Angle",
-                        270.0);
+                        140.0);
 
-        private static final TunableNumber feedStopRedLeftX = new TunableNumber("Field", "FeedStopRedLeft/X", 8.8);
-        private static final TunableNumber feedStopRedLeftY = new TunableNumber("Field", "FeedStopRedLeft/Y", 3.5);
+        private static final TunableNumber feedStopRedLeftX = new TunableNumber("Field", "FeedStopRedLeft/X", 9);
+        private static final TunableNumber feedStopRedLeftY = new TunableNumber("Field", "FeedStopRedLeft/Y", 2.7);
         private static final TunableNumber feedStopRedLeftAngle = new TunableNumber("Field", "FeedStopRedLeft/Angle",
-                        270.0);
+                        140.0);
 
         // Right Path (Y Low to High Diagonal)
-        private static final TunableNumber feedStartRedRightX = new TunableNumber("Field", "FeedStartRedRight/X", 8.8);
-        private static final TunableNumber feedStartRedRightY = new TunableNumber("Field", "FeedStartRedRight/Y", 7.0);
+        private static final TunableNumber feedStartRedRightX = new TunableNumber("Field", "FeedStartRedRight/X", 9);
+        private static final TunableNumber feedStartRedRightY = new TunableNumber("Field", "FeedStartRedRight/Y", 5.7);
         private static final TunableNumber feedStartRedRightAngle = new TunableNumber("Field",
-                        "FeedStartRedRight/Angle", 90.0);
+                        "FeedStartRedRight/Angle", -130);
 
-        private static final TunableNumber feedStopRedRightX = new TunableNumber("Field", "FeedStopRedRight/X", 8.8);
+        private static final TunableNumber feedStopRedRightX = new TunableNumber("Field", "FeedStopRedRight/X", 9);
         private static final TunableNumber feedStopRedRightY = new TunableNumber("Field", "FeedStopRedRight/Y", 5.5);
         private static final TunableNumber feedStopRedRightAngle = new TunableNumber("Field", "FeedStopRedRight/Angle",
-                        90.0);
+                        -130);
 
         // === LEGACY CONSTANTS (Restored & Linked) ===
         public static final double kHubHeightMeters = 1.83;

@@ -141,11 +141,14 @@ public class VisionSubsystem extends SubsystemBase {
                 gyroRateDegPerSec,
                 0, 0, 0, 0);
 
-        // Get MegaTag 2 pose estimate
+        // Get MegaTag 2 pose estimate, fallback to MegaTag 1 (botpose_wpiblue) if ORB is disabled
         PoseEstimate mt2 = LimelightHelpers.getBotPoseEstimate_wpiBlue_MegaTag2(cameraName);
+        if (mt2 == null || mt2.pose == null) {
+            mt2 = LimelightHelpers.getBotPoseEstimate_wpiBlue(cameraName);
+        }
 
         // Null check
-        if (mt2 == null) {
+        if (mt2 == null || mt2.pose == null) {
             Logger.recordOutput("Tuning/Vision/" + (isLeftCamera ? "Left" : "Right") + "/RejectReason", "NullResult");
             return;
         }
@@ -173,12 +176,14 @@ public class VisionSubsystem extends SubsystemBase {
             return;
         }
 
-        // Validation: Out of field bounds
+        // Validation: Out of field bounds (Temporarily disabled for debugging so you can see where it teleports)
+        /*
         if (mt2.pose.getX() < -0.5 || mt2.pose.getX() > 17.0 ||
                 mt2.pose.getY() < -0.5 || mt2.pose.getY() > 9.0) {
             Logger.recordOutput("Tuning/Vision/" + (isLeftCamera ? "Left" : "Right") + "/RejectReason", "OutOfField");
             return;
         }
+        */
 
         // Calculate dynamic standard deviations
         double xyStdev = calculateXYStdDev(mt2, gyroRateDegPerSec);
