@@ -49,6 +49,9 @@ public class FixedShotCommand extends Command {
     private final TunableNumber hoodAngleTunable;
     private final String shotName;
 
+    // Reference heading at which turret values were calibrated (180° for Red, 0° for Blue)
+    private final double referenceHeadingDeg;
+
     // Fire latch - once started, feeder keeps running
     private boolean hasShot = false;
 
@@ -82,6 +85,10 @@ public class FixedShotCommand extends Command {
         this.intake = intake;
         this.poseSupplier = poseSupplier;
 
+        // Reference heading: the robot heading at which these turret values were calibrated.
+        // Red starts at 180°, Blue starts at 0°.
+        this.referenceHeadingDeg = isRed ? 180.0 : 0.0;
+
         if (isRed) {
             this.turretAngleTunable = ShooterConstants.RED_FIXED_TURRET[index];
             this.rpmTunable = ShooterConstants.RED_FIXED_RPM[index];
@@ -98,23 +105,29 @@ public class FixedShotCommand extends Command {
     }
 
     /**
-     * Converts a field-relative turret angle to robot-relative
-     * using the robot's current heading.
+     * Converts a stored turret angle (robot-relative at reference heading)
+     * to robot-relative at the current heading.
      * 
-     * @param fieldRelativeAngleDeg Absolute field turret angle (degrees)
-     * @return Robot-relative turret angle (degrees)
+     * Stored values were calibrated with the robot at referenceHeadingDeg
+     * (180° for Red, 0° for Blue). When the robot rotates, the turret
+     * must compensate by the difference.
+     * 
+     * Formula: compensated = stored + referenceHeading - currentHeading
+     * 
+     * @param storedTurretAngleDeg Turret angle recorded at reference heading (degrees)
+     * @return Robot-relative turret angle for the current heading (degrees)
      */
-    private double compensateForRobotHeading(double fieldRelativeAngleDeg) {
+    private double compensateForRobotHeading(double storedTurretAngleDeg) {
         Pose2d currentPose = poseSupplier.get();
         double robotHeadingDeg = currentPose.getRotation().getDegrees();
 
-        // Field-relative açıdan robot heading'ini çıkar → robot-relative açı
-        double robotRelativeAngle = fieldRelativeAngleDeg - robotHeadingDeg;
+        // Convert: stored (robot-relative@ref) → field-relative → robot-relative@current
+        double compensatedAngle = storedTurretAngleDeg + referenceHeadingDeg - robotHeadingDeg;
 
-        // -180 ile 180 arasına normalize et
-        robotRelativeAngle = MathUtil.inputModulus(robotRelativeAngle, -180.0, 180.0);
+        // Normalize to [-180, 180]
+        compensatedAngle = MathUtil.inputModulus(compensatedAngle, -180.0, 180.0);
 
-        return robotRelativeAngle;
+        return compensatedAngle;
     }
 
     @Override
