@@ -2286,5 +2286,53 @@
     "properties": {
       "persistent": true
     }
+  },
+  {
+    "name": "/Preferences/Field/DepotBlue/X",
+    "type": "double",
+    "value": 1.1,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/DepotBlue/Y",
+    "type": "double",
+    "value": 1.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/DepotBlue/Angle",
+    "type": "double",
+    "value": 180.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/DepotRed/X",
+    "type": "double",
+    "value": 15.3,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/DepotRed/Y",
+    "type": "double",
+    "value": 2.1,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Field/DepotRed/Angle",
+    "type": "double",
+    "value": 0.0,
+    "properties": {
+      "persistent": true
+    }
   }
 ]
