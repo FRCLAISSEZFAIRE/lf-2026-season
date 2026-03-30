@@ -35,7 +35,7 @@ public final class IntakeConstants {
     public static final double kExtensionHalfDeployedCm = 15.0;
 
     /** Intake tam kapalı (içeride) pozisyonu (çıkış cm) */
-    public static final double kExtensionHalfRetractedCm = 10.0;
+    public static final double kExtensionHalfRetractedCm = 30.0;
 
     /** Intake tam kapalı (içeride) pozisyonu (çıkış cm) */
     public static final double kExtensionRetractedCm = 0.0;

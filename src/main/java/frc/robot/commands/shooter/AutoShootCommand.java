@@ -7,7 +7,7 @@ import frc.robot.subsystems.shooter.ShooterSubsystem;
 import frc.robot.subsystems.feeder.FeederSubsystem;
 import frc.robot.subsystems.drive.DriveSubsystem;
 import frc.robot.subsystems.intake.IntakeSubsystem;
-import frc.robot.constants.IntakeConstants;
+
 import frc.robot.util.TunableNumber;
 
 import java.util.function.Supplier;
@@ -42,15 +42,10 @@ public class AutoShootCommand extends Command {
     // Fire latch - once started, feeder keeps running
     private boolean hasShot = false;
 
-    // Intake deploy/retract cycle
-    private final Timer cycleTimer = new Timer();
-    private boolean intakeDeployed = false;
-
-    // Timer
+    // Timer for auto-timeout
     private final Timer timer = new Timer();
 
-    // Tunable: cycle time (seconds) and low RPM (shared with ShootCommand)
-    private static final TunableNumber intakeCycleTime = new TunableNumber("Shooter", "IntakeCycleTimeSec", 1.5);
+    // Tunable: atış sırasında roller RPM (ShootCommand ile paylaşılır)
     private static final TunableNumber intakeShootRPM = new TunableNumber("Shooter", "IntakeShootRPM", 1500.0);
 
     /**
@@ -72,14 +67,16 @@ public class AutoShootCommand extends Command {
         this.intake = intake;
         this.poseSupplier = poseSupplier;
 
-        addRequirements(shooter, feeder, intake);
+        if (intake != null) {
+            addRequirements(shooter, feeder, intake);
+        } else {
+            addRequirements(shooter, feeder);
+        }
     }
 
     @Override
     public void initialize() {
         hasShot = false;
-        intakeDeployed = false;
-        cycleTimer.restart();
         timer.restart();
 
         // Set center of rotation to turret physical center during shoot
@@ -99,7 +96,7 @@ public class AutoShootCommand extends Command {
 
         // 2. Update aiming (Turret, Hood, RPM)
         if (shooter.isInAllianceZone()) {
-            shooter.updateAiming(currentPose);
+            shooter.updateAiming(currentPose, drive.getFieldVelocity());
         } else {
             shooter.updateAimingForPass(currentPose);
         }
@@ -118,17 +115,9 @@ public class AutoShootCommand extends Command {
             feeder.stop();
         }
 
-        // 4. Intake agitation - slow deploy/retract cycle + low RPM roller
-        intake.runRollerRPM(intakeShootRPM.get());
-
-        if (cycleTimer.hasElapsed(intakeCycleTime.get())) {
-            intakeDeployed = !intakeDeployed;
-            if (intakeDeployed) {
-                intake.setExtensionPosition(IntakeConstants.kExtensionDeployedCm);
-            } else {
-                intake.setExtensionPosition(IntakeConstants.kExtensionHalfRetractedCm);
-            }
-            cycleTimer.restart();
+        // 4. Intake roller — sadece roller çalıştır, extension'a dokunma
+        if (intake != null) {
+            intake.runRollerRPM(intakeShootRPM.get());
         }
     }
 
@@ -142,12 +131,13 @@ public class AutoShootCommand extends Command {
         // Stop everything
         shooter.stopFlywheel();
         feeder.stop();
-        intake.stopRoller();
-        intake.setExtensionPosition(IntakeConstants.kExtensionRetractedCm);
+        if (intake != null) {
+            intake.stopRoller();
+            // Extension'a dokunma — intake konum neredeyse orada kalsın
+        }
 
         // Reset center of rotation back to robot center
         drive.resetCenterOfRotation();
-        cycleTimer.stop();
         timer.stop();
 
         System.out.println("[AutoShoot] Finished - " + (interrupted ? "interrupted" : "timed out"));

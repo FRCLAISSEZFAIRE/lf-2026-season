@@ -19,9 +19,9 @@ import frc.robot.subsystems.drive.DriveSubsystem;
  * 
  * <h2>Camera Configuration:</h2>
  * <ul>
- * <li><b>limelight-left:</b> Limelight 3A, rear-left corner, 45° outward -
+ * <li><b>limelight-left:</b> Limelight 4, rear-left corner, 30° outward -
  * MegaTag 2</li>
- * <li><b>limelight-right:</b> Limelight 3, rear-right corner, 45° outward -
+ * <li><b>limelight-right:</b> Limelight 3, rear-right corner, 30° outward -
  * MegaTag 2</li>
  * 
  * </ul>
@@ -68,6 +68,37 @@ public class VisionSubsystem extends SubsystemBase {
 
         // Initialize Tuning Table entry
         tuningTable.getEntry("Vision/Enabled").setDefaultBoolean(true);
+
+        // ==================== LIMELIGHT KAMERA POZİSYON AYARLARI ====================
+        // Kamera offset'lerini Limelight'a gönder (robot merkezine göre).
+        // Bu yapılmazsa Limelight kameranın (0,0,0)'da olduğunu varsayar ve
+        // tüm pose tahminleri sistematik olarak kayar.
+        // NOT: Limelight setCameraPose_RobotSpace parametreleri:
+        //   forward (m), side (m), up (m), roll (°), pitch (°), yaw (°)
+        LimelightHelpers.setCameraPose_RobotSpace(
+                VisionConstants.kLimelightLeft,
+                VisionConstants.kLeftCameraToRobot.getTranslation().getX(),   // forward
+                VisionConstants.kLeftCameraToRobot.getTranslation().getY(),   // side
+                VisionConstants.kLeftCameraToRobot.getTranslation().getZ(),   // up
+                Math.toDegrees(VisionConstants.kLeftCameraToRobot.getRotation().getX()), // roll
+                Math.toDegrees(VisionConstants.kLeftCameraToRobot.getRotation().getY()), // pitch
+                Math.toDegrees(VisionConstants.kLeftCameraToRobot.getRotation().getZ())  // yaw
+        );
+        LimelightHelpers.setCameraPose_RobotSpace(
+                VisionConstants.kLimelightRight,
+                VisionConstants.kRightCameraToRobot.getTranslation().getX(),
+                VisionConstants.kRightCameraToRobot.getTranslation().getY(),
+                VisionConstants.kRightCameraToRobot.getTranslation().getZ(),
+                Math.toDegrees(VisionConstants.kRightCameraToRobot.getRotation().getX()),
+                Math.toDegrees(VisionConstants.kRightCameraToRobot.getRotation().getY()),
+                Math.toDegrees(VisionConstants.kRightCameraToRobot.getRotation().getZ())
+        );
+
+        // Pipeline index'lerini garanti altına al (reboot sonrası yanlış pipeline'da kalabilir)
+        LimelightHelpers.setPipelineIndex(VisionConstants.kLimelightLeft, VisionConstants.kAprilTagPipelineIndex);
+        LimelightHelpers.setPipelineIndex(VisionConstants.kLimelightRight, VisionConstants.kAprilTagPipelineIndex);
+
+        System.out.println("[VisionSubsystem] Kamera pozisyonları ve pipeline'lar Limelight'a gönderildi.");
     }
 
     // ==================== PERIODIC ====================
@@ -141,15 +172,10 @@ public class VisionSubsystem extends SubsystemBase {
                 gyroRateDegPerSec,
                 0, 0, 0, 0);
 
-        // Get MegaTag 2 pose estimate, fallback to MegaTag 1 (botpose_wpiblue) if ORB is disabled
+        // Get MegaTag 2 pose estimate (SADECE MegaTag2 — MegaTag1 fallback yok)
         PoseEstimate mt2 = LimelightHelpers.getBotPoseEstimate_wpiBlue_MegaTag2(cameraName);
         if (mt2 == null || mt2.pose == null) {
-            mt2 = LimelightHelpers.getBotPoseEstimate_wpiBlue(cameraName);
-        }
-
-        // Null check
-        if (mt2 == null || mt2.pose == null) {
-            Logger.recordOutput("Tuning/Vision/" + (isLeftCamera ? "Left" : "Right") + "/RejectReason", "NullResult");
+            Logger.recordOutput("Tuning/Vision/" + (isLeftCamera ? "Left" : "Right") + "/RejectReason", "NullMT2");
             return;
         }
 
@@ -176,14 +202,12 @@ public class VisionSubsystem extends SubsystemBase {
             return;
         }
 
-        // Validation: Out of field bounds (Temporarily disabled for debugging so you can see where it teleports)
-        /*
+        // Validation: Out of field bounds — Saha dışı saçma pozisyonları reddet
         if (mt2.pose.getX() < -0.5 || mt2.pose.getX() > 17.0 ||
                 mt2.pose.getY() < -0.5 || mt2.pose.getY() > 9.0) {
             Logger.recordOutput("Tuning/Vision/" + (isLeftCamera ? "Left" : "Right") + "/RejectReason", "OutOfField");
             return;
         }
-        */
 
         // Calculate dynamic standard deviations
         double xyStdev = calculateXYStdDev(mt2, gyroRateDegPerSec);

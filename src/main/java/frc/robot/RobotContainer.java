@@ -68,6 +68,8 @@ public class RobotContainer {
         private final CommandXboxController driverController = new CommandXboxController(
                         OIConstants.kDriverControllerPort);
 
+        private final CommandXboxController opController = new CommandXboxController(
+                        OIConstants.kOperatorControllerPort);
         // ==================== SUBSYSTEMS ====================
         private final DriveSubsystem driveSubsystem;
         private final VisionSubsystem visionSubsystem;
@@ -119,7 +121,8 @@ public class RobotContainer {
                 ledSubsystem = new LEDSubsystem(feederSubsystem);
 
                 // AutoShoot dashboard butonu (FeederSubsystem gerektiriyor)
-                shooterSubsystem.initAutoShootCommand(feederSubsystem, driveSubsystem, intakeSubsystem, driveSubsystem::getPose);
+                shooterSubsystem.initAutoShootCommand(feederSubsystem, driveSubsystem, intakeSubsystem,
+                                driveSubsystem::getPose);
 
                 // --- SCHEDULE HOOD HOMING ---
                 // Runs once on robot startup to calibrate hood
@@ -145,6 +148,7 @@ public class RobotContainer {
                 // 3. Bindings (ayrı sınıfta)
                 bindings = new ControllerBindings(
                                 driverController,
+                                opController,
                                 driveSubsystem,
                                 visionSubsystem,
                                 shooterSubsystem,
@@ -180,6 +184,12 @@ public class RobotContainer {
                                 new frc.robot.commands.intake.FeedPassCommand(
                                                 driveSubsystem, intakeSubsystem));
 
+                SmartDashboard.putData("Commands/Otoatış",
+                                new frc.robot.commands.shooter.AutoShootCommand(
+                                                shooterSubsystem, feederSubsystem, driveSubsystem, intakeSubsystem,
+                                                driveSubsystem::getPose)
+                                                .withName("Otoatış"));
+
                 // Taret Offset ayarı (her basışta ±3 derece)
                 SmartDashboard.putData("Commands/TurretOffset +3",
                                 Commands.runOnce(() -> shooterSubsystem.adjustAutoAimOffset(3.0))
@@ -187,6 +197,19 @@ public class RobotContainer {
                 SmartDashboard.putData("Commands/TurretOffset -3",
                                 Commands.runOnce(() -> shooterSubsystem.adjustAutoAimOffset(-3.0))
                                                 .ignoringDisable(true).withName("TurretOffset -3"));
+
+                // ==================== RPM OFFSET BUTTONS ====================
+                SmartDashboard.putData("Commands/Shooter/RPM Offset +50",
+                                Commands.runOnce(() -> shooterSubsystem.adjustFlywheelOffset(50.0), shooterSubsystem)
+                                                .ignoringDisable(true).withName("RPM Offset +50"));
+                SmartDashboard.putData("Commands/Shooter/RPM Offset -50",
+                                Commands.runOnce(() -> shooterSubsystem.adjustFlywheelOffset(-50.0), shooterSubsystem)
+                                                .ignoringDisable(true).withName("RPM Offset -50"));
+
+                // ==================== HUB OFFSET BUTTONS ====================
+                SmartDashboard.putData("Commands/Shooter/Reset Hub Offset",
+                                Commands.runOnce(() -> shooterSubsystem.resetHubOffset(), shooterSubsystem)
+                                                .ignoringDisable(true).withName("Reset Hub Offset"));
 
                 // ==================== FIXED SHOT BUTTONS ====================
                 // Red Alliance: R1, R2, R3, R4, RP1, RP2
@@ -222,17 +245,17 @@ public class RobotContainer {
                 resetToAllianceStart();
 
                 // SmartDashboard'a alliance değiştirme butonları ekle
-                edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.putData("Reset to Blue Start",
+                SmartDashboard.putData("Reset to Blue Start",
                                 Commands.runOnce(() -> driveSubsystem.resetOdometry(
                                                 new edu.wpi.first.math.geometry.Pose2d(2.0, 4.0,
                                                                 Rotation2d.fromDegrees(0)))));
 
-                edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.putData("Reset to Red Start",
+                SmartDashboard.putData("Reset to Red Start",
                                 Commands.runOnce(() -> driveSubsystem.resetOdometry(
                                                 new edu.wpi.first.math.geometry.Pose2d(14.5, 4.0,
                                                                 Rotation2d.fromDegrees(180)))));
 
-                edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.putData("Reset to Alliance Start",
+                SmartDashboard.putData("Reset to Alliance Start",
                                 Commands.runOnce(this::resetToAllianceStart));
         }
 
@@ -299,7 +322,7 @@ public class RobotContainer {
          * Başlangıç pozisyonu artık dashboard butonlarıyla manuel ayarlanır.
          */
         public void onAutonomousInit() {
-             
+
         }
 
         /**
@@ -314,7 +337,6 @@ public class RobotContainer {
                         resetToAllianceStart();
                 }
 
-         
         }
 
         /**

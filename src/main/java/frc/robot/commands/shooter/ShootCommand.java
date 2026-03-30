@@ -1,13 +1,13 @@
 package frc.robot.commands.shooter;
 
 import edu.wpi.first.math.geometry.Pose2d;
-import edu.wpi.first.wpilibj.Timer;
+
 import edu.wpi.first.wpilibj2.command.Command;
 import frc.robot.subsystems.shooter.ShooterSubsystem;
 import frc.robot.subsystems.feeder.FeederSubsystem;
 import frc.robot.subsystems.drive.DriveSubsystem;
 import frc.robot.subsystems.intake.IntakeSubsystem;
-import frc.robot.constants.IntakeConstants;
+
 import frc.robot.util.TunableNumber;
 
 import java.util.function.Supplier;
@@ -33,12 +33,7 @@ public class ShootCommand extends Command {
     // Ateş kilidi — bir kez başladıktan sonra feeder durmaz
     private boolean hasShot = false;
 
-    // Intake deploy/retract döngüsü
-    private final Timer cycleTimer = new Timer();
-    private boolean intakeDeployed = false;
-
-    // Tunable: döngü süresi (saniye) ve düşük RPM
-    private static final TunableNumber intakeCycleTime = new TunableNumber("Shooter", "IntakeCycleTimeSec", 1.5);
+    // Tunable: atış sırasında roller RPM
     private static final TunableNumber intakeShootRPM = new TunableNumber("Shooter", "IntakeShootRPM", 1500.0);
 
     /**
@@ -68,13 +63,11 @@ public class ShootCommand extends Command {
     @Override
     public void initialize() {
         hasShot = false;
-        intakeDeployed = false;
-        cycleTimer.restart();
 
         // Atış süresince dönüş merkezini taretin fiziksel merkezine ayarla
         drive.setCenterOfRotation(shooter.getTurretCenterOfRotation());
 
-        System.out.println("[ShootCommand] Başlatıldı — Pose Hedefleme, Dönüş Merkezi Taret, Intake Ajitasyonu Aktif");
+        System.out.println("[ShootCommand] Başlatıldı — Pose Hedefleme, Dönüş Merkezi Taret");
     }
 
     @Override
@@ -88,8 +81,9 @@ public class ShootCommand extends Command {
 
         // 2. Hedefleme güncelle (Taret, Hood, RPM)
         if (shooter.isInAllianceZone()) {
-            shooter.updateAiming(currentPose);
+            shooter.updateAiming(currentPose, drive.getFieldVelocity());
         } else {
+            // For now, let's keep pass aiming static or add overload if needed.
             shooter.updateAimingForPass(currentPose);
         }
 
@@ -107,18 +101,8 @@ public class ShootCommand extends Command {
             feeder.stop();
         }
 
-        // 4. Intake Ajitasyonu — yavaş deploy/retract döngüsü + düşük RPM roller
+        // 4. Intake roller — sadece düşük RPM'de roller çalıştır (extension'a dokunma)
         intake.runRollerRPM(intakeShootRPM.get());
-
-        if (cycleTimer.hasElapsed(intakeCycleTime.get())) {
-            intakeDeployed = !intakeDeployed;
-            if (intakeDeployed) {
-                intake.setExtensionPosition(IntakeConstants.kExtensionDeployedCm);
-            } else {
-                intake.setExtensionPosition(IntakeConstants.kExtensionHalfRetractedCm);
-            }
-            cycleTimer.restart();
-        }
     }
 
     @Override
@@ -127,11 +111,10 @@ public class ShootCommand extends Command {
         shooter.stopFlywheel();
         feeder.stop();
         intake.stopRoller();
-        intake.setExtensionPosition(IntakeConstants.kExtensionRetractedCm);
-
+        // Extension'a dokunma — intake konum neredeyse orada kalsın
+        shooter.setHoodAngle(0);
         // Dönüş merkezini tekrar robot merkezine sıfırla
         drive.resetCenterOfRotation();
-        cycleTimer.stop();
 
         System.out.println("[ShootCommand] Durduruldu");
     }

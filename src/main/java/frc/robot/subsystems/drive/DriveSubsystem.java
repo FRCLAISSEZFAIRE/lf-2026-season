@@ -118,7 +118,7 @@ public class DriveSubsystem extends SubsystemBase {
         // Vision: 0.9m, 0.9m, 0.9rad (Low trust initially)
         m_poseEstimator = new SwerveDrivePoseEstimator(
                 DriveConstants.kDriveKinematics,
-                getRotation2d(),
+                getRawGyroRotation2d(),
                 new SwerveModulePosition[] {
                         m_frontLeft.getPosition(),
                         m_frontRight.getPosition(),
@@ -208,9 +208,10 @@ public class DriveSubsystem extends SubsystemBase {
     @Override
     public void periodic() {
         // Update the pose estimator in the periodic block
-        // Use getRotation2d() so it handles Simulation vs Real automatically
+        // Raw gyro kullanılmalı — getRotation2d() PoseEstimator'dan okuyor (circular
+        // olur)
         m_poseEstimator.update(
-                getRotation2d(),
+                getRawGyroRotation2d(),
                 new SwerveModulePosition[] {
                         m_frontLeft.getPosition(),
                         m_frontRight.getPosition(),
@@ -223,7 +224,10 @@ public class DriveSubsystem extends SubsystemBase {
 
         // Logging
         Logger.recordOutput("Tuning/Drive/Pose", getPose());
-        Logger.recordOutput("Tuning/Drive/Gyro", getRotation2d());
+        Logger.recordOutput("Tuning/Drive/Heading", getRotation2d());
+        Logger.recordOutput("Tuning/Drive/HeadingDeg", getRotation2d().getDegrees());
+        Logger.recordOutput("Tuning/Drive/RawGyroDeg", getRawGyroRotation2d().getDegrees());
+        Logger.recordOutput("Tuning/Drive/GyroRate", m_gyro.getRate());
 
         // Module States
         Logger.recordOutput("Tuning/Drive/ModuleStates/FrontLeft", m_frontLeft.getState());
@@ -274,11 +278,13 @@ public class DriveSubsystem extends SubsystemBase {
      * @param pose The pose to which to set the odometry.
      */
     public void resetOdometry(Pose2d pose) {
-        m_gyro.reset();
+        // NOT: Gyro burada sıfırlanmıyor! PoseEstimator, mevcut gyro açısını
+        // referans alarak yeni pose'a göre offset hesaplar.
+        // Gyro sadece zeroHeading() ile acil durumda sıfırlanır.
         m_simRotation = pose.getRotation(); // Reset sim rotation too
 
         m_poseEstimator.resetPosition(
-                getRotation2d(),
+                getRawGyroRotation2d(),
                 new SwerveModulePosition[] {
                         m_frontLeft.getPosition(),
                         m_frontRight.getPosition(),
@@ -490,15 +496,27 @@ public class DriveSubsystem extends SubsystemBase {
         return ChassisSpeeds.fromRobotRelativeSpeeds(getRobotVelocity(), getRotation2d());
     }
 
+    /**
+     * Robot heading'ini döndürür (PoseEstimator'dan).
+     * Field-relative sürüş ve tüm heading-bağımlı işlemler bu metodu kullanır.
+     * Bu değer alliance-aware'dir: Red=180°, Blue=0° başlangıç.
+     */
     public Rotation2d getRotation2d() {
+        // PoseEstimator heading'ini kullan — gyro offset'lerini otomatik hesaplar.
+        // Bu sayede resetOdometry(180°) sonrası field-relative doğru çalışır.
+        return m_poseEstimator.getEstimatedPosition().getRotation();
+    }
+
+    /**
+     * Ham gyro açısını döndürür (PoseEstimator'dan bağımsız).
+     * Sadece PoseEstimator.update() ve resetPosition() için kullanılır.
+     * Field-relative sürüş için getRotation2d() kullanın.
+     */
+    public Rotation2d getRawGyroRotation2d() {
         if (edu.wpi.first.wpilibj.RobotBase.isSimulation()) {
             return m_simRotation;
         }
-
-        // Use constant directly to avoid stale NetworkTables cache issues.
-        // Dashboard toggle is still available for RUNTIME changes only.
         boolean invertGyro = DriveConstants.kGyroReversed;
-
         if (invertGyro) {
             return Rotation2d.fromDegrees(-m_gyro.getAngle());
         }

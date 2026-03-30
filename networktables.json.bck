@@ -2298,7 +2298,7 @@
   {
     "name": "/Preferences/Field/DepotBlue/Y",
     "type": "double",
-    "value": 1.0,
+    "value": 5.8,
     "properties": {
       "persistent": true
     }
@@ -2331,6 +2331,14 @@
     "name": "/Preferences/Field/DepotRed/Angle",
     "type": "double",
     "value": 0.0,
+    "properties": {
+      "persistent": true
+    }
+  },
+  {
+    "name": "/Preferences/Drive/InvertJoystick",
+    "type": "boolean",
+    "value": false,
     "properties": {
       "persistent": true
     }

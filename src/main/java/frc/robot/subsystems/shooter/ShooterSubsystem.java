@@ -137,10 +137,15 @@ public class ShooterSubsystem extends SubsystemBase {
             ShooterConstants.kHoodGearRatio);
 
     // Turret Physical Position (Robot frame — robot merkezine göre taret pozisyonu,
-    // metre)
-    // x = ileri (pozitif), y = sol (pozitif)
     private final TunableNumber turretPositionX = new TunableNumber("Shooter", "Turret Center X", 0.0);
     private final TunableNumber turretPositionY = new TunableNumber("Shooter", "Turret Center Y", 0.0);
+
+    // =====================================================================
+    // MOVING SHOOT TUNABLES
+    // =====================================================================
+    private final frc.robot.util.TunableBoolean enableMovingShoot = new frc.robot.util.TunableBoolean("Shooter", "Enable Moving Shoot", false);
+    private final TunableNumber averageShotVelocityMps = new TunableNumber("Shooter", "Average Shot Velocity m/s", 18.0);
+
 
     // =====================================================================
     // CONSTRUCTOR
@@ -326,8 +331,8 @@ public class ShooterSubsystem extends SubsystemBase {
      * @param state ShooterState to apply
      */
     public void applyShooterState(ShooterState state) {
-        setFlywheelRPM(state.rpm);
-        setHoodAngle(state.hoodAngleDeg);
+        setFlywheelRPM(state.rpm + flywheelOffsetRPM);
+        setHoodAngle(state.hoodAngleDeg + hoodOffsetDeg);
     }
 
     // =====================================================================
@@ -601,10 +606,20 @@ public class ShooterSubsystem extends SubsystemBase {
         if (Math.abs(dashFlywheel - flywheelOffsetRPM) > 1.0)
             flywheelOffsetRPM = dashFlywheel;
 
+        double dashHubX = tuningTable.getEntry("Offsets/HubX").getDouble(hubOffsetX);
+        if (Math.abs(dashHubX - hubOffsetX) > 0.01)
+            hubOffsetX = dashHubX;
+
+        double dashHubY = tuningTable.getEntry("Offsets/HubY").getDouble(hubOffsetY);
+        if (Math.abs(dashHubY - hubOffsetY) > 0.01)
+            hubOffsetY = dashHubY;
+
         // Sync back
         tuningTable.getEntry("Offsets/Turret").setDouble(autoAimOffsetDeg);
         tuningTable.getEntry("Offsets/Hood").setDouble(hoodOffsetDeg);
         tuningTable.getEntry("Offsets/Flywheel").setDouble(flywheelOffsetRPM);
+        tuningTable.getEntry("Offsets/HubX").setDouble(hubOffsetX);
+        tuningTable.getEntry("Offsets/HubY").setDouble(hubOffsetY);
 
         if (isAutoAimActive) {
             trackTarget();
@@ -621,13 +636,13 @@ public class ShooterSubsystem extends SubsystemBase {
     }
 
     /**
-     * Updates aiming based on robot pose.
-     * Calculates distance and angle to the Hub, then updates Turret, Hood, and
-     * Flywheel setpoints.
+     * Updates aiming based on robot pose and speed.
+     * Calculates distance and angle to the Hub, applying moving shoot virtual targets if enabled.
      * 
      * @param robotPose Current robot pose from DriveSubsystem
+     * @param fieldSpeeds Current robot field-relative speeds
      */
-    public void updateAiming(Pose2d robotPose) {
+    public void updateAiming(Pose2d robotPose, edu.wpi.first.math.kinematics.ChassisSpeeds fieldSpeeds) {
         // --- Calculate Turret Field Position ---
         Translation2d turretFieldPosition = robotPose.getTranslation()
                 .plus(getTurretCenterOfRotation().rotateBy(robotPose.getRotation()));
@@ -638,6 +653,19 @@ public class ShooterSubsystem extends SubsystemBase {
 
         // Apply Hub Position Offset
         hubLocation = hubLocation.plus(new Translation2d(hubOffsetX, hubOffsetY));
+
+        // Initial distance (for ToF calculation if moving shoot is enabled)
+        double initialDistance = turretFieldPosition.getDistance(hubLocation);
+
+        if (enableMovingShoot.get() && fieldSpeeds != null) {
+            hubLocation = frc.robot.util.MovingShootUtil.getVirtualTarget(
+                    hubLocation, 
+                    turretFieldPosition, 
+                    fieldSpeeds, 
+                    averageShotVelocityMps.get(), 
+                    initialDistance
+            );
+        }
 
         // 2. Calculate Distance to Hub from Turret
         double distance = turretFieldPosition.getDistance(hubLocation);
@@ -685,6 +713,13 @@ public class ShooterSubsystem extends SubsystemBase {
         Logger.recordOutput("Tuning/Shooter/Aiming/OffsetDeg", autoAimOffsetDeg);
         Logger.recordOutput("Tuning/Shooter/Aiming/HubOffsetX", hubOffsetX);
         Logger.recordOutput("Tuning/Shooter/Aiming/HubOffsetY", hubOffsetY);
+    }
+
+    /**
+     * Overload to support old static aiming calls.
+     */
+    public void updateAiming(Pose2d robotPose) {
+        updateAiming(robotPose, new edu.wpi.first.math.kinematics.ChassisSpeeds());
     }
 
     /**
@@ -1206,6 +1241,15 @@ public class ShooterSubsystem extends SubsystemBase {
         this.hubOffsetX += deltaX;
         this.hubOffsetY += deltaY;
         System.out.println("[Shooter] Hub Offset: X=" + hubOffsetX + "m, Y=" + hubOffsetY + "m");
+    }
+
+    /**
+     * Hub pozisyon offset'ini sıfırlar (0.0).
+     */
+    public void resetHubOffset() {
+        this.hubOffsetX = 0.0;
+        this.hubOffsetY = 0.0;
+        System.out.println("[Shooter] Hub Offset RESET (0,0)");
     }
 
     /**

@@ -77,26 +77,29 @@ public class DriveWithJoystick extends Command {
             lastInvertRotation = invertRotation;
         }
 
-        // 1. Joystick değerlerini al ve deadband uygula
+        // 1. Joystick değerlerini al
         double rawX = xSpeedSupplier.getAsDouble();
         double rawY = ySpeedSupplier.getAsDouble();
         double rawRot = rotSpeedSupplier.getAsDouble();
 
-        // --- İTTİFAK DÜZELTMESİ ---
-        // Kırmızı İttifak için X ve Y eksenlerini ters çevir.
-        // Böylece Stick İleri her zaman "Sürücüden Uzağa" gitmek anlamına gelir.
-        // KONTROL: Kullanıcı "İleri geriye gidiyor" dedi. Doğrulama için devre dışı.
-        /*
-         * var alliance = edu.wpi.first.wpilibj.DriverStation.getAlliance();
-         * if (alliance.isPresent() && alliance.get() ==
-         * edu.wpi.first.wpilibj.DriverStation.Alliance.Red) {
-         * rawX = -rawX;
-         * rawY = -rawY;
-         * }
-         */
-        // ---------------------------
+        // 2. İttifak (Alliance) Odaklı Yön Ayarı (Kullanıcı İsteği: Mavi'de Invert gereksinimini kaldırmak)
+        // Mavi'de Invert gerekiyor olduğu için varsayılan olarak eksi ile çarpıyoruz (Mavi'yi düzeltir).
+        // Kırmızıda ise WPILib alan yönünden dolayı (sürücüye göre uzaklaşması için) tekrar çevirilmeli.
+        var alliance = edu.wpi.first.wpilibj.DriverStation.getAlliance();
+        boolean isRed = alliance.isPresent() && alliance.get() == edu.wpi.first.wpilibj.DriverStation.Alliance.Red;
 
-        // Ters çevirme uygula
+        if (isRed) {
+            // Kırmızı İttifak: Sürücü duvarı 16.5m'de. İleri itmek (uzaklaşmak) için Alan X ekseninde -X gitmeliyiz.
+            // Zaten RobotContainer'da veya yukarıda algılanan işaretin tersine ihtiyacımız var.
+            // Standardı sağlamak adına Kırmızı için X ve Y'yi düzelt.
+            // Zaten rawX = rawX olduğu için koda bir atama yapmaya gerek yok, linter uyarısını engelliyoruz.
+        } else {
+            // Mavi İttifak varsayılanı (Eskiden Invert açmak gerekiyordu, artık otomatik invert)
+            rawX = -rawX;
+            rawY = -rawY;
+        }
+
+        // Manuel Ters Çevirme (Dashboard override)
         if (invertJoystick) {
             rawX = -rawX;
             rawY = -rawY;

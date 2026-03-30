@@ -4,7 +4,7 @@
 
 package frc.robot;
 
-
+import edu.wpi.first.net.PortForwarder;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
 import org.littletonrobotics.junction.LoggedRobot;
@@ -22,7 +22,8 @@ public class Robot extends LoggedRobot {
 
   private final RobotContainer m_robotContainer;
 
-
+  // Track the last seen alliance to avoid redundant resets
+  private edu.wpi.first.wpilibj.DriverStation.Alliance m_lastAlliance = null;
 
   /**
    * This function is run when the robot is first started up and should be used
@@ -44,6 +45,18 @@ public class Robot extends LoggedRobot {
     edu.wpi.first.wpilibj.DriverStation.silenceJoystickConnectionWarning(true);
 
     Logger.start();
+
+    // =====================================================================
+    // SÜRÜCÜ KAMERASI USB PORT FORWARDING
+    // =====================================================================
+    // Limelight 3A sürücü kamerası RoboRIO'ya USB1 üzerinden bağlı.
+    // USB bağlantısında Limelight varsayılan IP: 172.22.11.2
+    // Port 5800 = MJPEG video akışı, Port 5801 = Web arayüzü
+    // =====================================================================
+    for (int port = 5800; port <= 5809; port++) {
+      PortForwarder.add(port, "172.29.0.1", port);
+    }
+    System.out.println("[PortForwarder] Sürücü kamerası (USB) → roborio.local:5800 (stream) / :5801 (web)");
 
     // Instantiate our RobotContainer. This will perform all our button bindings,
     // and put our
@@ -90,6 +103,16 @@ public class Robot extends LoggedRobot {
 
   @Override
   public void disabledPeriodic() {
+    // Sürekli olarak FMS'den ittifak bilgisini kontrol et
+    var currentAlliance = edu.wpi.first.wpilibj.DriverStation.getAlliance();
+    if (currentAlliance.isPresent() && currentAlliance.get() != m_lastAlliance) {
+      m_lastAlliance = currentAlliance.get();
+      if (m_robotContainer != null) {
+        m_robotContainer.resetToAllianceStart();
+        System.out
+            .println("[Disabled] FMS Alliance updated to " + m_lastAlliance.name() + ". Odometry and heading reset.");
+      }
+    }
   }
 
   /**

@@ -17,6 +17,7 @@ import frc.robot.subsystems.intake.IntakeSubsystem;
 public class ControllerBindings {
 
         private final CommandXboxController driverController;
+        private final CommandXboxController operatorController;
 
         private final DriveSubsystem driveSubsystem;
         private final VisionSubsystem visionSubsystem;
@@ -30,6 +31,7 @@ public class ControllerBindings {
 
         public ControllerBindings(
                         CommandXboxController driverController,
+                        CommandXboxController operatorController,
                         DriveSubsystem driveSubsystem,
                         VisionSubsystem visionSubsystem,
                         ShooterSubsystem shooterSubsystem,
@@ -38,6 +40,7 @@ public class ControllerBindings {
                         LEDSubsystem ledSubsystem) {
 
                 this.driverController = driverController;
+                this.operatorController = operatorController;
                 this.driveSubsystem = driveSubsystem;
                 this.visionSubsystem = visionSubsystem;
                 this.shooterSubsystem = shooterSubsystem;
@@ -49,6 +52,7 @@ public class ControllerBindings {
         /** Tüm binding'leri yapılandır */
         public void configureAll() {
                 configureDriverBindings();
+                configureOperatorBindings();
         }
 
         // =========================================================================
@@ -66,24 +70,14 @@ public class ControllerBindings {
                                 .whileTrue(new frc.robot.commands.drive.BumpPassCommand(driveSubsystem,
                                                 shooterSubsystem));
 
-                // [A BUTTON] HOOD AÇISINI 0 YAP (KAPANMA)
+                // [A BUTTON] INTAKE DEPLOY
                 driverController.a()
-                                .onTrue(Commands.runOnce(() -> shooterSubsystem.setHoodAngle(0), shooterSubsystem));
+                                .onTrue(Commands.runOnce(intakeSubsystem::deploy, intakeSubsystem));
 
-                // [B BUTTON] OTOMATİK FEED PASS (Top Toplama Rotası)
+                // [B BUTTON] INTAKE RETRACT
                 driverController.b()
-                                .whileTrue(new frc.robot.commands.intake.FeedPassCommand(driveSubsystem,
-                                                intakeSubsystem));
+                                .onTrue(Commands.runOnce(intakeSubsystem::retract, intakeSubsystem));
 
-                // ==================== HUB POZİSYON OFFSET (POV) ====================
-                // Hub hedef noktasını kaydırarak RPM/açı hesaplamasını ince ayar yapar
-                // POV Up/Down: Y offset (±0.1 metre)
-                driverController.povUp().onTrue(Commands.runOnce(() -> shooterSubsystem.adjustHubOffset(0.0, 0.1)));
-                driverController.povDown().onTrue(Commands.runOnce(() -> shooterSubsystem.adjustHubOffset(0.0, -0.1)));
-
-                // POV Left/Right: X offset (±0.1 metre)
-                driverController.povLeft().onTrue(Commands.runOnce(() -> shooterSubsystem.adjustHubOffset(-0.1, 0.0)));
-                driverController.povRight().onTrue(Commands.runOnce(() -> shooterSubsystem.adjustHubOffset(0.1, 0.0)));
                 // ============================================================
 
                 // [SAĞ TETİK] POSE TABANLI ATIŞ (Akıllı Atış)
@@ -104,7 +98,9 @@ public class ControllerBindings {
                                 Commands.runOnce(() -> {
                                         intakeRunning = !intakeRunning;
                                         if (intakeRunning) {
-                                                intakeSubsystem.runRollerRPM(4800);
+                                                intakeSubsystem.deploy();
+                                                intakeSubsystem.runRollerRPM(
+                                                                frc.robot.constants.IntakeConstants.kRollerTargetRPM);
                                         } else {
                                                 intakeSubsystem.stopRoller();
                                         }
@@ -122,13 +118,46 @@ public class ControllerBindings {
                                                         feederSubsystem.stop();
                                                 }));
 
-                // [Y BUTTON] TOWER'A OTOMATIK SÜRÜŞ
-                // Basılı tutulduğu sürece alliance'a göre atış pozisyonuna gider
-                driverController.y().whileTrue(
-                                new frc.robot.commands.drive.SimpleDriveToPose(
-                                                driveSubsystem,
-                                                getShootingPose()));
+                // [Y BUTTON] HOOD AÇISINI 0 YAP (KAPANMA)
+                // Y tuşuna basıldığında (onTrue), Hood motoru 0 dereceye konumlanır.
+                driverController.y().onTrue(
+                                Commands.runOnce(() -> shooterSubsystem.setHoodAngle(0), shooterSubsystem));
 
+        }
+
+        // =========================================================================
+        // OPERATOR BINDINGS (Yardımcı Sürücü Mekanizma Kontrolü)
+        // =========================================================================
+        private void configureOperatorBindings() {
+
+                // [A BUTTON] INTAKE DEPLOY
+                operatorController.a()
+                                .onTrue(Commands.runOnce(intakeSubsystem::deploy, intakeSubsystem));
+
+                // [B BUTTON] INTAKE RETRACT
+                operatorController.b()
+                                .onTrue(Commands.runOnce(intakeSubsystem::retract, intakeSubsystem));
+
+                // [X BUTTON] FLYWHEEL OFFSET -50 RPM
+                operatorController.x().onTrue(
+                                Commands.runOnce(() -> shooterSubsystem.adjustFlywheelOffset(-50.0), shooterSubsystem)
+                                                .ignoringDisable(true));
+
+                // [Y BUTTON] FLYWHEEL OFFSET +50 RPM
+                operatorController.y().onTrue(
+                                Commands.runOnce(() -> shooterSubsystem.adjustFlywheelOffset(50.0), shooterSubsystem)
+                                                .ignoringDisable(true));
+
+                // ==================== HUB POZİSYON OFFSET (POV) ====================
+                // Hub hedef noktasını kaydırarak RPM/açı hesaplamasını ince ayar yapar
+                // POV Up/Down: Y offset (±0.1 metre)
+                operatorController.povUp().onTrue(Commands.runOnce(() -> shooterSubsystem.adjustHubOffset(0.0, 0.1)));
+                operatorController.povDown().onTrue(Commands.runOnce(() -> shooterSubsystem.adjustHubOffset(0.0, -0.1)));
+
+                // POV Left/Right: X offset (±0.1 metre)
+                operatorController.povLeft().onTrue(Commands.runOnce(() -> shooterSubsystem.adjustHubOffset(-0.1, 0.0)));
+                operatorController.povRight().onTrue(Commands.runOnce(() -> shooterSubsystem.adjustHubOffset(0.1, 0.0)));
+                // ============================================================
         }
 
         /**

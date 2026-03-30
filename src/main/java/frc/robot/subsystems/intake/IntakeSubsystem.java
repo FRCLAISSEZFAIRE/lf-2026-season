@@ -407,12 +407,20 @@ public class IntakeSubsystem extends SubsystemBase {
         return getOutputCm();
     }
 
+    public void deploy() {
+        setExtensionPosition(extensionDeployedCm.get());
+    }
+
+    public void retract() {
+        setExtensionPosition(extensionRetractedCm.get());
+    }
+
     public Command deployCommand() {
-        return runOnce(() -> setExtensionPosition(extensionDeployedCm.get()));
+        return runOnce(this::deploy);
     }
 
     public Command retractCommand() {
-        return runOnce(() -> setExtensionPosition(extensionRetractedCm.get()));
+        return runOnce(this::retract);
     }
 
     // =========================================================================

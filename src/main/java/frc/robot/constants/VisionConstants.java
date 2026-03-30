@@ -3,16 +3,15 @@ package frc.robot.constants;
 import edu.wpi.first.math.geometry.Rotation3d;
 import edu.wpi.first.math.geometry.Transform3d;
 import edu.wpi.first.math.geometry.Translation3d;
-import edu.wpi.first.math.util.Units;
 
 /**
  * Çift Limelight pose tahmini ve sürücü kamerası için vision sabitleri.
  * 
  * <h2>Kamera Yapılandırması:</h2>
  * <ul>
- * <li><b>limelight-left:</b> Sol arka köşe, 45° dışa dönük — Pose Tahmini
+ * <li><b>limelight-left:</b> Sol arka köşe, 30° dışa dönük — Pose Tahmini
  * (MegaTag 2)</li>
- * <li><b>limelight-right:</b> Sağ arka köşe, 45° dışa dönük — Pose Tahmini
+ * <li><b>limelight-right:</b> Sağ arka köşe, 30° dışa dönük — Pose Tahmini
  * (MegaTag 2)</li>
  * <li><b>driver-cam:</b> Intake yakınında — Sürücü Kamerası (Sadece Video
  * Akışı)</li>
@@ -21,7 +20,7 @@ import edu.wpi.first.math.util.Units;
 public final class VisionConstants {
 
         // ==================== KAMERA İSİMLERİ ====================
-        /** Sol Limelight 3A — sol arka köşe, pose tahmini */
+        /** Sol Limelight 4 — sol arka köşe, pose tahmini */
         public static final String kLimelightLeft = "limelight-left";
 
         /** Sağ Limelight 3 — sağ arka köşe, pose tahmini */
@@ -35,41 +34,41 @@ public final class VisionConstants {
         // Dönüşümler: Robot Merkezi → Kamera
 
         // Fiziksel ölçümler (robotunuza göre ayarlayın!)
-        private static final double kCameraXBackOffset = Units.inchesToMeters(-12.0); // Merkezin 12" arkasında
-        private static final double kCameraYSideOffset = Units.inchesToMeters(10.0); // Merkezden 10" yanda
-        private static final double kCameraZHeight = Units.inchesToMeters(8.0); // Yerden 8" yükseklikte
-        private static final double kCameraPitchDegrees = -15.0; // 15° aşağı eğik
+        private static final double kCameraXBackOffset = -0.29; // Merkezin 30cm arkasında (metre)
+        private static final double kCameraYSideOffset = -0.32; // Merkezden 32cm yanda (metre)
+        private static final double kCameraZHeight = 0.25; // Yerden 26.5cm yükseklikte (metre)
+        private static final double kCameraPitchDegrees = 15.0; // 15° yukarı eğik
 
         /**
-         * Sol kamera dönüşümü: sol arka köşe, 45° dışa dönük (arka-sola bakıyor).
-         * Yaw = -135° → kamera arka-sol çaprazına bakar.
+         * Sol kamera dönüşümü: sol arka köşe, 30° dışa dönük (arka-sola bakıyor).
+         * Yaw = -150° → kamera arka-sol çaprazına bakar.
          */
         public static final Transform3d kLeftCameraToRobot = new Transform3d(
                         new Translation3d(
-                                        kCameraXBackOffset, // X: robot merkezinin arkasında
-                                        kCameraYSideOffset, // Y: merkezin solunda
+                                        kCameraXBackOffset - 0.105, // X: robot merkezinin arkasında
+                                        kCameraYSideOffset + 0.1, // Y: merkezin solunda
                                         kCameraZHeight // Z: yükseklik
                         ),
                         new Rotation3d(
                                         0, // Roll: 0
-                                        Math.toRadians(kCameraPitchDegrees), // Pitch: aşağı eğik
-                                        Math.toRadians(-135) // Yaw: arka-sola bakıyor (45° dışa)
+                                        Math.toRadians(kCameraPitchDegrees), // Pitch: yukarı eğik
+                                        Math.toRadians(150) // Yaw: arka-sola bakıyor (30° dışa)
                         ));
 
         /**
-         * Sağ kamera dönüşümü: sağ arka köşe, 45° dışa dönük (arka-sağa bakıyor).
-         * Yaw = 135° → kamera arka-sağ çaprazına bakar.
+         * Sağ kamera dönüşümü: sağ arka köşe, 30° dışa dönük (arka-sağa bakıyor).
+         * Yaw = 150° → kamera arka-sağ çaprazına bakar.
          */
         public static final Transform3d kRightCameraToRobot = new Transform3d(
                         new Translation3d(
                                         kCameraXBackOffset, // X: robot merkezinin arkasında
                                         -kCameraYSideOffset, // Y: merkezin sağında (negatif)
-                                        kCameraZHeight // Z: yükseklik
+                                        kCameraZHeight + 0.015 // Z: yükseklik
                         ),
                         new Rotation3d(
                                         0, // Roll: 0
-                                        Math.toRadians(kCameraPitchDegrees), // Pitch: aşağı eğik
-                                        Math.toRadians(135) // Yaw: arka-sağa bakıyor (45° dışa)
+                                        Math.toRadians(kCameraPitchDegrees), // Pitch: yukarı eğik
+                                        Math.toRadians(-150) // Yaw: arka-sağa bakıyor (30° dışa)
                         ));
 
         // ==================== PIPELINE'LAR ====================
@@ -78,7 +77,7 @@ public final class VisionConstants {
 
         // ==================== FİLTRELEME EŞİKLERİ ====================
         /** Vision verisi reddedilmeden önceki maksimum gyro hızı (derece/saniye) */
-        public static final double kMaxGyroRateForVision = 720.0;
+        public static final double kMaxGyroRateForVision = 360.0;
 
         /** Belirsizlik artırılmadan önceki maksimum tag mesafesi (metre) */
         public static final double kMaxReliableTagDistance = 4.0;
