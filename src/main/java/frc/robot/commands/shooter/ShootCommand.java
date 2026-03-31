@@ -8,7 +8,6 @@ import frc.robot.subsystems.feeder.FeederSubsystem;
 import frc.robot.subsystems.drive.DriveSubsystem;
 import frc.robot.subsystems.intake.IntakeSubsystem;
 
-import frc.robot.util.TunableNumber;
 
 import java.util.function.Supplier;
 
@@ -33,8 +32,7 @@ public class ShootCommand extends Command {
     // Ateş kilidi — bir kez başladıktan sonra feeder durmaz
     private boolean hasShot = false;
 
-    // Tunable: atış sırasında roller RPM
-    private static final TunableNumber intakeShootRPM = new TunableNumber("Shooter", "IntakeShootRPM", 1500.0);
+    // Tunable: atış sırasında roller RPM (ShooterConstants.kIntakeShootRPM ile paylaşılır)
 
     /**
      * Yeni bir ShootCommand oluşturur.
@@ -88,7 +86,7 @@ public class ShootCommand extends Command {
         }
 
         // 3. "Ateşi Tut" Mantığı — LATCH (Kilitleme)
-        boolean ready = shooter.isFlywheelAtTarget();
+        boolean ready = shooter.isReadyToShoot();
 
         if (ready && !hasShot) {
             hasShot = true;
@@ -101,8 +99,7 @@ public class ShootCommand extends Command {
             feeder.stop();
         }
 
-        // 4. Intake roller — sadece düşük RPM'de roller çalıştır (extension'a dokunma)
-        intake.runRollerRPM(intakeShootRPM.get());
+        intake.runRollerRPM(frc.robot.constants.ShooterConstants.kIntakeShootRPM.get());
     }
 
     @Override

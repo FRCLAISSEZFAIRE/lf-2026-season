@@ -1,13 +1,5 @@
 package frc.robot.subsystems.feeder;
 
-import com.revrobotics.spark.SparkBase.ControlType;
-import com.revrobotics.spark.SparkBase.PersistMode;
-import com.revrobotics.spark.SparkBase.ResetMode;
-import com.revrobotics.spark.SparkMax;
-import com.revrobotics.spark.SparkLowLevel.MotorType;
-import com.revrobotics.spark.config.SparkMaxConfig;
-import com.revrobotics.spark.config.SparkBaseConfig.IdleMode;
-
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 
 import frc.robot.constants.FeederConstants;
@@ -15,262 +7,133 @@ import frc.robot.util.TunableNumber;
 
 import org.littletonrobotics.junction.Logger;
 
-/**
- * REVLib 2026 tabanlı Feeder alt sistemi — İkili Motor (Indexer + Kicker).
- * Her iki motor da SparkMax NEO v1.1, velocity PID ile kontrol edilir.
- * 
- * <h2>Özellikler:</h2>
- * <ul>
- * <li>Indexer: Topuğu shooter bölgesine indeksler</li>
- * <li>Kicker: Topuğu fırlatma bölgesine iter</li>
- * <li>REVLib Onboard Velocity PID (her motor ayrı)</li>
- * <li>Intake → Shooter arası transfer</li>
- * </ul>
- */
 public class FeederSubsystem extends SubsystemBase {
 
-    // =====================================================================
-    // MOTOR CONTROLLERS
-    // =====================================================================
-    private final SparkMax indexerMotor;
-    private final SparkMax kickerMotor;
+    private final FeederIO io;
+    private final FeederIOInputsAutoLogged inputs = new FeederIOInputsAutoLogged();
 
-    // =====================================================================
     // STATE
-    // =====================================================================
     private double indexerTargetRPM = 0;
     private double kickerTargetRPM = 0;
 
-    // =====================================================================
     // TUNABLE PID — INDEXER
-    // =====================================================================
-    private final TunableNumber indexerKP = new TunableNumber("Feeder/Indexer", "kP", FeederConstants.kIndexerP);
-    private final TunableNumber indexerKI = new TunableNumber("Feeder/Indexer", "kI", FeederConstants.kIndexerI);
-    private final TunableNumber indexerKD = new TunableNumber("Feeder/Indexer", "kD", FeederConstants.kIndexerD);
-    private final TunableNumber indexerKFF = new TunableNumber("Feeder/Indexer", "kFF", FeederConstants.kIndexerFF);
+    private final TunableNumber indexerKP = new TunableNumber("Feeder", "Indexer kP", FeederConstants.kIndexerP);
+    private final TunableNumber indexerKI = new TunableNumber("Feeder", "Indexer kI", FeederConstants.kIndexerI);
+    private final TunableNumber indexerKD = new TunableNumber("Feeder", "Indexer kD", FeederConstants.kIndexerD);
+    private final TunableNumber indexerKFF = new TunableNumber("Feeder", "Indexer kFF",
+            FeederConstants.kIndexerFF);
 
-    // =====================================================================
     // TUNABLE PID — KICKER
-    // =====================================================================
-    private final TunableNumber kickerKP = new TunableNumber("Feeder/Kicker", "kP", FeederConstants.kKickerP);
-    private final TunableNumber kickerKI = new TunableNumber("Feeder/Kicker", "kI", FeederConstants.kKickerI);
-    private final TunableNumber kickerKD = new TunableNumber("Feeder/Kicker", "kD", FeederConstants.kKickerD);
-    private final TunableNumber kickerKFF = new TunableNumber("Feeder/Kicker", "kFF", FeederConstants.kKickerFF);
+    private final TunableNumber kickerKP = new TunableNumber("Feeder", "Kicker kP", FeederConstants.kKickerP);
+    private final TunableNumber kickerKI = new TunableNumber("Feeder", "Kicker kI", FeederConstants.kKickerI);
+    private final TunableNumber kickerKD = new TunableNumber("Feeder", "Kicker kD", FeederConstants.kKickerD);
+    private final TunableNumber kickerKFF = new TunableNumber("Feeder", "Kicker kFF", FeederConstants.kKickerFF);
 
-    // =====================================================================
-    // TUNABLE SPEEDS (RPM — Dashboard'dan ayarlanabilir)
-    // =====================================================================
-    private final TunableNumber tunableIndexerFeedRPM = new TunableNumber("Feeder/Indexer", "Feed RPM",
+    // TUNABLE SPEEDS (RPM)
+    private final TunableNumber tunableIndexerFeedRPM = new TunableNumber("Feeder", "Indexer Feed RPM",
             FeederConstants.kIndexerFeedRPM);
-    private final TunableNumber tunableIndexerSlowRPM = new TunableNumber("Feeder/Indexer", "Slow Feed RPM",
+    private final TunableNumber tunableIndexerSlowRPM = new TunableNumber("Feeder", "Indexer Slow RPM",
             FeederConstants.kIndexerSlowFeedRPM);
-    private final TunableNumber tunableIndexerReverseRPM = new TunableNumber("Feeder/Indexer", "Reverse RPM",
+    private final TunableNumber tunableIndexerReverseRPM = new TunableNumber("Feeder", "Indexer Reverse RPM",
             FeederConstants.kIndexerReverseRPM);
 
-    private final TunableNumber tunableKickerFeedRPM = new TunableNumber("Feeder/Kicker", "Feed RPM",
+    private final TunableNumber tunableKickerFeedRPM = new TunableNumber("Feeder", "Kicker Feed RPM",
             FeederConstants.kKickerFeedRPM);
-    private final TunableNumber tunableKickerSlowRPM = new TunableNumber("Feeder/Kicker", "Slow Feed RPM",
+    private final TunableNumber tunableKickerSlowRPM = new TunableNumber("Feeder", "Kicker Slow RPM",
             FeederConstants.kKickerSlowFeedRPM);
-    private final TunableNumber tunableKickerReverseRPM = new TunableNumber("Feeder/Kicker", "Reverse RPM",
+    private final TunableNumber tunableKickerReverseRPM = new TunableNumber("Feeder", "Kicker Reverse RPM",
             FeederConstants.kKickerReverseRPM);
 
-    // =====================================================================
+    private final TunableNumber rpmTolerance = new TunableNumber("Feeder", "RPM Tolerance",
+            FeederConstants.kRPMTolerance);
+
     // MANUAL OVERRIDE
-    // =====================================================================
     private boolean manualOverrideEnabled = false;
     private double manualIndexerRPM = 0;
     private double manualKickerRPM = 0;
 
-    // =====================================================================
-    // CONFIGS
-    // =====================================================================
-    private final SparkMaxConfig indexerConfig = new SparkMaxConfig();
-    private final SparkMaxConfig kickerConfig = new SparkMaxConfig();
-
-    // =====================================================================
-    // CONSTRUCTOR
-    // =====================================================================
-    public FeederSubsystem() {
-        indexerMotor = new SparkMax(FeederConstants.kIndexerMotorID, MotorType.kBrushless);
-        kickerMotor = new SparkMax(FeederConstants.kKickerMotorID, MotorType.kBrushless);
-
-        configureIndexer();
-        configureKicker();
-
-        System.out.println("[Feeder] İkili motor yapılandırıldı — Indexer(ID:"
-                + FeederConstants.kIndexerMotorID + ") + Kicker(ID:"
-                + FeederConstants.kKickerMotorID + ") Velocity PID");
+    public FeederSubsystem(FeederIO io) {
+        this.io = io;
+        System.out.println("[Feeder] Başlatıldı — AdvantageKit IO Kullanılıyor");
     }
 
-    // =====================================================================
-    // MOTOR CONFIGURATION
-    // =====================================================================
-    private void configureIndexer() {
-        indexerConfig.encoder.velocityConversionFactor(1.0);
-        indexerConfig.closedLoop
-                .p(indexerKP.get())
-                .i(indexerKI.get())
-                .d(indexerKD.get())
-                .velocityFF(indexerKFF.get())
-                .outputRange(-1, 1);
-        indexerConfig.inverted(false);
-        indexerConfig.idleMode(IdleMode.kCoast);
-        indexerConfig.smartCurrentLimit(FeederConstants.kCurrentLimit);
-
-        // CAN Optimization: Indexer Motor
-        indexerConfig.signals
-                .absoluteEncoderPositionPeriodMs(500)
-                .absoluteEncoderVelocityPeriodMs(500)
-                .analogVoltagePeriodMs(500)
-                // We use velocity, so keep velocity fast (20ms default), but we can slow down position
-                .primaryEncoderPositionPeriodMs(500);
-
-        indexerMotor.configure(indexerConfig, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
-    }
-
-    private void configureKicker() {
-        kickerConfig.encoder.velocityConversionFactor(1.0);
-        kickerConfig.closedLoop
-                .p(kickerKP.get())
-                .i(kickerKI.get())
-                .d(kickerKD.get())
-                .velocityFF(kickerKFF.get())
-                .outputRange(-1, 1);
-        kickerConfig.inverted(false);
-        kickerConfig.idleMode(IdleMode.kCoast);
-        kickerConfig.smartCurrentLimit(FeederConstants.kCurrentLimit);
-
-        // CAN Optimization: Kicker Motor
-        kickerConfig.signals
-                .absoluteEncoderPositionPeriodMs(500)
-                .absoluteEncoderVelocityPeriodMs(500)
-                .analogVoltagePeriodMs(500)
-                // We use velocity, so keep velocity fast (20ms default), but we can slow down position
-                .primaryEncoderPositionPeriodMs(500);
-
-        kickerMotor.configure(kickerConfig, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
-    }
-
-    /**
-     * PID/FF değerleri değiştiyse motorlara uygular.
-     */
     private void checkAndApplyTunables() {
-        // Indexer PID
-        if (indexerKP.hasChanged() || indexerKI.hasChanged()
-                || indexerKD.hasChanged() || indexerKFF.hasChanged()) {
-            indexerConfig.closedLoop
-                    .p(indexerKP.get())
-                    .i(indexerKI.get())
-                    .d(indexerKD.get())
-                    .velocityFF(indexerKFF.get());
-            indexerMotor.configure(indexerConfig, ResetMode.kNoResetSafeParameters,
-                    PersistMode.kNoPersistParameters);
-            System.out.println("[Feeder/Indexer] PID Updated: P=" + indexerKP.get()
-                    + ", I=" + indexerKI.get() + ", D=" + indexerKD.get()
-                    + ", FF=" + indexerKFF.get());
-        }
+        boolean indexerChanged = indexerKP.hasChanged() || indexerKI.hasChanged()
+                || indexerKD.hasChanged() || indexerKFF.hasChanged();
+        boolean kickerChanged = kickerKP.hasChanged() || kickerKI.hasChanged()
+                || kickerKD.hasChanged() || kickerKFF.hasChanged();
 
-        // Kicker PID
-        if (kickerKP.hasChanged() || kickerKI.hasChanged()
-                || kickerKD.hasChanged() || kickerKFF.hasChanged()) {
-            kickerConfig.closedLoop
-                    .p(kickerKP.get())
-                    .i(kickerKI.get())
-                    .d(kickerKD.get())
-                    .velocityFF(kickerKFF.get());
-            kickerMotor.configure(kickerConfig, ResetMode.kNoResetSafeParameters,
-                    PersistMode.kNoPersistParameters);
-            System.out.println("[Feeder/Kicker] PID Updated: P=" + kickerKP.get()
-                    + ", I=" + kickerKI.get() + ", D=" + kickerKD.get()
-                    + ", FF=" + kickerKFF.get());
+        if (indexerChanged || kickerChanged) {
+            io.configPID(
+                    indexerKP.get(), indexerKI.get(), indexerKD.get(), indexerKFF.get(),
+                    kickerKP.get(), kickerKI.get(), kickerKD.get(), kickerKFF.get());
+
+            if (indexerChanged) {
+                System.out.println("[Feeder/Indexer] PID Updated: P=" + indexerKP.get() + " FF=" + indexerKFF.get());
+            }
+            if (kickerChanged) {
+                System.out.println("[Feeder/Kicker] PID Updated: P=" + kickerKP.get() + " FF=" + kickerKFF.get());
+            }
         }
     }
 
-    // =====================================================================
-    // PERIODIC
-    // =====================================================================
     @Override
     public void periodic() {
+        io.updateInputs(inputs);
+        Logger.processInputs("Feeder", inputs);
+
         checkAndApplyTunables();
+
+        if (tunableIndexerFeedRPM.hasChanged()) System.out.println("[Feeder] Indexer Feed RPM: " + tunableIndexerFeedRPM.get());
+        if (tunableKickerFeedRPM.hasChanged()) System.out.println("[Feeder] Kicker Feed RPM: " + tunableKickerFeedRPM.get());
+        if (rpmTolerance.hasChanged()) System.out.println("[Feeder] RPM Tolerance: " + rpmTolerance.get());
+
         logTelemetry();
     }
 
-    // =====================================================================
-    // VELOCITY CONTROL — BOTH MOTORS
-    // =====================================================================
-
-    /**
-     * Her iki motoru velocity PID ile çalıştırır.
-     */
     public void setVelocity(double indexerRPM, double kickerRPM) {
         indexerTargetRPM = indexerRPM;
         kickerTargetRPM = kickerRPM;
-        indexerMotor.getClosedLoopController().setSetpoint(indexerRPM, ControlType.kVelocity);
-        kickerMotor.getClosedLoopController().setSetpoint(kickerRPM, ControlType.kVelocity);
+        io.setIndexerVelocity(indexerRPM);
+        io.setKickerVelocity(kickerRPM);
     }
 
-    /**
-     * Indexer velocity PID.
-     */
     public void setIndexerVelocity(double rpm) {
         indexerTargetRPM = rpm;
-        indexerMotor.getClosedLoopController().setSetpoint(rpm, ControlType.kVelocity);
+        io.setIndexerVelocity(rpm);
     }
 
-    /**
-     * Kicker velocity PID.
-     */
     public void setKickerVelocity(double rpm) {
         kickerTargetRPM = rpm;
-        kickerMotor.getClosedLoopController().setSetpoint(rpm, ControlType.kVelocity);
+        io.setKickerVelocity(rpm);
     }
 
-    // =====================================================================
-    // HIGH-LEVEL COMMANDS (API uyumluluğu korunuyor)
-    // =====================================================================
-
-    /**
-     * İleri besleme — her iki motor tunable RPM'de çalışır.
-     */
     public void feed() {
         if (!manualOverrideEnabled) {
             setVelocity(tunableIndexerFeedRPM.get(), tunableKickerFeedRPM.get());
         }
     }
 
-    /**
-     * Yavaş besleme — her iki motor tunable yavaş RPM'de çalışır.
-     */
     public void feedSlow() {
         if (!manualOverrideEnabled) {
-            setVelocity(tunableIndexerSlowRPM.get(), tunableKickerSlowRPM.get());
+            setVelocity(tunableIndexerSlowRPM.get(), 0);
         }
     }
 
-    /**
-     * Geri çıkarma — her iki motor ters çalışır.
-     */
     public void reverse() {
         if (!manualOverrideEnabled) {
             setVelocity(tunableIndexerReverseRPM.get(), tunableKickerReverseRPM.get());
         }
     }
 
-    /**
-     * Durdur — her iki motor durur.
-     */
     public void stop() {
         if (!manualOverrideEnabled) {
             indexerTargetRPM = 0;
             kickerTargetRPM = 0;
-            indexerMotor.stopMotor();
-            kickerMotor.stopMotor();
+            io.stopIndexer();
+            io.stopKicker();
         }
     }
-
-    // =====================================================================
-    // INDIVIDUAL MOTOR COMMANDS
-    // =====================================================================
 
     public void feedIndexer() {
         setIndexerVelocity(tunableIndexerFeedRPM.get());
@@ -282,17 +145,13 @@ public class FeederSubsystem extends SubsystemBase {
 
     public void stopIndexer() {
         indexerTargetRPM = 0;
-        indexerMotor.stopMotor();
+        io.stopIndexer();
     }
 
     public void stopKicker() {
         kickerTargetRPM = 0;
-        kickerMotor.stopMotor();
+        io.stopKicker();
     }
-
-    // =====================================================================
-    // MANUAL OVERRIDE
-    // =====================================================================
 
     public void enableManualOverride() {
         manualOverrideEnabled = true;
@@ -303,8 +162,8 @@ public class FeederSubsystem extends SubsystemBase {
         manualOverrideEnabled = false;
         manualIndexerRPM = 0;
         manualKickerRPM = 0;
-        indexerMotor.stopMotor();
-        kickerMotor.stopMotor();
+        io.stopIndexer();
+        io.stopKicker();
         System.out.println("[Feeder] Manual override DISABLED");
     }
 
@@ -312,92 +171,65 @@ public class FeederSubsystem extends SubsystemBase {
         return manualOverrideEnabled;
     }
 
-    /**
-     * Manuel override — Indexer RPM ayarla.
-     */
     public void setManualIndexerRPM(double rpm) {
         if (manualOverrideEnabled) {
             manualIndexerRPM = rpm;
-            indexerMotor.getClosedLoopController().setSetpoint(rpm, ControlType.kVelocity);
+            io.setIndexerVelocity(rpm);
         }
     }
 
-    /**
-     * Manuel override — Kicker RPM ayarla.
-     */
     public void setManualKickerRPM(double rpm) {
         if (manualOverrideEnabled) {
             manualKickerRPM = rpm;
-            kickerMotor.getClosedLoopController().setSetpoint(rpm, ControlType.kVelocity);
+            io.setKickerVelocity(rpm);
         }
     }
 
-    /**
-     * Manuel override — her iki motoru RPM ile çalıştır (legacy uyumluluk).
-     */
     public void setManualOverrideRPM(double rpm) {
         setManualIndexerRPM(rpm);
         setManualKickerRPM(rpm);
     }
 
-    /**
-     * Manuel override — ileri çalıştır.
-     */
     public void manualFeed() {
         if (manualOverrideEnabled) {
             manualIndexerRPM = tunableIndexerFeedRPM.get();
             manualKickerRPM = tunableKickerFeedRPM.get();
-            indexerMotor.getClosedLoopController().setSetpoint(manualIndexerRPM, ControlType.kVelocity);
-            kickerMotor.getClosedLoopController().setSetpoint(manualKickerRPM, ControlType.kVelocity);
+            io.setIndexerVelocity(manualIndexerRPM);
+            io.setKickerVelocity(manualKickerRPM);
         }
     }
 
-    /**
-     * Manuel override — durdur.
-     */
     public void manualStop() {
         if (manualOverrideEnabled) {
             manualIndexerRPM = 0;
             manualKickerRPM = 0;
         }
-        indexerMotor.stopMotor();
-        kickerMotor.stopMotor();
+        io.stopIndexer();
+        io.stopKicker();
     }
 
-    // =====================================================================
-    // STATUS
-    // =====================================================================
-
-    /** Indexer mevcut hızı (RPM). */
     public double getIndexerVelocityRPM() {
-        return indexerMotor.getEncoder().getVelocity();
+        return inputs.indexerVelocityRPM;
     }
 
-    /** Kicker mevcut hızı (RPM). */
     public double getKickerVelocityRPM() {
-        return kickerMotor.getEncoder().getVelocity();
+        return inputs.kickerVelocityRPM;
     }
 
-    /** Uyumluluk: Indexer velocity döndürür. */
     public double getVelocityRPM() {
         return getIndexerVelocityRPM();
     }
 
-    /** Her iki motor da hedefe ulaştı mı? */
     public boolean isAtTarget() {
-        boolean indexerOk = Math.abs(getIndexerVelocityRPM() - indexerTargetRPM) < FeederConstants.kRPMTolerance;
-        boolean kickerOk = Math.abs(getKickerVelocityRPM() - kickerTargetRPM) < FeederConstants.kRPMTolerance;
+        boolean indexerOk = Math.abs(getIndexerVelocityRPM() - indexerTargetRPM) < rpmTolerance.get();
+        boolean kickerOk = Math.abs(getKickerVelocityRPM() - kickerTargetRPM) < rpmTolerance.get();
         return indexerOk && kickerOk;
     }
 
-    /** Feeder çalışıyor mu? (herhangi bir motor) */
     public boolean isRunning() {
         return Math.abs(getIndexerVelocityRPM()) > 50 || Math.abs(getKickerVelocityRPM()) > 50;
     }
 
-    // =====================================================================
-    // TELEMETRY
-    // =====================================================================
     private void logTelemetry() {
         Logger.recordOutput("Tuning/Feeder/Indexer/TargetRPM", indexerTargetRPM);
         Logger.recordOutput("Tuning/Feeder/Indexer/ActualRPM", getIndexerVelocityRPM());
@@ -408,10 +240,6 @@ public class FeederSubsystem extends SubsystemBase {
         Logger.recordOutput("Tuning/Feeder/ManualKickerRPM", manualKickerRPM);
     }
 
-    // =====================================================================
-    // COMPATIBILITY METHODS
-    // =====================================================================
-
     public double getTunableFeedVoltage() {
         return tunableIndexerFeedRPM.get();
     }
@@ -420,11 +248,8 @@ public class FeederSubsystem extends SubsystemBase {
         return tunableIndexerReverseRPM.get();
     }
 
-    /**
-     * Legacy voltaj kontrolü — velocity PID olarak çalıştırır.
-     */
     public void setVoltage(double volts) {
-        indexerMotor.setVoltage(volts);
-        kickerMotor.setVoltage(volts);
+        io.setIndexerVoltage(volts);
+        io.setKickerVoltage(volts);
     }
 }

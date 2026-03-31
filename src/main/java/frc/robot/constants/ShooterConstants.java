@@ -41,18 +41,17 @@ public final class ShooterConstants {
         /** Absolute encoder zero offset (derece). Calibrasyon için ayarlanır. */
         public static final double kTurretEncoderOffset = 0.0;
 
-        // --- TURRET PID (Default değerler - TunableNumber ile override edilebilir) ---
-        public static final double kTurretDefaultP = 0.1;
-        public static final double kTurretDefaultI = 0.0;
-        public static final double kTurretDefaultD = 0.005;
+        public static final double kTurretDefaultP = 1.2; // Increased for speed
+        public static final double kTurretDefaultI = 0.005; // Added to fix 3-deg bias
+        public static final double kTurretDefaultD = 0.02; // Increased for damping
 
         /**
          * Turret maksimum motor çıkışı (0.0 - 1.0 arası). Hız kontrolü için kullanılır.
          */
-        public static final double kTurretMaxOutput = 0.2;
+        public static final double kTurretMaxOutput = 1.0;
 
         /** Turret pozisyon toleransı (derece) */
-        public static final double kTurretTolerance = 2.0;
+        public static final double kTurretTolerance = 1.0;
 
         // --- TURRET SOFT LIMITS (Güvenlik - Derece) ---
         /** Turret minimum açısı (derece). Kablo sarma koruması. */
@@ -74,13 +73,13 @@ public final class ShooterConstants {
         // NOT: Hood'da absolute encoder YOK, relative encoder kullanılıyor.
         // Robot başlangıçta hood pozisyonunu bilmeli (home position).
 
-        public static final double kHoodP = 2.0;
-        public static final double kHoodI = 0.0;
-        public static final double kHoodD = 0.05;
+        public static final double kHoodP = 5.0;
+        public static final double kHoodI = 0.01;
+        public static final double kHoodD = 0.1;
 
         public static final double kHoodMinAngle = 0.0;
-        public static final double kHoodMaxAngle = 48.0;
-        public static final double kHoodTolerance = 1.5;
+        public static final double kHoodMaxAngle = 60.0;
+        public static final double kHoodTolerance = 2.0;
 
         /** Hood dişli oranı. */
         public static final double kHoodGearRatio = 100.0;
@@ -108,9 +107,9 @@ public final class ShooterConstants {
         public static final double kFlywheelToleranceRPM = 100.0;
         public static final double kFlywheelTolerance = 200.0; // RPM tolerance for at-target check
 
-        public static final double kFlywheelP = 0.2;
+        public static final double kFlywheelP = 0.5;
         public static final double kFlywheelI = 0.0;
-        public static final double kFlywheelD = 0.0;
+        public static final double kFlywheelD = 0.01;
         public static final double kFlywheelkS = 0.25;
         public static final double kFlywheelkV = 0.12;
 
@@ -129,35 +128,40 @@ public final class ShooterConstants {
         public static final double kMinShootingDistance = kCloseDistance;
         public static final double kMaxShootingDistance = kFarDistance;
 
+        // --- UNIFIED TUNABLES (Used across commands) ---
+        public static final TunableNumber kIntakeShootRPM = new TunableNumber("Tuning/Shooter/Core", "IntakeShootRPM", 1500.0);
+        public static final TunableNumber kAutoShootDurationSec = new TunableNumber("Tuning/Shooter/Core", "AutoShootDurationSec", 3.0);
+        public static final TunableNumber kFixedShotCycleTime = new TunableNumber("Tuning/Shooter/Core", "FixedShotCycleTime", 1.5);
+
         // ===========================================================================
         // DISTANCE-BASED CALIBRATION (Tunable & Persistent)
         // ===========================================================================
 
         // --- HUB SHOOTING MAP ---
         // Point 0 (0.5m)
-        public static final TunableNumber kHubDist0 = new TunableNumber("ShooterMap/Hub/Point0", "Dist", 0.5);
-        public static final TunableNumber kHubRPM0 = new TunableNumber("ShooterMap/Hub/Point0", "RPM", 2000);
-        public static final TunableNumber kHubHood0 = new TunableNumber("ShooterMap/Hub/Point0", "Hood", 0.0);
+        public static final TunableNumber kHubDist0 = new TunableNumber("Tuning/Shooter/Map/Hub/Point0", "Dist", 0.5);
+        public static final TunableNumber kHubRPM0 = new TunableNumber("Tuning/Shooter/Map/Hub/Point0", "RPM", 2000);
+        public static final TunableNumber kHubHood0 = new TunableNumber("Tuning/Shooter/Map/Hub/Point0", "Hood", 0.0);
 
         // Point 1 (1.0m) - Measured
-        public static final TunableNumber kHubDist1 = new TunableNumber("ShooterMap/Hub/Point1", "Dist", 1.0);
-        public static final TunableNumber kHubRPM1 = new TunableNumber("ShooterMap/Hub/Point1", "RPM", 2650);
-        public static final TunableNumber kHubHood1 = new TunableNumber("ShooterMap/Hub/Point1", "Hood", 0.0);
+        public static final TunableNumber kHubDist1 = new TunableNumber("Tuning/Shooter/Map/Hub/Point1", "Dist", 1.0);
+        public static final TunableNumber kHubRPM1 = new TunableNumber("Tuning/Shooter/Map/Hub/Point1", "RPM", 2650);
+        public static final TunableNumber kHubHood1 = new TunableNumber("Tuning/Shooter/Map/Hub/Point1", "Hood", 0.0);
 
         // Point 2 (2.0m) - Measured
-        public static final TunableNumber kHubDist2 = new TunableNumber("ShooterMap/Hub/Point2", "Dist", 2.0);
-        public static final TunableNumber kHubRPM2 = new TunableNumber("ShooterMap/Hub/Point2", "RPM", 3000);
-        public static final TunableNumber kHubHood2 = new TunableNumber("ShooterMap/Hub/Point2", "Hood", 15.0);
+        public static final TunableNumber kHubDist2 = new TunableNumber("Tuning/Shooter/Map/Hub/Point2", "Dist", 2.0);
+        public static final TunableNumber kHubRPM2 = new TunableNumber("Tuning/Shooter/Map/Hub/Point2", "RPM", 3000);
+        public static final TunableNumber kHubHood2 = new TunableNumber("Tuning/Shooter/Map/Hub/Point2", "Hood", 15.0);
 
         // Point 3 (3.5m)
-        public static final TunableNumber kHubDist3 = new TunableNumber("ShooterMap/Hub/Point3", "Dist", 3.5);
-        public static final TunableNumber kHubRPM3 = new TunableNumber("ShooterMap/Hub/Point3", "RPM", 4500);
-        public static final TunableNumber kHubHood3 = new TunableNumber("ShooterMap/Hub/Point3", "Hood", 30.0);
+        public static final TunableNumber kHubDist3 = new TunableNumber("Tuning/Shooter/Map/Hub/Point3", "Dist", 3.5);
+        public static final TunableNumber kHubRPM3 = new TunableNumber("Tuning/Shooter/Map/Hub/Point3", "RPM", 4500);
+        public static final TunableNumber kHubHood3 = new TunableNumber("Tuning/Shooter/Map/Hub/Point3", "Hood", 30.0);
 
         // Point 4 (4.5m)
-        public static final TunableNumber kHubDist4 = new TunableNumber("ShooterMap/Hub/Point4", "Dist", 4.5);
-        public static final TunableNumber kHubRPM4 = new TunableNumber("ShooterMap/Hub/Point4", "RPM", 5500);
-        public static final TunableNumber kHubHood4 = new TunableNumber("ShooterMap/Hub/Point4", "Hood", 45.0);
+        public static final TunableNumber kHubDist4 = new TunableNumber("Tuning/Shooter/Map/Hub/Point4", "Dist", 4.5);
+        public static final TunableNumber kHubRPM4 = new TunableNumber("Tuning/Shooter/Map/Hub/Point4", "RPM", 5500);
+        public static final TunableNumber kHubHood4 = new TunableNumber("Tuning/Shooter/Map/Hub/Point4", "Hood", 45.0);
 
         // Arrays of Tunables for Iteration (Optional, but helpful for Subsystem)
         public static final TunableNumber[] HUB_DIST_TUNABLES = { kHubDist0, kHubDist1, kHubDist2, kHubDist3,
@@ -168,29 +172,29 @@ public final class ShooterConstants {
 
         // --- ALLIANCE PASS MAP ---
         // Point 0 (4.0m)
-        public static final TunableNumber kPassDist0 = new TunableNumber("ShooterMap/Pass/Point0", "Dist", 4.0);
-        public static final TunableNumber kPassRPM0 = new TunableNumber("ShooterMap/Pass/Point0", "RPM", 3000);
-        public static final TunableNumber kPassHood0 = new TunableNumber("ShooterMap/Pass/Point0", "Hood", 50.0);
+        public static final TunableNumber kPassDist0 = new TunableNumber("Tuning/Shooter/Map/Pass/Point0", "Dist", 4.0);
+        public static final TunableNumber kPassRPM0 = new TunableNumber("Tuning/Shooter/Map/Pass/Point0", "RPM", 3000);
+        public static final TunableNumber kPassHood0 = new TunableNumber("Tuning/Shooter/Map/Pass/Point0", "Hood", 60.0);
 
         // Point 1 (5.0m)
-        public static final TunableNumber kPassDist1 = new TunableNumber("ShooterMap/Pass/Point1", "Dist", 5.0);
-        public static final TunableNumber kPassRPM1 = new TunableNumber("ShooterMap/Pass/Point1", "RPM", 3500);
-        public static final TunableNumber kPassHood1 = new TunableNumber("ShooterMap/Pass/Point1", "Hood", 50.0);
+        public static final TunableNumber kPassDist1 = new TunableNumber("Tuning/Shooter/Map/Pass/Point1", "Dist", 5.0);
+        public static final TunableNumber kPassRPM1 = new TunableNumber("Tuning/Shooter/Map/Pass/Point1", "RPM", 3500);
+        public static final TunableNumber kPassHood1 = new TunableNumber("Tuning/Shooter/Map/Pass/Point1", "Hood", 60.0);
 
         // Point 2 (6.0m)
-        public static final TunableNumber kPassDist2 = new TunableNumber("ShooterMap/Pass/Point2", "Dist", 6.0);
-        public static final TunableNumber kPassRPM2 = new TunableNumber("ShooterMap/Pass/Point2", "RPM", 4000);
-        public static final TunableNumber kPassHood2 = new TunableNumber("ShooterMap/Pass/Point2", "Hood", 50.0);
+        public static final TunableNumber kPassDist2 = new TunableNumber("Tuning/Shooter/Map/Pass/Point2", "Dist", 6.0);
+        public static final TunableNumber kPassRPM2 = new TunableNumber("Tuning/Shooter/Map/Pass/Point2", "RPM", 4000);
+        public static final TunableNumber kPassHood2 = new TunableNumber("Tuning/Shooter/Map/Pass/Point2", "Hood", 60.0);
 
         // Point 3 (7.0m)
-        public static final TunableNumber kPassDist3 = new TunableNumber("ShooterMap/Pass/Point3", "Dist", 7.0);
-        public static final TunableNumber kPassRPM3 = new TunableNumber("ShooterMap/Pass/Point3", "RPM", 4500);
-        public static final TunableNumber kPassHood3 = new TunableNumber("ShooterMap/Pass/Point3", "Hood", 50.0);
+        public static final TunableNumber kPassDist3 = new TunableNumber("Tuning/Shooter/Map/Pass/Point3", "Dist", 7.0);
+        public static final TunableNumber kPassRPM3 = new TunableNumber("Tuning/Shooter/Map/Pass/Point3", "RPM", 4500);
+        public static final TunableNumber kPassHood3 = new TunableNumber("Tuning/Shooter/Map/Pass/Point3", "Hood", 60.0);
 
         // Point 4 (8.0m)
-        public static final TunableNumber kPassDist4 = new TunableNumber("ShooterMap/Pass/Point4", "Dist", 8.0);
-        public static final TunableNumber kPassRPM4 = new TunableNumber("ShooterMap/Pass/Point4", "RPM", 5000);
-        public static final TunableNumber kPassHood4 = new TunableNumber("ShooterMap/Pass/Point4", "Hood", 50.0);
+        public static final TunableNumber kPassDist4 = new TunableNumber("Tuning/Shooter/Map/Pass/Point4", "Dist", 8.0);
+        public static final TunableNumber kPassRPM4 = new TunableNumber("Tuning/Shooter/Map/Pass/Point4", "RPM", 5000);
+        public static final TunableNumber kPassHood4 = new TunableNumber("Tuning/Shooter/Map/Pass/Point4", "Hood", 60.0);
 
         public static final TunableNumber[] PASS_DIST_TUNABLES = { kPassDist0, kPassDist1, kPassDist2, kPassDist3,
                         kPassDist4 };
@@ -200,15 +204,15 @@ public final class ShooterConstants {
                         kPassHood4 };
 
         // --- TOLERANCES ---
-        public static final double SHOOTER_RPM_TOLERANCE = 50.0;
-        public static final double HOOD_ANGLE_TOLERANCE = 1.0;
-        public static final double TURRET_AIM_TOLERANCE = 2.0;
+        public static final double SHOOTER_RPM_TOLERANCE = 80.0; // Slightly tighter
+        public static final double HOOD_ANGLE_TOLERANCE = 1.5; // Slightly tighter
+        public static final double TURRET_AIM_TOLERANCE = 1.0; // Fixed 3.0 bias
 
         /**
          * Default safe values for invalid/null distance (Fender shot)
          */
         public static final double FENDER_SHOT_RPM = 2000.0;
-        public static final double FENDER_SHOT_HOOD_ANGLE = 65.0;
+        public static final double FENDER_SHOT_HOOD_ANGLE = 60.0;
 
         // ===========================================================================
         // FEEDING MODE

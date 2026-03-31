@@ -9,12 +9,15 @@ import org.littletonrobotics.junction.Logger; // Logger ekle
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
+import edu.wpi.first.wpilibj.DriverStation;
+import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 
 // --- CONSTANTS ---
 import frc.robot.constants.OIConstants;
+import frc.robot.constants.DriveConstants;
 
 // --- SUBSYSTEMS & IO ---
 import frc.robot.subsystems.drive.*;
@@ -27,6 +30,12 @@ import frc.robot.commands.drive.BumpPassCommand;
 // --- COMMANDS ---
 import frc.robot.commands.drive.DriveWithJoystick;
 import frc.robot.commands.drive.SimpleDriveToPose;
+import frc.robot.commands.drive.TrenchPassCommand;
+import frc.robot.commands.shooter.AutoShootCommand;
+import frc.robot.commands.shooter.FixedShotCommand;
+import frc.robot.commands.intake.FeedPassCommand;
+import frc.robot.constants.FieldConstants;
+import frc.robot.constants.ShooterConstants;
 
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
@@ -104,21 +113,31 @@ public class RobotContainer {
         // ==================== CONSTRUCTOR ====================
         public RobotContainer() {
                 // 1. IO Katmanlarını Oluştur
-                // Not: Climber, Intake, Shooter, Feeder artık YAMS kullanıyor, IO layer yok
-                // switch (Constants.currentMode) ... VisionIO instantiation removed
+                FeederIO feederIO = Robot.isReal() ? new FeederIOSparkMax() : new FeederIOSim();
+                IntakeIO intakeIO = Robot.isReal() ? new IntakeIOHardware() : new IntakeIOSim();
+                ShooterIO shooterIO = Robot.isReal() ? new ShooterIOReal() : new ShooterIOSim();
+
+                GyroIO gyroIO = Robot.isReal() ? new GyroIONavX() : new GyroIO() {};
+                ModuleIO flIO = Robot.isReal() ? new ModuleIOSpark(DriveConstants.kFrontLeftDrivingCanId, DriveConstants.kFrontLeftTurningCanId, DriveConstants.kFrontLeftDrivingInverted) : new ModuleIO() {};
+                ModuleIO frIO = Robot.isReal() ? new ModuleIOSpark(DriveConstants.kFrontRightDrivingCanId, DriveConstants.kFrontRightTurningCanId, DriveConstants.kFrontRightDrivingInverted) : new ModuleIO() {};
+                ModuleIO rlIO = Robot.isReal() ? new ModuleIOSpark(DriveConstants.kRearLeftDrivingCanId, DriveConstants.kRearLeftTurningCanId, DriveConstants.kRearLeftDrivingInverted) : new ModuleIO() {};
+                ModuleIO rrIO = Robot.isReal() ? new ModuleIOSpark(DriveConstants.kRearRightDrivingCanId, DriveConstants.kRearRightTurningCanId, DriveConstants.kRearRightDrivingInverted) : new ModuleIO() {};
 
                 // 2. Subsystemleri Başlat
-                driveSubsystem = new DriveSubsystem();
+                driveSubsystem = new DriveSubsystem(gyroIO, flIO, frIO, rlIO, rrIO);
+
+                VisionIO leftVisionIO = Robot.isReal() ? new VisionIOLimelight("limelight-left") : new VisionIO() {};
+                VisionIO rightVisionIO = Robot.isReal() ? new VisionIOLimelight("limelight-right") : new VisionIO() {};
 
                 // Vision Subsystem requires DriveSubsystem for Odometry updates
-                visionSubsystem = new VisionSubsystem(driveSubsystem);
+                visionSubsystem = new VisionSubsystem(leftVisionIO, rightVisionIO, driveSubsystem);
 
-                shooterSubsystem = new ShooterSubsystem(driveSubsystem::getPose);
-                feederSubsystem = new FeederSubsystem();
-                intakeSubsystem = new IntakeSubsystem();
+                shooterSubsystem = new ShooterSubsystem(shooterIO, driveSubsystem::getPose);
+                feederSubsystem = new FeederSubsystem(feederIO);
+                intakeSubsystem = new IntakeSubsystem(intakeIO);
 
-                // LED Subsystem requires FeederState
-                ledSubsystem = new LEDSubsystem(feederSubsystem);
+                // LED Subsystem — alan tespiti için pose supplier kullanır
+                ledSubsystem = new LEDSubsystem(driveSubsystem::getPose);
 
                 // AutoShoot dashboard butonu (FeederSubsystem gerektiriyor)
                 shooterSubsystem.initAutoShootCommand(feederSubsystem, driveSubsystem, intakeSubsystem,
@@ -168,7 +187,7 @@ public class RobotContainer {
 
                 // Elastic Dashboard butonları
                 SmartDashboard.putData("Commands/TrenchPass",
-                                new frc.robot.commands.drive.TrenchPassCommand(driveSubsystem, shooterSubsystem));
+                                new TrenchPassCommand(driveSubsystem, shooterSubsystem));
 
                 SmartDashboard.putData("Commands/BumpPass",
                                 new BumpPassCommand(driveSubsystem, shooterSubsystem));
@@ -181,11 +200,11 @@ public class RobotContainer {
                 // AutoIntake: İleri sürüş + roller + feeder (10 saniye, Dashboard'dan
                 // başlatılabilir)
                 SmartDashboard.putData("Commands/AutoIntake",
-                                new frc.robot.commands.intake.FeedPassCommand(
+                                new FeedPassCommand(
                                                 driveSubsystem, intakeSubsystem));
 
                 SmartDashboard.putData("Commands/Otoatış",
-                                new frc.robot.commands.shooter.AutoShootCommand(
+                                new AutoShootCommand(
                                                 shooterSubsystem, feederSubsystem, driveSubsystem, intakeSubsystem,
                                                 driveSubsystem::getPose)
                                                 .withName("Otoatış"));
@@ -213,20 +232,20 @@ public class RobotContainer {
 
                 // ==================== FIXED SHOT BUTTONS ====================
                 // Red Alliance: R1, R2, R3, R4, RP1, RP2
-                for (int i = 0; i < frc.robot.constants.ShooterConstants.FIXED_SHOT_COUNT; i++) {
-                        String name = frc.robot.constants.ShooterConstants.RED_FIXED_SHOT_NAMES[i];
+for (int i = 0; i < ShooterConstants.FIXED_SHOT_COUNT; i++) {
+                        String name = ShooterConstants.RED_FIXED_SHOT_NAMES[i];
                         SmartDashboard.putData("Commands/FixedShot/" + name,
-                                        new frc.robot.commands.shooter.FixedShotCommand(
+                                        new FixedShotCommand(
                                                         shooterSubsystem, feederSubsystem, intakeSubsystem,
                                                         driveSubsystem::getPose,
                                                         i, true)
                                                         .withName("FixedShot " + name));
                 }
                 // Blue Alliance: B1, B2, B3, B4, BP1, BP2
-                for (int i = 0; i < frc.robot.constants.ShooterConstants.FIXED_SHOT_COUNT; i++) {
-                        String name = frc.robot.constants.ShooterConstants.BLUE_FIXED_SHOT_NAMES[i];
+                for (int i = 0; i < ShooterConstants.FIXED_SHOT_COUNT; i++) {
+                        String name = ShooterConstants.BLUE_FIXED_SHOT_NAMES[i];
                         SmartDashboard.putData("Commands/FixedShot/" + name,
-                                        new frc.robot.commands.shooter.FixedShotCommand(
+                                        new FixedShotCommand(
                                                         shooterSubsystem, feederSubsystem, intakeSubsystem,
                                                         driveSubsystem::getPose,
                                                         i, false)
@@ -247,12 +266,12 @@ public class RobotContainer {
                 // SmartDashboard'a alliance değiştirme butonları ekle
                 SmartDashboard.putData("Reset to Blue Start",
                                 Commands.runOnce(() -> driveSubsystem.resetOdometry(
-                                                new edu.wpi.first.math.geometry.Pose2d(2.0, 4.0,
+                                                new Pose2d(2.0, 4.0,
                                                                 Rotation2d.fromDegrees(0)))));
 
                 SmartDashboard.putData("Reset to Red Start",
                                 Commands.runOnce(() -> driveSubsystem.resetOdometry(
-                                                new edu.wpi.first.math.geometry.Pose2d(14.5, 4.0,
+                                                new Pose2d(14.5, 4.0,
                                                                 Rotation2d.fromDegrees(180)))));
 
                 SmartDashboard.putData("Reset to Alliance Start",
@@ -264,16 +283,16 @@ public class RobotContainer {
          * Teleop başında çağrılabilir.
          */
         public void resetToAllianceStart() {
-                var alliance = edu.wpi.first.wpilibj.DriverStation.getAlliance();
+var alliance = DriverStation.getAlliance();
 
-                edu.wpi.first.math.geometry.Pose2d startPose;
-                if (alliance.isPresent() && alliance.get() == edu.wpi.first.wpilibj.DriverStation.Alliance.Red) {
+                Pose2d startPose;
+                if (alliance.isPresent() && alliance.get() == Alliance.Red) {
                         // Red Alliance: Saha sağ tarafı
-                        startPose = new edu.wpi.first.math.geometry.Pose2d(14.5, 4.0, Rotation2d.fromDegrees(180));
+                        startPose = new Pose2d(14.5, 4.0, Rotation2d.fromDegrees(180));
                         System.out.println("[StartingPose] Red Alliance başlangıç pozisyonu ayarlandı: " + startPose);
                 } else {
                         // Blue Alliance (varsayılan): Saha sol tarafı
-                        startPose = new edu.wpi.first.math.geometry.Pose2d(2.0, 4.0, Rotation2d.fromDegrees(0));
+                        startPose = new Pose2d(2.0, 4.0, Rotation2d.fromDegrees(0));
                         System.out.println("[StartingPose] Blue Alliance başlangıç pozisyonu ayarlandı: " + startPose);
                         if (!alliance.isPresent()) {
                                 System.out.println(
@@ -330,7 +349,7 @@ public class RobotContainer {
          * Başlangıç pozisyonu artık dashboard butonlarıyla manuel ayarlanır.
          */
         public void onTeleopInit() {
-                if (edu.wpi.first.wpilibj.DriverStation.isFMSAttached()) {
+                if (DriverStation.isFMSAttached()) {
                         System.out.println("[TeleopInit] FMS Attached (Match). Keeping existing pose from Auto.");
                 } else {
                         System.out.println("[TeleopInit] No FMS (Practice). Resetting to Alliance Start.");
@@ -358,20 +377,20 @@ public class RobotContainer {
          * 
          * @return Atış için hedef Pose2d
          */
-        public Pose2d getShootingPose() {
-                var alliance = edu.wpi.first.wpilibj.DriverStation.getAlliance();
+public Pose2d getShootingPose() {
+                var alliance = DriverStation.getAlliance();
 
                 // Get Dynamic Hub Center
-                Translation2d hubCenter = frc.robot.constants.FieldConstants.getHubCenter(alliance);
+                Translation2d hubCenter = FieldConstants.getHubCenter(alliance);
 
-                if (alliance.isPresent() && alliance.get() == edu.wpi.first.wpilibj.DriverStation.Alliance.Red) {
+                if (alliance.isPresent() && alliance.get() == Alliance.Red) {
                         return new Pose2d(
-                                        hubCenter.getX() - frc.robot.constants.FieldConstants.kIdealShootingDistanceMeters,
+                                        hubCenter.getX() - FieldConstants.kIdealShootingDistanceMeters,
                                         hubCenter.getY(),
                                         Rotation2d.fromDegrees(180));
                 } else {
                         return new Pose2d(
-                                        hubCenter.getX() + frc.robot.constants.FieldConstants.kIdealShootingDistanceMeters,
+                                        hubCenter.getX() + FieldConstants.kIdealShootingDistanceMeters,
                                         hubCenter.getY(),
                                         Rotation2d.fromDegrees(0));
                 }

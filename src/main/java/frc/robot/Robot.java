@@ -4,11 +4,22 @@
 
 package frc.robot;
 
+import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.net.PortForwarder;
+import edu.wpi.first.wpilibj.DriverStation;
+import edu.wpi.first.wpilibj.DriverStation.Alliance;
+import edu.wpi.first.wpilibj.shuffleboard.Shuffleboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
+import frc.robot.commands.feeder.FeederTestCommand;
+import frc.robot.commands.intake.IntakeTestCommand;
+import frc.robot.commands.shooter.ShooterTestCommand;
+import frc.robot.constants.FieldConstants;
+import frc.robot.subsystems.drive.DriveSubsystem;
 import org.littletonrobotics.junction.LoggedRobot;
 import org.littletonrobotics.junction.Logger;
+import org.littletonrobotics.junction.networktables.NT4Publisher;
+import org.littletonrobotics.junction.wpilog.WPILOGWriter;
 
 /**
  * The methods in this class are called automatically corresponding to each
@@ -23,7 +34,7 @@ public class Robot extends LoggedRobot {
   private final RobotContainer m_robotContainer;
 
   // Track the last seen alliance to avoid redundant resets
-  private edu.wpi.first.wpilibj.DriverStation.Alliance m_lastAlliance = null;
+  private Alliance m_lastAlliance = null;
 
   /**
    * This function is run when the robot is first started up and should be used
@@ -35,14 +46,14 @@ public class Robot extends LoggedRobot {
     Logger.recordMetadata("ProjectName", "foxyCode2026");
 
     if (isReal()) {
-      Logger.addDataReceiver(new org.littletonrobotics.junction.wpilog.WPILOGWriter());
-      Logger.addDataReceiver(new org.littletonrobotics.junction.networktables.NT4Publisher());
+      Logger.addDataReceiver(new WPILOGWriter());
+      Logger.addDataReceiver(new NT4Publisher());
     } else {
-      Logger.addDataReceiver(new org.littletonrobotics.junction.networktables.NT4Publisher());
+      Logger.addDataReceiver(new NT4Publisher());
     }
 
     // Silence joystick connection warnings to reduce log spam and lag
-    edu.wpi.first.wpilibj.DriverStation.silenceJoystickConnectionWarning(true);
+    DriverStation.silenceJoystickConnectionWarning(true);
 
     Logger.start();
 
@@ -104,7 +115,7 @@ public class Robot extends LoggedRobot {
   @Override
   public void disabledPeriodic() {
     // Sürekli olarak FMS'den ittifak bilgisini kontrol et
-    var currentAlliance = edu.wpi.first.wpilibj.DriverStation.getAlliance();
+    var currentAlliance = DriverStation.getAlliance();
     if (currentAlliance.isPresent() && currentAlliance.get() != m_lastAlliance) {
       m_lastAlliance = currentAlliance.get();
       if (m_robotContainer != null) {
@@ -122,6 +133,15 @@ public class Robot extends LoggedRobot {
   @Override
   public void autonomousInit() {
     m_autonomousCommand = m_robotContainer.getAutonomousCommand();
+    var alliance = DriverStation.getAlliance();
+    
+    System.out.println("[AutonomousInit] Alliance: " + (alliance.isPresent() ? alliance.get().name() : "None"));
+    if (m_autonomousCommand != null) {
+      System.out.println("[AutonomousInit] Starting Command: " + m_autonomousCommand.getName());
+      CommandScheduler.getInstance().schedule(m_autonomousCommand);
+    } else {
+      System.out.println("[AutonomousInit] WARNING: No autonomous command selected (null)");
+    }
 
     // SMART POSE INIT
     if (m_robotContainer != null) {
@@ -129,12 +149,7 @@ public class Robot extends LoggedRobot {
     }
 
     // Switch to main driver tab in Autonomous
-    edu.wpi.first.wpilibj.shuffleboard.Shuffleboard.selectTab("SmartDashboard");
-
-    // schedule the autonomous command (example)
-    if (m_autonomousCommand != null) {
-      CommandScheduler.getInstance().schedule(m_autonomousCommand);
-    }
+    Shuffleboard.selectTab("SmartDashboard");
   }
 
   /** This function is called periodically during autonomous. */
@@ -158,7 +173,7 @@ public class Robot extends LoggedRobot {
     }
 
     // Switch to main driver tab in Teleop
-    edu.wpi.first.wpilibj.shuffleboard.Shuffleboard.selectTab("SmartDashboard");
+    Shuffleboard.selectTab("SmartDashboard");
   }
 
   /** This function is called periodically during operator control. */
@@ -172,28 +187,28 @@ public class Robot extends LoggedRobot {
     CommandScheduler.getInstance().cancelAll();
 
     // Switch to Shooter Tuning tab for live tuning
-    edu.wpi.first.wpilibj.shuffleboard.Shuffleboard.selectTab("Shooter Tuning");
+    Shuffleboard.selectTab("Shooter Tuning");
 
     // Reset Pose for convenience
     resetPoseToAllianceStart();
 
     // Flywheel PID Tuning komutu başlat
     CommandScheduler.getInstance().schedule(
-        new frc.robot.commands.shooter.ShooterTestCommand(
+        new ShooterTestCommand(
             m_robotContainer.getShooterSubsystem(),
             m_robotContainer.getFeederSubsystem()));
     System.out.println("[Test Mode] ShooterTestCommand başlatıldı - Flywheel/Turret/Hood PID tuning aktif");
 
     // Intake Test komutu başlat
     CommandScheduler.getInstance().schedule(
-        new frc.robot.commands.intake.IntakeTestCommand(
+        new IntakeTestCommand(
             m_robotContainer.getIntakeSubsystem()));
     System.out.println("[Test Mode] IntakeTestCommand başlatıldı - Pivot/Roller tuning aktif");
 
     // Feeder Test komutu başlat (ShooterTestCommand feeder'ı require ediyor, bu
     // yüzden ayrı çalışır)
     CommandScheduler.getInstance().schedule(
-        new frc.robot.commands.feeder.FeederTestCommand(
+        new FeederTestCommand(
             m_robotContainer.getFeederSubsystem()));
     System.out.println("[Test Mode] FeederTestCommand başlatıldı - RPM tuning aktif");
 
@@ -226,33 +241,23 @@ public class Robot extends LoggedRobot {
    */
   private void resetPoseToAllianceStart() {
     // Get Alliance
-    var alliance = edu.wpi.first.wpilibj.DriverStation.getAlliance();
-    edu.wpi.first.math.geometry.Pose2d startPose;
+    var alliance = DriverStation.getAlliance();
+    Pose2d startPose;
 
-    if (alliance.isPresent() && alliance.get() == edu.wpi.first.wpilibj.DriverStation.Alliance.Red) {
-      startPose = frc.robot.constants.FieldConstants.kRedStartPose;
+    if (alliance.isPresent() && alliance.get() == Alliance.Red) {
+      startPose = FieldConstants.kRedStartPose;
     } else {
-      startPose = frc.robot.constants.FieldConstants.kBlueStartPose;
+      startPose = FieldConstants.kBlueStartPose;
     }
 
     // DriveSubsystem'i container üzerinden al ve resetle
     if (m_robotContainer != null) {
-      frc.robot.subsystems.drive.DriveSubsystem drive = m_robotContainer.getDriveSubsystem();
+      DriveSubsystem drive = m_robotContainer.getDriveSubsystem();
       if (drive != null) {
         drive.resetOdometry(startPose);
         System.out.println("[Simulation] Reset Pose to "
-            + alliance.orElse(edu.wpi.first.wpilibj.DriverStation.Alliance.Blue) + " Start: " + startPose);
+            + alliance.orElse(Alliance.Blue) + " Start: " + startPose);
       }
-      // getDriveSubsystem wrapper methodu container'da olmayabilir, public field veya
-      // getter eklenmeli.
-      // Mevcut kodda DriveSubsystem getter yok mu? Kontrol edelim.
-      // RobotContainer'a bakmadık ama getShooterSubsystem var.
-      // Güvenli erişim için RobotContainer'a getter eklemek gerekebilir.
-      // Şimdilik varsayım: public access veya getter var.
-      // Kontrol: RobotContainer.java'yı okuduk mu? Evet.
-      // RobotContainer koduna tekrar bakıp getter var mı emin olalım.
-      // getShooterSubsystem var. getDriveSubsystem yoksa ekleyelim.
-      // Şimdilik bu metodu burada bırakıp RobotContainer düzenlemesi yapacağım.
     }
   }
 }

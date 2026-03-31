@@ -7,9 +7,13 @@ import frc.robot.subsystems.drive.DriveSubsystem;
 import frc.robot.subsystems.vision.VisionSubsystem;
 import frc.robot.subsystems.shooter.ShooterSubsystem;
 import frc.robot.subsystems.feeder.FeederSubsystem;
-import frc.robot.subsystems.led.LEDSubsystem;
 import frc.robot.subsystems.intake.IntakeSubsystem;
+import frc.robot.subsystems.led.LEDSubsystem;
 
+import frc.robot.commands.intake.IntakeCollectCommand;
+import frc.robot.commands.drive.TrenchPassCommand;
+import frc.robot.commands.drive.BumpPassCommand;
+import frc.robot.commands.shooter.ShootCommand;
 /**
  * Controller binding'lerini yöneten sınıf.
  * Tek joystick (driver) kullanılır.
@@ -26,8 +30,6 @@ public class ControllerBindings {
         private final IntakeSubsystem intakeSubsystem;
         private final LEDSubsystem ledSubsystem;
 
-        // Intake toggle durumu
-        private boolean intakeRunning = false;
 
         public ControllerBindings(
                         CommandXboxController driverController,
@@ -62,12 +64,12 @@ public class ControllerBindings {
 
                 // [RIGHT BUMPER] İTTİFAKA VE KONUMA GÖRE A->B veya B->A SIRALI GİDİŞ
                 driverController.rightBumper()
-                                .whileTrue(new frc.robot.commands.drive.TrenchPassCommand(driveSubsystem,
+                                .whileTrue(new TrenchPassCommand(driveSubsystem,
                                                 shooterSubsystem));
 
                 // [LEFT BUMPER] İTTİFAKA VE KONUMA GÖRE GÜVENLİ BUMP PASS
                 driverController.leftBumper()
-                                .whileTrue(new frc.robot.commands.drive.BumpPassCommand(driveSubsystem,
+                                .whileTrue(new BumpPassCommand(driveSubsystem,
                                                 shooterSubsystem));
 
                 // [A BUTTON] INTAKE DEPLOY
@@ -85,26 +87,24 @@ public class ControllerBindings {
                 // Hazır olduğunda ateşler, kilitlenir.
                 // Şasi SERBEST (Manual sürüş devam eder). Taret otomatik hedefler.
                 driverController.rightTrigger().whileTrue(
-                                new frc.robot.commands.shooter.ShootCommand(
-                                                shooterSubsystem,
-                                                feederSubsystem,
-                                                driveSubsystem,
-                                                intakeSubsystem,
-                                                driveSubsystem::getPose));
+                                Commands.parallel(
+                                                new ShootCommand(
+                                                                shooterSubsystem,
+                                                                feederSubsystem,
+                                                                driveSubsystem,
+                                                                intakeSubsystem,
+                                                                driveSubsystem::getPose),
+                                                Commands.startEnd(
+                                                                () -> ledSubsystem.setShooting(true),
+                                                                () -> ledSubsystem.setShooting(false))));
 
-                // [SOL TETİK] INTAKE ROLLER TOGGLE
-                // İlk basışta intake çalışır, tekrar basınca durur
-                driverController.leftTrigger().onTrue(
-                                Commands.runOnce(() -> {
-                                        intakeRunning = !intakeRunning;
-                                        if (intakeRunning) {
-                                                intakeSubsystem.deploy();
-                                                intakeSubsystem.runRollerRPM(
-                                                                frc.robot.constants.IntakeConstants.kRollerTargetRPM);
-                                        } else {
-                                                intakeSubsystem.stopRoller();
-                                        }
-                                }, intakeSubsystem));
+                // [SOL TETİK] INTAKE COLLECT (Toggle)
+                driverController.leftTrigger().toggleOnTrue(
+                                Commands.parallel(
+                                                new IntakeCollectCommand(intakeSubsystem, feederSubsystem),
+                                                Commands.startEnd(
+                                                                () -> ledSubsystem.setIntaking(true),
+                                                                () -> ledSubsystem.setIntaking(false))));
 
                 // [X BUTTON] KUSMA (Reverse Intake + Feeder)
                 // Basılı tutulduğunda intake ve feeder ters çalışır
@@ -160,27 +160,4 @@ public class ControllerBindings {
                 // ============================================================
         }
 
-        /**
-         * Alliance'a göre ideal atış pozisyonunu hesaplar.
-         */
-        private edu.wpi.first.math.geometry.Pose2d getShootingPose() {
-                var alliance = edu.wpi.first.wpilibj.DriverStation.getAlliance();
-                edu.wpi.first.math.geometry.Translation2d hubCenter = frc.robot.constants.FieldConstants
-                                .getHubCenter(alliance);
-
-                if (alliance.isPresent()
-                                && alliance.get() == edu.wpi.first.wpilibj.DriverStation.Alliance.Red) {
-                        return new edu.wpi.first.math.geometry.Pose2d(
-                                        hubCenter.getX()
-                                                        - frc.robot.constants.FieldConstants.kIdealShootingDistanceMeters,
-                                        hubCenter.getY(),
-                                        edu.wpi.first.math.geometry.Rotation2d.fromDegrees(180));
-                } else {
-                        return new edu.wpi.first.math.geometry.Pose2d(
-                                        hubCenter.getX()
-                                                        + frc.robot.constants.FieldConstants.kIdealShootingDistanceMeters,
-                                        hubCenter.getY(),
-                                        edu.wpi.first.math.geometry.Rotation2d.fromDegrees(0));
-                }
-        }
 }

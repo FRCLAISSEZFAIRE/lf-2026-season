@@ -59,9 +59,7 @@ public class FixedShotCommand extends Command {
     private final Timer cycleTimer = new Timer();
     private boolean intakeDeployed = false;
 
-    // Tunable: cycle time (seconds) and low RPM (same as ShootCommand)
-    private static final TunableNumber intakeCycleTime = new TunableNumber("Shooter", "FixedShot/CycleTime", 1.5);
-    private static final TunableNumber intakeShootRPM = new TunableNumber("Shooter", "FixedShot/IntakeRPM", 1500.0);
+    // Tunable: cycle time (seconds) and low RPM (now using unified ShooterConstants)
 
     /**
      * Creates a fixed shooting position command.
@@ -176,9 +174,9 @@ public class FixedShotCommand extends Command {
         }
 
         // Intake agitation - slow deploy/retract cycle + low RPM roller
-        intake.runRollerRPM(intakeShootRPM.get());
+        intake.runRollerRPM(ShooterConstants.kIntakeShootRPM.get());
 
-        if (cycleTimer.hasElapsed(intakeCycleTime.get())) {
+        if (cycleTimer.hasElapsed(ShooterConstants.kFixedShotCycleTime.get())) {
             intakeDeployed = !intakeDeployed;
             if (intakeDeployed) {
                 intake.setExtensionPosition(IntakeConstants.kExtensionDeployedCm);

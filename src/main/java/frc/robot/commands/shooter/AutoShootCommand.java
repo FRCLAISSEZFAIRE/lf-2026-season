@@ -8,7 +8,6 @@ import frc.robot.subsystems.feeder.FeederSubsystem;
 import frc.robot.subsystems.drive.DriveSubsystem;
 import frc.robot.subsystems.intake.IntakeSubsystem;
 
-import frc.robot.util.TunableNumber;
 
 import java.util.function.Supplier;
 
@@ -29,9 +28,7 @@ import java.util.function.Supplier;
  */
 public class AutoShootCommand extends Command {
 
-    /** Dashboard-adjustable shoot duration (seconds). */
-    public static final TunableNumber shootDurationSec = new TunableNumber("Shooter/Test", "AutoShoot Duration Sec",
-            5.0);
+    // Config values now read from ShooterConstants
 
     private final ShooterSubsystem shooter;
     private final FeederSubsystem feeder;
@@ -45,8 +42,7 @@ public class AutoShootCommand extends Command {
     // Timer for auto-timeout
     private final Timer timer = new Timer();
 
-    // Tunable: atış sırasında roller RPM (ShootCommand ile paylaşılır)
-    private static final TunableNumber intakeShootRPM = new TunableNumber("Shooter", "IntakeShootRPM", 1500.0);
+    // Tunable: atış sırasında roller RPM (ShooterConstants.kIntakeShootRPM ile paylaşılır)
 
     /**
      * @param shooter      ShooterSubsystem
@@ -82,7 +78,7 @@ public class AutoShootCommand extends Command {
         // Set center of rotation to turret physical center during shoot
         drive.setCenterOfRotation(shooter.getTurretCenterOfRotation());
 
-        System.out.println("[AutoShoot] Started - duration=" + shootDurationSec.get() + "s");
+        System.out.println("[AutoShoot] Started - duration=" + frc.robot.constants.ShooterConstants.kAutoShootDurationSec.get() + "s");
     }
 
     @Override
@@ -102,7 +98,7 @@ public class AutoShootCommand extends Command {
         }
 
         // 3. Fire-latch logic
-        boolean ready = shooter.isFlywheelAtTarget();
+        boolean ready = shooter.isReadyToShoot();
 
         if (ready && !hasShot) {
             hasShot = true;
@@ -117,13 +113,13 @@ public class AutoShootCommand extends Command {
 
         // 4. Intake roller — sadece roller çalıştır, extension'a dokunma
         if (intake != null) {
-            intake.runRollerRPM(intakeShootRPM.get());
+            intake.runRollerRPM(frc.robot.constants.ShooterConstants.kIntakeShootRPM.get());
         }
     }
 
     @Override
     public boolean isFinished() {
-        return timer.hasElapsed(shootDurationSec.get());
+        return timer.hasElapsed(frc.robot.constants.ShooterConstants.kAutoShootDurationSec.get());
     }
 
     @Override

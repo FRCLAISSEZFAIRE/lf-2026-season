@@ -32,8 +32,8 @@ public class FeederTestCommand extends Command {
         this.feeder = feeder;
         addRequirements(feeder);
 
-        testIndexerRPM = new TunableNumber("Feeder/Test", "Indexer Target RPM", 0.0);
-        testKickerRPM = new TunableNumber("Feeder/Test", "Kicker Target RPM", 0.0);
+        testIndexerRPM = new TunableNumber("Tuning/Feeder/Test", "Indexer Target RPM", 0.0);
+        testKickerRPM = new TunableNumber("Tuning/Feeder/Test", "Kicker Target RPM", 0.0);
     }
 
     @Override

@@ -40,9 +40,9 @@ public class ShooterTestCommand extends Command {
         addRequirements(shooter);
 
         // TunableNumber'ları constructor'da oluştur
-        testFlywheelRPM = new TunableNumber("Shooter/Test", "Flywheel RPM", 0.0);
-        testTurretAngle = new TunableNumber("Shooter/Test", "Turret Angle", 0.0);
-        testHoodAngle = new TunableNumber("Shooter/Test", "Hood Angle", 40.0);
+        testFlywheelRPM = new TunableNumber("Tuning/Shooter/Test", "Flywheel RPM", 0.0);
+        testTurretAngle = new TunableNumber("Tuning/Shooter/Test", "Turret Angle", 0.0);
+        testHoodAngle = new TunableNumber("Tuning/Shooter/Test", "Hood Angle", 40.0);
     }
 
     @Override

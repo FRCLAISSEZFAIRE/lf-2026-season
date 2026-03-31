@@ -29,8 +29,8 @@ public class IntakeTestCommand extends Command {
         this.intake = intake;
         addRequirements(intake);
 
-        testExtensionCm = new TunableNumber("Intake/Test", "Extension Cm", 0.0);
-        testRollerRPM = new TunableNumber("Intake/Test", "Roller RPM", 0.0);
+        testExtensionCm = new TunableNumber("Tuning/Intake/Test", "Extension Cm", 0.0);
+        testRollerRPM = new TunableNumber("Tuning/Intake/Test", "Roller RPM", 0.0);
     }
 
     @Override

@@ -3,80 +3,41 @@ package frc.robot.subsystems.drive;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.kinematics.SwerveModulePosition;
 import edu.wpi.first.math.kinematics.SwerveModuleState;
-
-import com.revrobotics.spark.SparkClosedLoopController;
-import com.revrobotics.spark.SparkFlex;
-import com.revrobotics.spark.SparkMax;
-import com.revrobotics.spark.SparkBase.ControlType;
-import com.revrobotics.spark.SparkLowLevel.MotorType;
-import com.revrobotics.AbsoluteEncoder;
-import com.revrobotics.RelativeEncoder;
-import com.revrobotics.spark.SparkBase.PersistMode;
-import com.revrobotics.spark.SparkBase.ResetMode;
-import com.revrobotics.spark.config.SparkMaxConfig;
-import com.revrobotics.spark.config.SparkFlexConfig;
-
-import frc.robot.Configs;
+import org.littletonrobotics.junction.Logger;
 
 public class MAXSwerveModule {
-    private final SparkFlex m_drivingSpark; // Vortex
-    private final SparkMax m_turningSpark; // Neo
+    private final ModuleIO io;
+    private final ModuleIOInputsAutoLogged inputs = new ModuleIOInputsAutoLogged();
 
-    private final RelativeEncoder m_drivingEncoder;
-    private final AbsoluteEncoder m_turningEncoder;
-
-    private final SparkClosedLoopController m_drivingClosedLoopController;
-    private final SparkClosedLoopController m_turningClosedLoopController;
-
+    private final String name;
     private double m_chassisAngularOffset = 0;
     private SwerveModuleState m_desiredState = new SwerveModuleState(0.0, new Rotation2d());
 
+    // Simulation State
+    private double m_simDrivePositionMeters = 0;
+    private double m_simTurnPositionRad = 0;
+    private double m_simDriveVelocityMetersPerSec = 0;
+
     /**
-     * Constructs a MAXSwerveModule and configures the driving and turning motor,
-     * encoder, and PID controller.
+     * Constructs a MAXSwerveModule.
      * 
-     * @param drivingCANId         CAN ID for the driving motor (Vortex)
-     * @param turningCANId         CAN ID for the turning motor (NEO 550)
+     * @param io                   The IO layer for this module
+     * @param name                 The name of the module (e.g., "FrontLeft")
      * @param chassisAngularOffset Angular offset for this module in radians
-     * @param drivingInverted      true if driving motor should be inverted
-     *                             (typically FR and RL)
      */
-    public MAXSwerveModule(int drivingCANId, int turningCANId, double chassisAngularOffset, boolean drivingInverted) {
-        m_drivingSpark = new SparkFlex(drivingCANId, MotorType.kBrushless);
-        m_turningSpark = new SparkMax(turningCANId, MotorType.kBrushless);
+    public MAXSwerveModule(ModuleIO io, String name, double chassisAngularOffset) {
+        this.io = io;
+        this.name = name;
+        this.m_chassisAngularOffset = chassisAngularOffset;
 
-        m_drivingEncoder = m_drivingSpark.getEncoder();
-        m_turningEncoder = m_turningSpark.getAbsoluteEncoder();
-
-        m_drivingClosedLoopController = m_drivingSpark.getClosedLoopController();
-        m_turningClosedLoopController = m_turningSpark.getClosedLoopController();
-
-        // Apply base configuration
-        m_drivingSpark.configure(Configs.MAXSwerveModule.drivingConfig, ResetMode.kResetSafeParameters,
-                PersistMode.kPersistParameters);
-        m_turningSpark.configure(Configs.MAXSwerveModule.turningConfig, ResetMode.kResetSafeParameters,
-                PersistMode.kPersistParameters);
-
-        // Apply motor inversion if needed (FR and RL typically need inversion)
-        if (drivingInverted) {
-            SparkFlexConfig invertConfig = new SparkFlexConfig();
-            invertConfig.inverted(true);
-            m_drivingSpark.configure(invertConfig, ResetMode.kNoResetSafeParameters, PersistMode.kPersistParameters);
-        }
-
-        m_chassisAngularOffset = chassisAngularOffset;
-        m_desiredState.angle = new Rotation2d(m_turningEncoder.getPosition());
-        m_drivingEncoder.setPosition(0);
+        // Initialize desired state angle based on current offset
+        m_desiredState.angle = new Rotation2d(0);
     }
 
-    /**
-     * Legacy constructor for backwards compatibility (no inversion).
-     */
-    public MAXSwerveModule(int drivingCANId, int turningCANId, double chassisAngularOffset) {
-        this(drivingCANId, turningCANId, chassisAngularOffset, false);
+    public void periodic() {
+        io.updateInputs(inputs);
+        Logger.processInputs("Drive/Modules/" + name, inputs);
     }
-
-    // Getters moved to bottom with simulation logic support
 
     /**
      * Sets the desired state for the module.
@@ -90,114 +51,71 @@ public class MAXSwerveModule {
         correctedDesiredState.angle = desiredState.angle.plus(Rotation2d.fromRadians(m_chassisAngularOffset));
 
         // Optimize the reference state to avoid spinning further than 90 degrees.
-        correctedDesiredState.optimize(new Rotation2d(m_turningEncoder.getPosition()));
+        correctedDesiredState.optimize(new Rotation2d(inputs.turnAbsolutePositionRad));
 
-        // Command driving and turning SPARKS towards their respective setpoints.
-        m_drivingClosedLoopController.setSetpoint(correctedDesiredState.speedMetersPerSecond, ControlType.kVelocity);
-        m_turningClosedLoopController.setSetpoint(correctedDesiredState.angle.getRadians(), ControlType.kPosition);
+        // Command driving and turning IO towards their respective setpoints.
+        io.setDriveVelocity(correctedDesiredState.speedMetersPerSecond);
+        io.setTurnPosition(correctedDesiredState.angle.getRadians());
 
         // Store the state actually sent to motors (optimized) for simulation
         m_desiredState = correctedDesiredState;
     }
 
-    /**
-     * Updates the PID gains for the driving and turning motors.
-     * 
-     * @param driveP Driving motor Proportional gain.
-     * @param turnP  Turning motor Proportional gain.
-     */
     public void updatePID(double driveP, double turnP) {
-        // Create partial configs for updates
-        SparkFlexConfig driveConfig = new SparkFlexConfig();
-        driveConfig.closedLoop.pid(driveP, 0.0, 0.0);
-        m_drivingSpark.configure(driveConfig, ResetMode.kNoResetSafeParameters, PersistMode.kNoPersistParameters);
-
-        SparkMaxConfig turnConfig = new SparkMaxConfig();
-        turnConfig.closedLoop.pid(turnP, 0.0, 0.0);
-        m_turningSpark.configure(turnConfig, ResetMode.kNoResetSafeParameters, PersistMode.kNoPersistParameters);
+        io.updatePID(driveP, turnP);
     }
 
-    /**
-     * Updates the inversion state for the driving and turning motors dynamically.
-     * 
-     * @param driveInverted Whether the driving motor should be inverted.
-     * @param turnInverted  Whether the turning motor should be inverted.
-     */
     public void updateInversions(boolean driveInverted, boolean turnInverted) {
-        SparkFlexConfig driveConfig = new SparkFlexConfig();
-        driveConfig.inverted(driveInverted);
-        m_drivingSpark.configure(driveConfig, ResetMode.kNoResetSafeParameters, PersistMode.kPersistParameters);
-
-        SparkMaxConfig turnConfig = new SparkMaxConfig();
-        turnConfig.inverted(turnInverted);
-        m_turningSpark.configure(turnConfig, ResetMode.kNoResetSafeParameters, PersistMode.kPersistParameters);
+        io.updateInversions(driveInverted, turnInverted);
     }
 
-    /** Zeroes all the SwerveModule encoders. */
     public void resetEncoders() {
-        m_drivingEncoder.setPosition(0);
+        io.resetEncoders();
 
         // Sim reset
         m_simDrivePositionMeters = 0;
         m_simTurnPositionRad = 0;
     }
 
-    // Simulation State
-    private double m_simDrivePositionMeters = 0;
-    private double m_simTurnPositionRad = 0;
-    private double m_simDriveVelocityMetersPerSec = 0;
-
     public void simulationPeriodic(double dt) {
-        // Negate speed to match MAXSwerve bevel gear reversal (same as real encoder
-        // negation)
-        m_simDriveVelocityMetersPerSec = -m_desiredState.speedMetersPerSecond;
+        // Hızlanma simülasyonu (Kraken/NEO torku için bir yakınsama faktörü)
+        // Hedef hıza anında ulaşmak yerine her döngüde %40'ını kapatır
+        double driveConvergence = 0.4; 
+        double targetDriveVel = -m_desiredState.speedMetersPerSecond;
+        m_simDriveVelocityMetersPerSec += (targetDriveVel - m_simDriveVelocityMetersPerSec) * driveConvergence;
+        
         m_simDrivePositionMeters += m_simDriveVelocityMetersPerSec * dt;
 
-        // Turn
-        m_simTurnPositionRad = m_desiredState.angle.getRadians();
+        // Dönüş simülasyonu (Modülün dönme hızı kısıtlaması)
+        // Modül saniyede ~20 radyan dönebilir gibi simüle edilir
+        double turnConvergence = 0.5;
+        double targetTurnPos = m_desiredState.angle.getRadians();
+        m_simTurnPositionRad += (targetTurnPos - m_simTurnPositionRad) * turnConvergence;
     }
 
-    // Override getState and getPosition for simulation if needed,
-    // OR just rely on setters updating the logic if we could mock encoders.
-    // Since we can't easily mock REV encoders without vendor dep physics sim,
-    // we will condition the getters or just update internal state that getters use?
-    // REV's wrappers might return 0 in sim unless configured.
-    // Let's modify getters to check for RobotBase.isSimulation() but that requires
-    // import.
-    // Better: Helper method to retrieve data.
-
     public SwerveModulePosition getPosition() {
-        if (edu.wpi.first.wpilibj.RobotBase.isSimulation()) {
-            // simDrivePositionMeters is already in physical space (negated in
-            // simulationPeriodic)
+        if (edu.wpi.first.wpilibj.RobotBase.isSimulation() && !(io instanceof ModuleIOSpark)) {
             return new SwerveModulePosition(
                     m_simDrivePositionMeters,
                     new Rotation2d(m_simTurnPositionRad - m_chassisAngularOffset));
         }
 
-        // Apply chassis angular offset to the encoder position to get the position
-        // relative to the chassis.
+        // Apply chassis angular offset to the encoder position to get the position relative to the chassis.
         // Negate drive encoder: MAXSwerve bevel gear reverses shaft vs wheel direction.
-        // Motor inversion handles PID correctly internally, but odometry reads raw
-        // encoder values which have the wrong sign. Negating here fixes odometry only.
         return new SwerveModulePosition(
-                -m_drivingEncoder.getPosition(),
-                new Rotation2d(m_turningEncoder.getPosition() - m_chassisAngularOffset));
+                -inputs.drivePositionMeters,
+                new Rotation2d(inputs.turnAbsolutePositionRad - m_chassisAngularOffset));
     }
 
     public SwerveModuleState getState() {
-        if (edu.wpi.first.wpilibj.RobotBase.isSimulation()) {
-            // simDriveVelocityMetersPerSec is already in physical space (negated in
-            // simulationPeriodic)
+        if (edu.wpi.first.wpilibj.RobotBase.isSimulation() && !(io instanceof ModuleIOSpark)) {
             return new SwerveModuleState(
                     m_simDriveVelocityMetersPerSec,
                     new Rotation2d(m_simTurnPositionRad - m_chassisAngularOffset));
         }
 
-        // Apply chassis angular offset to the encoder position to get the position
-        // relative to the chassis.
-        // Negate velocity for same reason as position above.
-        return new SwerveModuleState(-m_drivingEncoder.getVelocity(),
-                new Rotation2d(m_turningEncoder.getPosition() - m_chassisAngularOffset));
+        return new SwerveModuleState(
+                -inputs.driveVelocityMetersPerSec,
+                new Rotation2d(inputs.turnAbsolutePositionRad - m_chassisAngularOffset));
     }
 }

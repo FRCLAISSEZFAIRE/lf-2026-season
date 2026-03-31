@@ -1,6 +1,8 @@
 package frc.robot;
 
 import edu.wpi.first.math.geometry.Pose2d;
+import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
@@ -13,15 +15,13 @@ import frc.robot.commands.drive.BumpPassCommand;
 import frc.robot.commands.drive.SimpleDriveToPose;
 import frc.robot.commands.drive.TrenchPassCommand;
 
-import frc.robot.commands.shooter.ShootCommand;
 import frc.robot.commands.shooter.AutoShootCommand;
+import frc.robot.commands.intake.IntakeCollectCommand;
 import frc.robot.constants.FieldConstants;
-import frc.robot.constants.IntakeConstants;
 import frc.robot.subsystems.drive.DriveSubsystem;
 import frc.robot.subsystems.feeder.FeederSubsystem;
 import frc.robot.subsystems.intake.IntakeSubsystem;
 import frc.robot.subsystems.shooter.ShooterSubsystem;
-import frc.robot.util.TunableNumber;
 
 import java.util.Set;
 
@@ -42,7 +42,6 @@ public final class AutonomousScenarios {
         // ==========================================================================
         // TIMING SETTINGS - Adjustable from Dashboard, saved to RIO
         // ==========================================================================
-        private static final TunableNumber fullShootTimeout = new TunableNumber("Auto", "FullShootTimeout", 5.0);
 
         private static final SendableChooser<String> passChooser = new SendableChooser<>();
         private static final SendableChooser<String> sideChooser = new SendableChooser<>();
@@ -72,6 +71,9 @@ public final class AutonomousScenarios {
 
                 chooser.addOption("3 - Double Collect & Shoot",
                                 doubleCollectAndShoot(drive, shooter, feeder, intake));
+
+                chooser.addOption("4 - Collect, Feed & Shoot",
+                                collectFeedAndShoot(drive, shooter, feeder, intake));
 
                 // Pass mode chooser
                 passChooser.setDefaultOption("Trench", "Trench");
@@ -116,7 +118,6 @@ public final class AutonomousScenarios {
 
         /**
          * Scenario 2: Drive to Source (intake running) -> Arrive -> Intake + AutoShoot
-         * parallel
          */
         private static Command sourceAndShoot(
                         DriveSubsystem drive, ShooterSubsystem shooter,
@@ -130,37 +131,12 @@ public final class AutonomousScenarios {
                                                                                 DriverStation.getAlliance())),
                                                                 Set.<edu.wpi.first.wpilibj2.command.Subsystem>of(
                                                                                 drive)),
-                                                Commands.runEnd(
-                                                                () -> {
-                                                                        intake.deploy();
-                                                                        intake.runRollerRPM(2000);
-                                                                        feeder.feed();
-                                                                },
-                                                                () -> {
-                                                                        // Drive bitti, intake dur (sonraki adımda
-                                                                        // tekrar açılacak)
-                                                                        intake.stopRoller();
-                                                                        feeder.stop();
-                                                                },
-                                                                intake, feeder)),
-                                // 2. Vardıktan sonra: Intake deploy + roller + AutoShoot aynı anda
-                                Commands.parallel(
-                                                // Intake açık, roller çalışıyor
-                                                Commands.runEnd(
-                                                                () -> {
-                                                                        intake.deploy();
-                                                                        intake.runRollerRPM(2000); // Set edilecek
-                                                                                                   // değerleri buraya
-                                                                                                   // girebilirsiniz
-                                                                },
-                                                                () -> {
-                                                                        intake.stopRoller();
-                                                                        intake.retract();
-                                                                },
-                                                                intake),
-                                                // AutoShoot: nişan al + ateş et (Intake'i karıştırmadan)
-                                                new AutoShootCommand(shooter, feeder, drive, null,
-                                                                drive::getPose)));
+                                                new IntakeCollectCommand(intake, feeder)),
+                                // 2. Vardıktan sonra: Intake deploy et ve AutoShoot (AutoShoot zaten rollerları çalıştırır)
+                                intake.deployCommand(),
+                                new AutoShootCommand(shooter, feeder, drive, intake, drive::getPose),
+                                // Bittiğinde intake'i geri çek (retract)
+                                intake.retractCommand());
         }
 
         /**
@@ -183,6 +159,39 @@ public final class AutonomousScenarios {
                                 autoIntakeToManualPoint(drive, intake, feeder, false), // 2. tur toplama
                                 new BumpPassCommand(drive, shooter), // BumpPass ile dönüş
                                 fullShoot(shooter, feeder, drive, intake));
+        }
+
+        /**
+         * Scenario 4: Collect, Feed and Shoot while driving
+         */
+        private static Command collectFeedAndShoot(
+                        DriveSubsystem drive, ShooterSubsystem shooter,
+                        FeederSubsystem feeder, IntakeSubsystem intake) {
+
+                return Commands.sequence(
+                                // Round 1: pass across
+                                getMainPassCommand(drive, shooter),
+                                autoIntakeToManualPoint(drive, intake, feeder, true), // 1. tur toplama
+
+                                // Hareket halindeyken besleme (intake) ve atış
+                                feedAndMainPassCommand(drive, shooter, feeder, intake),
+
+                                new BumpPassCommand(drive, shooter), // BumpPass ile dönüş
+                                fullShoot(shooter, feeder, drive, intake));
+        }
+
+        /**
+         * Drives to a placeholder point (10.0, 4.0) while simultaneously intaking and
+         * shooting.
+         * The drive command is the deadline; shooting stops once arrived.
+         */
+        private static Command feedAndMainPassCommand(
+                        DriveSubsystem drive, ShooterSubsystem shooter,
+                        FeederSubsystem feeder, IntakeSubsystem intake) {
+                Pose2d drivePose = new Pose2d(10.0, 4.0, new Rotation2d());
+                return Commands.deadline(
+                                new SimpleDriveToPose(drive, drivePose),
+                                new AutoShootCommand(shooter, feeder, drive, intake, drive::getPose));
         }
 
         // ==========================================================================
@@ -225,53 +234,6 @@ public final class AutonomousScenarios {
          * - Start side (Left/Right)
          * - isStart: true = first point (A/C), false = second point (B/D)
          */
-        private static Pose2d getPassPoint(boolean isStart) {
-                var alliance = DriverStation.getAlliance();
-                boolean isRed = alliance.isPresent() && alliance.get() == Alliance.Red;
-                boolean isLeft = "Left".equals(sideChooser.getSelected());
-                boolean isTrench = !"Bump".equals(passChooser.getSelected());
-
-                if (isTrench) {
-                        if (isRed) {
-                                // Red Left = A/B, Red Right = C/D
-                                if (isLeft) {
-                                        return isStart ? FieldConstants.getTrenchPointRedA()
-                                                        : FieldConstants.getTrenchPointRedB();
-                                } else {
-                                        return isStart ? FieldConstants.getTrenchPointRedC()
-                                                        : FieldConstants.getTrenchPointRedD();
-                                }
-                        } else {
-                                // Blue Left = C/D, Blue Right = A/B
-                                if (isLeft) {
-                                        return isStart ? FieldConstants.getTrenchPointBlueC()
-                                                        : FieldConstants.getTrenchPointBlueD();
-                                } else {
-                                        return isStart ? FieldConstants.getTrenchPointBlueA()
-                                                        : FieldConstants.getTrenchPointBlueB();
-                                }
-                        }
-                } else {
-                        // Bump
-                        if (isRed) {
-                                if (isLeft) {
-                                        return isStart ? FieldConstants.getBumpPointRedA()
-                                                        : FieldConstants.getBumpPointRedB();
-                                } else {
-                                        return isStart ? FieldConstants.getBumpPointRedC()
-                                                        : FieldConstants.getBumpPointRedD();
-                                }
-                        } else {
-                                if (isLeft) {
-                                        return isStart ? FieldConstants.getBumpPointBlueC()
-                                                        : FieldConstants.getBumpPointBlueD();
-                                } else {
-                                        return isStart ? FieldConstants.getBumpPointBlueA()
-                                                        : FieldConstants.getBumpPointBlueB();
-                                }
-                        }
-                }
-        }
 
         // ==========================================================================
         // ARA DÖNÜŞ NOKTALARI (MANUAL RETURN POINTS)
@@ -282,7 +244,7 @@ public final class AutonomousScenarios {
          * Toplam 8 farklı senaryo (Mavi/Kırmızı, Sol/Sağ, 1.Tur/2.Tur) için X ve Y
          * (metre) değerlerini buradan girebilirsiniz.
          */
-        private static edu.wpi.first.math.geometry.Translation2d getManualReturnPoint(DriveSubsystem drive,
+        private static Translation2d getManualReturnPoint(DriveSubsystem drive,
                         boolean isRound1) {
                 var alliance = DriverStation.getAlliance();
                 boolean isRed = alliance.isPresent() && alliance.get() == Alliance.Red;
@@ -295,37 +257,37 @@ public final class AutonomousScenarios {
 
                 if (isRed) {
                         if (isLeft) {
-                                return isRound1 ? new edu.wpi.first.math.geometry.Translation2d(8.8, 2.6) : // Kırmızı
+                                return isRound1 ? new Translation2d(8.8, 2.6) : // Kırmızı
                                                                                                             // Takım -
                                                                                                             // Sol Taraf
                                                                                                             // - 1. Tur
-                                                new edu.wpi.first.math.geometry.Translation2d(8, 4); // Kırmızı
+                                                new Translation2d(8, 4); // Kırmızı
                                                                                                      // Takım - Sol
                                                                                                      // Taraf - 2.
                                                                                                      // Tur
                         } else {
-                                return isRound1 ? new edu.wpi.first.math.geometry.Translation2d(8.8, 5.6) : // Kırmızı
+                                return isRound1 ? new Translation2d(8.8, 5.6) : // Kırmızı
                                                                                                             // Takım -
                                                                                                             // Sağ Taraf
                                                                                                             // - 1. Tur
-                                                new edu.wpi.first.math.geometry.Translation2d(8, 4); // Kırmızı Takım -
+                                                new Translation2d(8, 4); // Kırmızı Takım -
                                                                                                      // Sağ Taraf - 2.
                                                                                                      // Tur
                         }
                 } else {
                         if (isLeft) {
-                                return isRound1 ? new edu.wpi.first.math.geometry.Translation2d(7.8, 5.7) : // Mavi
+                                return isRound1 ? new Translation2d(7.8, 5.7) : // Mavi
                                                                                                             // Takım -
                                                                                                             // Sol Taraf
                                                                                                             // - 1. Tur
-                                                new edu.wpi.first.math.geometry.Translation2d(8, 4); // Mavi Takım - Sol
+                                                new Translation2d(8, 4); // Mavi Takım - Sol
                                                                                                      // Taraf - 2. Tur
                         } else {
-                                return isRound1 ? new edu.wpi.first.math.geometry.Translation2d(7.8, 2.4) : // Mavi
+                                return isRound1 ? new Translation2d(7.8, 2.4) : // Mavi
                                                                                                             // Takım -
                                                                                                             // Sağ Taraf
                                                                                                             // - 1. Tur
-                                                new edu.wpi.first.math.geometry.Translation2d(8, 4); // Mavi Takım - Sağ
+                                                new Translation2d(8, 4); // Mavi Takım - Sağ
                                                                                                      // Taraf - 2. Tur
                         }
                 }
@@ -359,7 +321,7 @@ public final class AutonomousScenarios {
                                         // Hedefe olan açıyı (atan2 ile) hesapla
                                         double dx = point.getX() - currentPos.getX();
                                         double dy = point.getY() - currentPos.getY();
-                                        var targetAngle = new edu.wpi.first.math.geometry.Rotation2d(dx, dy);
+                                        var targetAngle = new Rotation2d(dx, dy);
 
                                         // 1. Durduğu yerde önce yüzünü (başını) hedefe dönsün
                                         Pose2d turnPose = new Pose2d(currentPos, targetAngle);
@@ -374,18 +336,7 @@ public final class AutonomousScenarios {
                                                         .andThen(new SimpleDriveToPose(drive, drivePose));
                                 }, Set.<edu.wpi.first.wpilibj2.command.Subsystem>of(drive)),
                                 // Run intake + feeder while driving
-                                Commands.runEnd(
-                                                () -> {
-                                                        intake.setExtensionPosition(
-                                                                        IntakeConstants.kExtensionDeployedCm);
-                                                        intake.runRollerRPM(2000);
-                                                },
-                                                () -> {
-                                                        intake.stopRoller();
-                                                        intake.setExtensionPosition(
-                                                                        IntakeConstants.kExtensionRetractedCm);
-                                                },
-                                                intake, feeder));
+                                new IntakeCollectCommand(intake, feeder));
         }
 
 }
