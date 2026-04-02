@@ -4,7 +4,9 @@ import edu.wpi.first.math.controller.PIDController;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.wpilibj2.command.Command;
+import frc.robot.constants.FieldConstants;
 import frc.robot.subsystems.drive.DriveSubsystem;
+import frc.robot.util.TunableNumber;
 
 /**
  * Basit PID tabanlı hedefe gitme komutu.
@@ -20,32 +22,51 @@ public class SimpleDriveToPose extends Command {
     private final PIDController yController;
     private final PIDController rotController;
 
-    // Toleranslar
-    private static final double POSITION_TOLERANCE = 0.1; // metre
-    private static final double ROTATION_TOLERANCE = 0.05; // radyan (~3 derece)
+    // Tunable Toleranslar
+    private static final TunableNumber posTolerance = new TunableNumber("SimpleDrive", "PositionTolerance", 0.2);
+    private static final TunableNumber rotTolerance = new TunableNumber("SimpleDrive", "RotationTolerance", 0.08);
+
+    // Tunable PID Değerleri
+    private static final TunableNumber kPX = new TunableNumber("SimpleDrive", "kP_X", 2.0);
+    private static final TunableNumber kIX = new TunableNumber("SimpleDrive", "kI_X", 0.0);
+    private static final TunableNumber kDX = new TunableNumber("SimpleDrive", "kD_X", 0.1);
+
+    private static final TunableNumber kPY = new TunableNumber("SimpleDrive", "kP_Y", 2.0);
+    private static final TunableNumber kIY = new TunableNumber("SimpleDrive", "kI_Y", 0.0);
+    private static final TunableNumber kDY = new TunableNumber("SimpleDrive", "kD_Y", 0.1);
+
+    private static final TunableNumber kPRot = new TunableNumber("SimpleDrive", "kP_Rot", 3.0);
+    private static final TunableNumber kIRot = new TunableNumber("SimpleDrive", "kI_Rot", 0.0);
+    private static final TunableNumber kDRot = new TunableNumber("SimpleDrive", "kD_Rot", 0.1);
 
     public SimpleDriveToPose(DriveSubsystem driveSubsystem, Pose2d targetPose) {
         this.driveSubsystem = driveSubsystem;
         this.targetPose = targetPose;
 
         // PID ayarları
-        xController = new PIDController(2.0, 0.0, 0.1);
-        yController = new PIDController(2.0, 0.0, 0.1);
-        rotController = new PIDController(3.0, 0.0, 0.1);
+        xController = new PIDController(kPX.get(), kIX.get(), kDX.get());
+        yController = new PIDController(kPY.get(), kIY.get(), kDY.get());
+        rotController = new PIDController(kPRot.get(), kIRot.get(), kDRot.get());
 
         // Rotation controller için continuous input
         rotController.enableContinuousInput(-Math.PI, Math.PI);
 
         // Toleranslar
-        xController.setTolerance(POSITION_TOLERANCE);
-        yController.setTolerance(POSITION_TOLERANCE);
-        rotController.setTolerance(ROTATION_TOLERANCE);
+        xController.setTolerance(posTolerance.get());
+        yController.setTolerance(posTolerance.get());
+        rotController.setTolerance(rotTolerance.get());
 
         addRequirements(driveSubsystem);
     }
 
     @Override
     public void initialize() {
+        if (FieldConstants.isPoseForbidden(targetPose)) {
+            System.err.println("[SimpleDrive] HATA: Hedef pozisyon YASAKLI BÖLGEDE! " + targetPose);
+        }
+
+        System.out.println("[SimpleDrive] Başlatıldı. Hedef: " + targetPose);
+
         // PID'leri sıfırla
         xController.reset();
         yController.reset();
@@ -55,6 +76,26 @@ public class SimpleDriveToPose extends Command {
     @Override
     public void execute() {
         Pose2d currentPose = driveSubsystem.getPose();
+
+        // PID Update
+        if (kPX.hasChanged() || kIX.hasChanged() || kDX.hasChanged()) {
+            xController.setPID(kPX.get(), kIX.get(), kDX.get());
+        }
+        if (kPY.hasChanged() || kIY.hasChanged() || kDY.hasChanged()) {
+            yController.setPID(kPY.get(), kIY.get(), kDY.get());
+        }
+        if (kPRot.hasChanged() || kIRot.hasChanged() || kDRot.hasChanged()) {
+            rotController.setPID(kPRot.get(), kIRot.get(), kDRot.get());
+        }
+
+        // Tolerance Update
+        if (posTolerance.hasChanged()) {
+            xController.setTolerance(posTolerance.get());
+            yController.setTolerance(posTolerance.get());
+        }
+        if (rotTolerance.hasChanged()) {
+            rotController.setTolerance(rotTolerance.get());
+        }
 
         // Hata hesapla
         double xSpeed = xController.calculate(currentPose.getX(), targetPose.getX());
@@ -72,9 +113,6 @@ public class SimpleDriveToPose extends Command {
         org.littletonrobotics.junction.Logger.recordOutput("SimpleDrive/Target", targetPose);
 
         // Saha-referanslı sürüş
-        // xSpeed ve ySpeed ters çevrildi: motor/encoder ayarı nedeniyle pozitif vx =
-        // fiziksel geriye gidiş.
-        // DriveWithJoystick'teki Drive/InvertJoystick ile aynı telafi.
         driveSubsystem.runVelocity(
                 ChassisSpeeds.fromFieldRelativeSpeeds(-xSpeed, -ySpeed, -rotSpeed, currentPose.getRotation()));
     }

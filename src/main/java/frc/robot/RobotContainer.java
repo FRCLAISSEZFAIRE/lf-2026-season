@@ -117,6 +117,9 @@ public class RobotContainer {
                 feederSubsystem = new FeederSubsystem();
                 intakeSubsystem = new IntakeSubsystem();
 
+                // Connect Drive to Intake for geometry-aware collision checking (extension in meters)
+                driveSubsystem.setIntakeExtensionSupplier(() -> intakeSubsystem.getExtensionPositionCm() / 100.0);
+
                 // LED Subsystem requires FeederState
                 ledSubsystem = new LEDSubsystem(feederSubsystem);
 

@@ -14,6 +14,9 @@ import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.smartdashboard.Field2d;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
+import java.util.function.DoubleSupplier;
+import java.util.List;
+import java.util.ArrayList;
 
 import frc.robot.constants.DriveConstants;
 import frc.robot.constants.FieldConstants;
@@ -102,10 +105,16 @@ public class DriveSubsystem extends SubsystemBase {
     private final TunableBoolean invertTurnRR = new TunableBoolean("Drive/Inverts/Turning", "RR (8)", false);
 
     // Safety Layer Configuration
-    private static final double ROBOT_RADIUS = 0.6; // 70x65cm frame + 8cm bumpers
-    private static final double FIELD_LENGTH = 16.54;
-    private static final double FIELD_WIDTH = 8.21;
-    private boolean safeDriveEnabled = true;
+    // --- GEOMETRY & SAFETY TUNABLES ---
+    private final TunableNumber robotWidth = new TunableNumber("Drive/Geometry", "Robot Width (m)", 0.70);
+    private final TunableNumber robotLength = new TunableNumber("Drive/Geometry", "Robot Length (m)", 0.65);
+    private final TunableNumber bumperWidth = new TunableNumber("Drive/Geometry", "Bumper Size (m)", 0.08);
+    private DoubleSupplier intakeExtensionSupplier = () -> 0.0;
+    
+    private final TunableNumber safetyGain = new TunableNumber("Drive/Safety", "Pushback Gain", 8.0);
+    private final TunableNumber safetyMargin = new TunableNumber("Drive/Safety", "Safety Margin (m)", 0.15);
+    private final TunableNumber predictionLookahead = new TunableNumber("Drive/Safety", "Lookahead (s)", 0.15);
+    private final TunableBoolean safeDriveEnabled = new TunableBoolean("Drive/Safety", "Safe Drive Enabled", true);
 
     // Center of Rotation (robot frame, varsayılan: robot merkezi)
     private Translation2d centerOfRotation = new Translation2d(0, 0);
@@ -164,18 +173,16 @@ public class DriveSubsystem extends SubsystemBase {
                     resetOdometry(new Pose2d(c.getX(), c.getY() - 0.10, c.getRotation()));
                 }, this).ignoringDisable(true));
 
-        // Apply saved TunableNumber values for inversions and PID
-        m_frontLeft.updateInversions(invertDriveFL.get(), invertTurnFL.get());
-        m_frontRight.updateInversions(invertDriveFR.get(), invertTurnFR.get());
-        m_rearLeft.updateInversions(invertDriveRL.get(), invertTurnRL.get());
-        m_rearRight.updateInversions(invertDriveRR.get(), invertTurnRR.get());
-
         double initDP = moduleDriveP.get();
         double initTP = moduleTurnP.get();
         m_frontLeft.updatePID(initDP, initTP);
         m_frontRight.updatePID(initDP, initTP);
         m_rearLeft.updatePID(initDP, initTP);
         m_rearRight.updatePID(initDP, initTP);
+    }
+
+    public void setIntakeExtensionSupplier(DoubleSupplier supplier) {
+        this.intakeExtensionSupplier = supplier;
     }
 
     /**
@@ -336,7 +343,7 @@ public class DriveSubsystem extends SubsystemBase {
         }
 
         // Safety Layer
-        if (safeDriveEnabled) {
+        if (safeDriveEnabled.get()) {
             targetSpeeds = applySafetyLayer(targetSpeeds, fieldRelative);
         }
 
@@ -372,6 +379,9 @@ public class DriveSubsystem extends SubsystemBase {
 
     // Compatibility: runVelocity was an alias for driveRobotRelative
     public void runVelocity(ChassisSpeeds speeds) {
+        if (safeDriveEnabled.get()) {
+            speeds = applySafetyLayer(speeds, false); // Robot relative
+        }
         driveRobotRelative(speeds);
     }
 
@@ -412,7 +422,12 @@ public class DriveSubsystem extends SubsystemBase {
         // 2. Limit Rates (Acceleration Control)
         ChassisSpeeds limitedSpeeds = limitRates(desiredSpeeds);
 
-        // 3. Drive
+        // 3. APPLY SAFETY (Teleop safety intercept)
+        if (safeDriveEnabled.get()) {
+            limitedSpeeds = applySafetyLayer(limitedSpeeds, false);
+        }
+
+        // 4. Drive
         driveRobotRelative(limitedSpeeds);
     }
 
@@ -529,44 +544,76 @@ public class DriveSubsystem extends SubsystemBase {
     }
 
     // ===========================================================================
-    // SAFETY LAYER
+    // SAFETY LAYER (Geometry-Aware Magnetic Repulsion)
     // ===========================================================================
     private ChassisSpeeds applySafetyLayer(ChassisSpeeds speeds, boolean fieldRelative) {
         Pose2d currentPose = getPose();
-        ChassisSpeeds fieldSpeeds = fieldRelative ? speeds
-                : ChassisSpeeds.fromRobotRelativeSpeeds(speeds, getRotation2d());
+        ChassisSpeeds fieldSpeeds = fieldRelative ? speeds : ChassisSpeeds.fromRobotRelativeSpeeds(speeds, getRotation2d());
+        
+        double vx = fieldSpeeds.vxMetersPerSecond;
+        double vy = fieldSpeeds.vyMetersPerSecond;
+        double lookahead = predictionLookahead.get();
+        double margin = safetyMargin.get();
+        double gain = safetyGain.get();
 
-        double fieldVx = fieldSpeeds.vxMetersPerSecond;
-        double fieldVy = fieldSpeeds.vyMetersPerSecond;
+        // 1. Static Repulsion (Current Pose)
+        List<Translation2d> currentCorners = getRobotCorners(currentPose);
+        Translation2d pushback = new Translation2d();
+        boolean inside = false;
 
-        // X Axis boundary
-        if (currentPose.getX() < ROBOT_RADIUS && fieldVx < 0)
-            fieldVx = 0;
-        if (currentPose.getX() > (FIELD_LENGTH - ROBOT_RADIUS) && fieldVx > 0)
-            fieldVx = 0;
-
-        // Y Axis boundary
-        if (currentPose.getY() < ROBOT_RADIUS && fieldVy < 0)
-            fieldVy = 0;
-        if (currentPose.getY() > (FIELD_WIDTH - ROBOT_RADIUS) && fieldVy > 0)
-            fieldVy = 0;
-
-        // Keep-Out Zones
-        for (Translation2d zoneCenter : FieldConstants.kKeepOutZones) {
-            double dist = currentPose.getTranslation().getDistance(zoneCenter);
-            double safeZoneRadius = 0.5 + ROBOT_RADIUS;
-
-            if (dist < safeZoneRadius) {
-                Translation2d vecToZone = zoneCenter.minus(currentPose.getTranslation());
-                double dotProduct = (fieldVx * vecToZone.getX()) + (fieldVy * vecToZone.getY());
-                if (dotProduct > 0) {
-                    fieldVx = 0;
-                    fieldVy = 0;
-                }
+        for (Translation2d corner : currentCorners) {
+            Translation2d safe = FieldConstants.getNearestSafeTranslation(corner, 0.02); // Hard margin
+            if (!safe.equals(corner)) {
+                pushback = pushback.plus(safe.minus(corner));
+                inside = true;
             }
         }
-        ChassisSpeeds safeSpeeds = new ChassisSpeeds(fieldVx, fieldVy, speeds.omegaRadiansPerSecond);
-        return fieldRelative ? safeSpeeds : ChassisSpeeds.fromFieldRelativeSpeeds(safeSpeeds, getRotation2d());
+
+        // 2. Predictive Repulsion (Soft Field)
+        // Project robot 150ms into the future based on current velocity
+        Pose2d predPose = new Pose2d(currentPose.getX() + vx * lookahead, currentPose.getY() + vy * lookahead, currentPose.getRotation());
+        List<Translation2d> predCorners = getRobotCorners(predPose);
+        
+        for (Translation2d corner : predCorners) {
+            Translation2d safe = FieldConstants.getNearestSafeTranslation(corner, margin);
+            if (!safe.equals(corner)) {
+                // Predictive pushback: the deeper the predicted intrusion, the stronger the force
+                pushback = pushback.plus(safe.minus(corner));
+                inside = true;
+            }
+        }
+
+        if (inside) {
+            vx += pushback.getX() * gain;
+            vy += pushback.getY() * gain;
+            Logger.recordOutput("Drive/SafetyActive", true);
+        } else {
+            Logger.recordOutput("Drive/SafetyActive", false);
+        }
+
+        // 3. Absolute Field Boundary Hard Stop
+        double edgeBuffer = (robotLength.get() / 2.0) + bumperWidth.get();
+        if (currentPose.getX() < edgeBuffer && vx < 0) vx = 0;
+        if (currentPose.getX() > (FieldConstants.kFieldLengthMeters - edgeBuffer) && vx > 0) vx = 0;
+        double sideBuffer = (robotWidth.get() / 2.0) + bumperWidth.get();
+        if (currentPose.getY() < sideBuffer && vy < 0) vy = 0;
+        if (currentPose.getY() > (FieldConstants.kFieldWidthMeters - sideBuffer) && vy > 0) vy = 0;
+
+        ChassisSpeeds safe = new ChassisSpeeds(vx, vy, speeds.omegaRadiansPerSecond);
+        return fieldRelative ? safe : ChassisSpeeds.fromFieldRelativeSpeeds(safe, getRotation2d());
+    }
+
+    private List<Translation2d> getRobotCorners(Pose2d pose) {
+        double halfW = (robotWidth.get() / 2.0) + bumperWidth.get();
+        double halfL = (robotLength.get() / 2.0) + bumperWidth.get();
+        double intake = intakeExtensionSupplier.getAsDouble();
+        
+        Translation2d fl = new Translation2d(halfL + intake, halfW).rotateBy(pose.getRotation());
+        Translation2d fr = new Translation2d(halfL + intake, -halfW).rotateBy(pose.getRotation());
+        Translation2d rl = new Translation2d(-halfL, halfW).rotateBy(pose.getRotation());
+        Translation2d rr = new Translation2d(-halfL, -halfW).rotateBy(pose.getRotation());
+        
+        return List.of(pose.getTranslation().plus(fl), pose.getTranslation().plus(fr), pose.getTranslation().plus(rl), pose.getTranslation().plus(rr));
     }
 
     @Override

@@ -523,6 +523,87 @@ public final class FieldConstants {
                                 Rotation2d.fromDegrees(depotBlueAngle.get()));
         }
 
+        // --- FORBIDDEN ZONES (Keep Out) ---
+        public static class ForbiddenZone {
+                public final String name;
+                public final double x1, y1, x2, y2;
+
+                public ForbiddenZone(String name, double x1, double y1, double x2, double y2) {
+                        this.name = name;
+                        this.x1 = x1;
+                        this.y1 = y1;
+                        this.x2 = x2;
+                        this.y2 = y2;
+                }
+
+                public boolean isInside(double x, double y, double ox, double oy, double margin) {
+                        double minX = Math.min(x1, x2) + ox - margin;
+                        double maxX = Math.max(x1, x2) + ox + margin;
+                        double minY = Math.min(y1, y2) + oy - margin;
+                        double maxY = Math.max(y1, y2) + oy + margin;
+                        return x >= minX && x <= maxX && y >= minY && y <= maxY;
+                }
+
+                public Translation2d getNearestSafePoint(double x, double y, double ox, double oy, double margin) {
+                        double minX = Math.min(x1, x2) + ox - margin;
+                        double maxX = Math.max(x1, x2) + ox + margin;
+                        double minY = Math.min(y1, y2) + oy - margin;
+                        double maxY = Math.max(y1, y2) + oy + margin;
+                        double safeX = x;
+                        double safeY = y;
+
+                        if (x > minX && x < maxX && y > minY && y < maxY) {
+                                double dxMin = Math.abs(x - minX);
+                                double dxMax = Math.abs(x - maxX);
+                                double dyMin = Math.abs(y - minY);
+                                double dyMax = Math.abs(y - maxY);
+                                double minD = Math.min(Math.min(dxMin, dxMax), Math.min(dyMin, dyMax));
+
+                                if (minD == dxMin) safeX = minX;
+                                else if (minD == dxMax) safeX = maxX;
+                                else if (minD == dyMin) safeY = minY;
+                                else safeY = maxY;
+                        }
+                        return new Translation2d(safeX, safeY);
+                }
+        }
+
+        private static final TunableNumber forbiddenOffsetX = new TunableNumber("Field", "ForbiddenZones/OffsetX", 0.0);
+        private static final TunableNumber forbiddenOffsetY = new TunableNumber("Field", "ForbiddenZones/OffsetY", 0.0);
+
+        public static final List<ForbiddenZone> kForbiddenZones = List.of(
+                        new ForbiddenZone("RedHub", 7.5, 3.5, 9.0, 4.5),
+                        new ForbiddenZone("BlueHub", 12.5, 4.6, 11.3, 3.4),
+                        new ForbiddenZone("RedLeftTrenchWall", 12.4, 1.6, 11.4, 1.4),
+                        new ForbiddenZone("RedRightTrenchWall", 12.4, 6.6, 11.4, 6.5),
+                        new ForbiddenZone("BlueLeftTrenchWall", 4.0, 6.5, 5.2, 6.7),
+                        new ForbiddenZone("BlueRightTrenchWall", 4.0, 1.3, 5.2, 1.5),
+                        new ForbiddenZone("RedTowerWall", 15.4, 3.8, 15.5, 4.7),
+                        new ForbiddenZone("BlueTowerWall", 1.2, 3.3, 1.15, 4.1));
+
+        public static boolean isPoseForbidden(Pose2d pose) {
+                return isPoseForbidden(pose, 0.0);
+        }
+
+        public static boolean isPoseForbidden(Pose2d pose, double margin) {
+                double ox = forbiddenOffsetX.get();
+                double oy = forbiddenOffsetY.get();
+                for (ForbiddenZone zone : kForbiddenZones) {
+                        if (zone.isInside(pose.getX(), pose.getY(), ox, oy, margin)) return true;
+                }
+                return false;
+        }
+
+        public static Translation2d getNearestSafeTranslation(Translation2d point, double margin) {
+                double ox = forbiddenOffsetX.get();
+                double oy = forbiddenOffsetY.get();
+                for (ForbiddenZone zone : kForbiddenZones) {
+                        if (zone.isInside(point.getX(), point.getY(), ox, oy, margin)) {
+                                return zone.getNearestSafePoint(point.getX(), point.getY(), ox, oy, margin);
+                        }
+                }
+                return point;
+        }
         private FieldConstants() {
         }
 }
