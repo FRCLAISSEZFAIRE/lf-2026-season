@@ -1,7 +1,7 @@
 package frc.robot.commands.shooter;
 
 import edu.wpi.first.math.geometry.Pose2d;
-
+import edu.wpi.first.wpilibj.DigitalInput;
 import edu.wpi.first.wpilibj2.command.Command;
 import frc.robot.subsystems.shooter.ShooterSubsystem;
 import frc.robot.subsystems.feeder.FeederSubsystem;
@@ -29,6 +29,8 @@ public class ShootCommand extends Command {
     private final DriveSubsystem drive;
     private final IntakeSubsystem intake;
     private final Supplier<Pose2d> poseSupplier;
+    private final DigitalInput mz80_8;
+    private final DigitalInput mz80_9;
 
     // Ateş kilidi — bir kez başladıktan sonra feeder durmaz
     private boolean hasShot = false;
@@ -50,12 +52,16 @@ public class ShootCommand extends Command {
             FeederSubsystem feeder,
             DriveSubsystem drive,
             IntakeSubsystem intake,
+            DigitalInput mz80_8,
+            DigitalInput mz80_9,
             Supplier<Pose2d> poseSupplier) {
         this.shooter = shooter;
         this.feeder = feeder;
         this.drive = drive;
         this.intake = intake;
         this.poseSupplier = poseSupplier;
+        this.mz80_8 = mz80_8;
+        this.mz80_9 = mz80_9;
 
         addRequirements(shooter, feeder, intake);
     }
@@ -84,7 +90,7 @@ public class ShootCommand extends Command {
             shooter.updateAiming(currentPose, drive.getFieldVelocity());
         } else {
             // For now, let's keep pass aiming static or add overload if needed.
-            shooter.updateAimingForPass(currentPose);
+            shooter.updateAimingForPass(currentPose, drive.getFieldVelocity());
         }
 
         // 3. "Ateşi Tut" Mantığı — LATCH (Kilitleme)
@@ -103,6 +109,7 @@ public class ShootCommand extends Command {
 
         // 4. Intake roller — sadece düşük RPM'de roller çalıştır (extension'a dokunma)
         intake.runRollerRPM(intakeShootRPM.get());
+
     }
 
     @Override
@@ -112,7 +119,7 @@ public class ShootCommand extends Command {
         feeder.stop();
         intake.stopRoller();
         // Extension'a dokunma — intake konum neredeyse orada kalsın
-        shooter.setHoodAngle(0);
+        shooter.setHoodAngle(30);
         // Dönüş merkezini tekrar robot merkezine sıfırla
         drive.resetCenterOfRotation();
 

@@ -1,9 +1,11 @@
 package frc.robot.subsystems.shooter;
 
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
+import com.ctre.phoenix6.controls.Follower;
 import com.ctre.phoenix6.controls.VelocityVoltage;
 import com.ctre.phoenix6.hardware.TalonFX;
 import com.ctre.phoenix6.signals.InvertedValue;
+import com.ctre.phoenix6.signals.MotorAlignmentValue;
 import com.ctre.phoenix6.signals.NeutralModeValue;
 import com.revrobotics.spark.SparkBase.ControlType;
 import com.revrobotics.spark.SparkBase.PersistMode;
@@ -18,9 +20,10 @@ import edu.wpi.first.math.interpolation.InterpolatingDoubleTreeMap;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.wpilibj.DriverStation;
+import edu.wpi.first.wpilibj.DriverStation.Alliance;
+import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
-import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 
 import frc.robot.constants.FieldConstants;
@@ -63,6 +66,7 @@ public class ShooterSubsystem extends SubsystemBase {
     private final SparkMax turretMotor;
     private final SparkMax hoodMotor;
     private final TalonFX flywheelMotor;
+    private final TalonFX flywheelFollowerMotor;
 
     // Flywheel: Phoenix6 velocity control
     private final VelocityVoltage flywheelVelocity = new VelocityVoltage(0);
@@ -71,6 +75,7 @@ public class ShooterSubsystem extends SubsystemBase {
     // STATE VARIABLES
     // =====================================================================
     private final Supplier<Pose2d> robotPoseSupplier;
+    private final Supplier<ChassisSpeeds> fieldSpeedsSupplier;
 
     private ShooterMode currentMode = ShooterMode.IDLE;
     private boolean isAutoAimActive = false;
@@ -142,16 +147,45 @@ public class ShooterSubsystem extends SubsystemBase {
 
     // =====================================================================
     // MOVING SHOOT TUNABLES
+    // Hareket halinde atış fizik parametreleri — Dashboard'dan ayarlanabilir
+    // Moving shoot physics parameters — adjustable from Dashboard
     // =====================================================================
-    private final frc.robot.util.TunableBoolean enableMovingShoot = new frc.robot.util.TunableBoolean("Shooter", "Enable Moving Shoot", false);
-    private final TunableNumber averageShotVelocityMps = new TunableNumber("Shooter", "Average Shot Velocity m/s", 18.0);
+    private final frc.robot.util.TunableBoolean enableMovingShoot = new frc.robot.util.TunableBoolean("Shooter",
+            "Enable Moving Shoot", true);
+    private final frc.robot.util.TunableBoolean followerInvert = new frc.robot.util.TunableBoolean("Shooter", "Follower Invert", true);
+    private final TunableNumber averageShotVelocityMps = new TunableNumber("Shooter", "Average Shot Velocity m/s",
+            18.0);
 
+    // Mekanik gecikme: feeder tetiklemesinden topun namluyu terk etmesine kadar geçen süre (ms)
+    // Mechanical latency: time from feeder trigger to ball exiting barrel (ms)
+    private final TunableNumber mechanicalLatencyMs = new TunableNumber("Shooter", "Mech Latency ms", 80.0);
+
+    // Taret PID tepki süresi: öncüleme açısı hesabında kullanılır (ms)
+    // Turret PID response time: used in lead angle calculation (ms)
+    private final TunableNumber turretResponseMs = new TunableNumber("Shooter", "Turret Response ms", 100.0);
+
+    // Gecikme telafisi aktif/pasif
+    // Latency compensation enable/disable
+    private final frc.robot.util.TunableBoolean enableLatencyComp = new frc.robot.util.TunableBoolean("Shooter",
+            "Enable Latency Comp", true);
+
+    // Taret öncüleme açısı aktif/pasif
+    // Turret lead angle enable/disable
+    private final frc.robot.util.TunableBoolean enableTurretLead = new frc.robot.util.TunableBoolean("Shooter",
+            "Enable Turret Lead", true);
+
+    // Hız kompanzasyon kazanç çarpanı (P kazanç gibi kullanılır)
+    // Velocity compensation gain multiplier (used like a P gain)
+    // 1.0 = fizik doğru / 0.0 = kompanzasyon kapalı / >1.0 = agresif
+    // 1.0 = physics-correct / 0.0 = compensation off / >1.0 = aggressive
+    private final TunableNumber movingShootVelGain = new TunableNumber("Shooter", "Moving Shoot Vel Gain", 1.0);
 
     // =====================================================================
     // CONSTRUCTOR
     // =====================================================================
-    public ShooterSubsystem(Supplier<Pose2d> robotPoseSupplier) {
+    public ShooterSubsystem(Supplier<Pose2d> robotPoseSupplier, Supplier<ChassisSpeeds> fieldSpeedsSupplier) {
         this.robotPoseSupplier = robotPoseSupplier;
+        this.fieldSpeedsSupplier = fieldSpeedsSupplier;
 
         // --- TURRET MOTOR (NEO + Relative Encoder + Onboard PID) ---
         turretMotor = new SparkMax(RobotMap.kTurretMotorID, MotorType.kBrushless);
@@ -163,6 +197,7 @@ public class ShooterSubsystem extends SubsystemBase {
 
         // --- FLYWHEEL MOTOR (Kraken X60) ---
         flywheelMotor = new TalonFX(RobotMap.kShooterMasterID);
+        flywheelFollowerMotor = new TalonFX(RobotMap.kShooterFollowerID);
         configureFlywheelMotor();
 
         System.out.println("[Shooter] REVLib 2026 setSetpoint API ile yapılandırıldı");
@@ -404,7 +439,7 @@ public class ShooterSubsystem extends SubsystemBase {
                 .p(hoodKP.get())
                 .i(hoodKI.get())
                 .d(hoodKD.get())
-                .outputRange(-0.2, 0.2); // Güvenlik limiti
+                .outputRange(-0.5, 0.5); // Güvenlik limiti artırıldı (0.2 -> 0.5)
 
         // Motor ayarları
         hoodConfig.inverted(true);
@@ -452,7 +487,11 @@ public class ShooterSubsystem extends SubsystemBase {
 
         flywheelMotor.getConfigurator().apply(flywheelConfig);
 
-        System.out.println("[Shooter] Flywheel: Phoenix6 Velocity Control");
+        // --- Follower Configuration ---
+        flywheelFollowerMotor.getConfigurator().apply(flywheelConfig); // Inherit current limits and neutral mode
+        flywheelFollowerMotor.setControl(new Follower(flywheelMotor.getDeviceID(), followerInvert.get() ? MotorAlignmentValue.Opposed : MotorAlignmentValue.Aligned));
+
+        System.out.println("[Shooter] Flywheel: Phoenix6 Velocity Control (Master-Follower Dual Kraken X60)");
 
         // Initialize Dashboard Toggle
         // Default to Clockwise_Positive (which corresponds to false/normal usually, but
@@ -554,6 +593,12 @@ public class ShooterSubsystem extends SubsystemBase {
             System.out.println("[Shooter] Flywheel PID Updated");
         }
 
+        // --- FOLLOWER INVERSION UPDATE ---
+        if (followerInvert.hasChanged()) {
+            flywheelFollowerMotor.setControl(new Follower(flywheelMotor.getDeviceID(), followerInvert.get() ? MotorAlignmentValue.Opposed : MotorAlignmentValue.Aligned));
+            System.out.println("[Shooter] Follower Inversion Updated");
+        }
+
         // --- MECHANICS UPDATE (Gear Ratios) ---
         if (turretGearRatio.hasChanged()) {
             configureTurretMotor();
@@ -637,57 +682,101 @@ public class ShooterSubsystem extends SubsystemBase {
 
     /**
      * Updates aiming based on robot pose and speed.
-     * Calculates distance and angle to the Hub, applying moving shoot virtual targets if enabled.
+     * Calculates distance and angle to the Hub, applying moving shoot virtual
+     * targets if enabled.
      * 
-     * @param robotPose Current robot pose from DriveSubsystem
+     * @param robotPose   Current robot pose from DriveSubsystem
      * @param fieldSpeeds Current robot field-relative speeds
      */
     public void updateAiming(Pose2d robotPose, edu.wpi.first.math.kinematics.ChassisSpeeds fieldSpeeds) {
+        // --- Taret saha pozisyonunu hesapla ---
         // --- Calculate Turret Field Position ---
         Translation2d turretFieldPosition = robotPose.getTranslation()
                 .plus(getTurretCenterOfRotation().rotateBy(robotPose.getRotation()));
 
+        // 1. İttifaka göre hedef Hub'ı belirle (FieldConstants'tan dinamik)
         // 1. Determine Target Hub based on Alliance (Dynamic from FieldConstants)
         var alliance = DriverStation.getAlliance();
         Translation2d hubLocation = frc.robot.constants.FieldConstants.getHubCenter(alliance);
 
+        // Hub Pozisyon Offset'ini uygula
         // Apply Hub Position Offset
         hubLocation = hubLocation.plus(new Translation2d(hubOffsetX, hubOffsetY));
 
-        // Initial distance (for ToF calculation if moving shoot is enabled)
-        double initialDistance = turretFieldPosition.getDistance(hubLocation);
+        // Statik mesafe (hareket telafisi öncesi referans)
+        // Static distance (pre-compensation reference)
+        double staticDistance = turretFieldPosition.getDistance(hubLocation);
+
+        // =====================================================================
+        // HAREKET HALİNDE ATIŞ FİZİK PIPELINE'I
+        // MOVING SHOOT PHYSICS PIPELINE
+        // =====================================================================
+        double distanceForLookup = staticDistance; // Varsayılan: statik mesafe / Default: static distance
+        double turretLeadAngleDeg = 0;
+        Translation2d aimTarget = hubLocation; // Nişan alınacak nokta / Point to aim at
+
+        // MovingShoot sonuçları (log için sakla)
+        // MovingShoot results (store for logging)
+        double msRadialVel = 0;
+        double msTangentialVel = 0;
+        double msToF = 0;
+        double msEffectiveDist = 0;
 
         if (enableMovingShoot.get() && fieldSpeeds != null) {
-            hubLocation = frc.robot.util.MovingShootUtil.getVirtualTarget(
-                    hubLocation, 
-                    turretFieldPosition, 
-                    fieldSpeeds, 
-                    averageShotVelocityMps.get(), 
-                    initialDistance
-            );
+            // Tam fizik hesabını çağır
+            // Call the full physics calculation
+            frc.robot.util.MovingShootUtil.MovingShootResult msResult =
+                frc.robot.util.MovingShootUtil.calculate(
+                    hubLocation,
+                    turretFieldPosition,
+                    fieldSpeeds,
+                    averageShotVelocityMps.get(),
+                    mechanicalLatencyMs.get() / 1000.0,  // ms → saniye / ms → seconds
+                    turretResponseMs.get() / 1000.0,     // ms → saniye / ms → seconds
+                    enableLatencyComp.get(),
+                    enableTurretLead.get(),
+                    movingShootVelGain.get()             // Hız kazanç çarpanı / Velocity gain
+                );
+
+            // Sonuçları ayıkla / Extract results
+            aimTarget = msResult.virtualTarget();
+            distanceForLookup = msResult.effectiveDistance();
+            turretLeadAngleDeg = msResult.turretLeadAngleDeg();
+            msRadialVel = msResult.radialVelocity();
+            msTangentialVel = msResult.tangentialVelocity();
+            msToF = msResult.timeOfFlight();
+            msEffectiveDist = msResult.effectiveDistance();
         }
 
-        // 2. Calculate Distance to Hub from Turret
-        double distance = turretFieldPosition.getDistance(hubLocation);
+        // 2. Taret → sanal hedef geometrik mesafesi (sadece log için)
+        // 2. Turret → virtual target geometric distance (for logging only)
+        double geometricDistance = turretFieldPosition.getDistance(aimTarget);
 
+        // 3. Taret Açısını Hesapla
         // 3. Calculate Turret Angle
+        // Taret orijininden hedefe açı
         // Angle to target from turret origin
         double angleToTargetRad = Math.atan2(
-                hubLocation.getY() - turretFieldPosition.getY(),
-                hubLocation.getX() - turretFieldPosition.getX());
+                aimTarget.getY() - turretFieldPosition.getY(),
+                aimTarget.getX() - turretFieldPosition.getX());
 
+        // Robotun başlık açısı
         // Robot's heading
         double robotHeadingRad = robotPose.getRotation().getRadians();
 
+        // Robota göre taret açısı (Hedef - RobotBaşlık)
         // Turret Angle relative to Robot (Target - RobotHeading)
         double targetTurretRad = angleToTargetRad - robotHeadingRad;
 
+        // -PI ile PI arasında normalleştir
         // Normalize to -PI to PI
         targetTurretRad = MathUtil.angleModulus(targetTurretRad);
 
-        // Convert to Degrees and Add Offset (INVERTED per user request)
-        turretTargetDeg = -Math.toDegrees(targetTurretRad) + autoAimOffsetDeg;
+        // Dereceye çevir, offset ve öncüleme ekle (kullanıcı isteğine göre TERS)
+        // Convert to Degrees, add offset and lead (INVERTED per user request)
+        turretTargetDeg = -Math.toDegrees(targetTurretRad) + autoAimOffsetDeg + turretLeadAngleDeg;
 
+        // Taret yumuşak limitlerine kırp
         // Clamp Turret to Soft Limits
         if (ShooterConstants.kTurretSoftLimitsEnabled) {
             turretTargetDeg = MathUtil.clamp(turretTargetDeg,
@@ -695,24 +784,45 @@ public class ShooterSubsystem extends SubsystemBase {
                     turretMaxAngle.get());
         }
 
-        // 4. Calculate Shooter State (RPM & Hood) from Distance
-        ShooterState state = calculateShooterState(distance);
+        // 4. Atıcı Durumunu Hesapla (RPM & Hood) — EFEKTİF mesafeden
+        // 4. Calculate Shooter State (RPM & Hood) — from EFFECTIVE distance
+        // Efektif mesafe, radyal hız telafisini içerir
+        // Effective distance includes radial velocity compensation
+        ShooterState state = calculateShooterState(distanceForLookup);
         flywheelTargetRPM = state.rpm;
         hoodTargetDeg = state.hoodAngleDeg;
 
+        // 5. Hedef değerleri uygula
         // 5. Apply Setpoints
         setTurretAngle(turretTargetDeg);
         applyShooterState(state);
 
-        // Log Aiming Data
-        Logger.recordOutput("Tuning/Shooter/Aiming/Distance", distance);
+        // =====================================================================
+        // TELEMETRİ — Tüm fizik ara değerlerini logla
+        // TELEMETRY — Log all physics intermediate values
+        // =====================================================================
+        Logger.recordOutput("Tuning/Shooter/Aiming/StaticDistance", staticDistance);
+        Logger.recordOutput("Tuning/Shooter/Aiming/GeometricDistance", geometricDistance);
+        Logger.recordOutput("Tuning/Shooter/Aiming/EffectiveDistance", distanceForLookup);
         Logger.recordOutput("Tuning/Shooter/Aiming/TargetTurretAngle", turretTargetDeg);
-        Logger.recordOutput("Tuning/Shooter/Aiming/TurretError", turretTargetDeg - getTurretAngle()); // Added Logging
+        Logger.recordOutput("Tuning/Shooter/Aiming/TurretError", turretTargetDeg - getTurretAngle());
+        Logger.recordOutput("Tuning/Shooter/Aiming/AimTargetX", aimTarget.getX());
+        Logger.recordOutput("Tuning/Shooter/Aiming/AimTargetY", aimTarget.getY());
         Logger.recordOutput("Tuning/Shooter/Aiming/HubX", hubLocation.getX());
         Logger.recordOutput("Tuning/Shooter/Aiming/HubY", hubLocation.getY());
         Logger.recordOutput("Tuning/Shooter/Aiming/OffsetDeg", autoAimOffsetDeg);
         Logger.recordOutput("Tuning/Shooter/Aiming/HubOffsetX", hubOffsetX);
         Logger.recordOutput("Tuning/Shooter/Aiming/HubOffsetY", hubOffsetY);
+
+        // Moving Shoot ara değerleri / Moving Shoot intermediate values
+        Logger.recordOutput("Tuning/Shooter/MovingShoot/Enabled", enableMovingShoot.get());
+        Logger.recordOutput("Tuning/Shooter/MovingShoot/RadialVelocity", msRadialVel);
+        Logger.recordOutput("Tuning/Shooter/MovingShoot/TangentialVelocity", msTangentialVel);
+        Logger.recordOutput("Tuning/Shooter/MovingShoot/TimeOfFlight", msToF);
+        Logger.recordOutput("Tuning/Shooter/MovingShoot/EffectiveDistance", msEffectiveDist);
+        Logger.recordOutput("Tuning/Shooter/MovingShoot/TurretLeadDeg", turretLeadAngleDeg);
+        Logger.recordOutput("Tuning/Shooter/MovingShoot/LatencyCompEnabled", enableLatencyComp.get());
+        Logger.recordOutput("Tuning/Shooter/MovingShoot/TurretLeadEnabled", enableTurretLead.get());
     }
 
     /**
@@ -786,47 +896,82 @@ public class ShooterSubsystem extends SubsystemBase {
      * @param robotPose Current robot pose
      */
     public void updateAimingForPass(Pose2d robotPose) {
+        updateAimingForPass(robotPose, new ChassisSpeeds());
+    }
+
+    /**
+     * Alliance Pass hedeflemesini günceller — hareket telafisi destekli.
+     * Updates Alliance Pass aiming — with moving shoot compensation.
+     *
+     * @param robotPose   Robotun güncel pozisyonu / Current robot pose
+     * @param fieldSpeeds Robotun saha-referanslı hız vektörü / Robot field-relative velocity
+     */
+    public void updateAimingForPass(Pose2d robotPose, ChassisSpeeds fieldSpeeds) {
+        // --- Taret saha pozisyonunu hesapla ---
         // --- Calculate Turret Field Position ---
         Translation2d turretFieldPosition = robotPose.getTranslation()
                 .plus(getTurretCenterOfRotation().rotateBy(robotPose.getRotation()));
 
+        // 1. Pass Hedefini Belirle (En Yakın Sol/Sağ)
         // 1. Determine Pass Target (Closest Left/Right)
         var alliance = DriverStation.getAlliance();
         Translation2d targetLocation = FieldConstants.getPassTarget(alliance, robotPose);
 
-        // 2. Calculate Distance from Turret
-        double distance = turretFieldPosition.getDistance(targetLocation);
+        // Hareket telafisi uygula / Apply moving shoot compensation
+        double distanceForLookup;
+        Translation2d aimTarget = targetLocation;
 
-        // 3. Calculate Turret Angle
+        if (enableMovingShoot.get() && fieldSpeeds != null) {
+            frc.robot.util.MovingShootUtil.MovingShootResult msResult =
+                frc.robot.util.MovingShootUtil.calculate(
+                    targetLocation,
+                    turretFieldPosition,
+                    fieldSpeeds,
+                    averageShotVelocityMps.get(),
+                    mechanicalLatencyMs.get() / 1000.0,
+                    turretResponseMs.get() / 1000.0,
+                    enableLatencyComp.get(),
+                    enableTurretLead.get(),
+                    movingShootVelGain.get()             // Hız kazanç çarpanı / Velocity gain
+                );
+            aimTarget = msResult.virtualTarget();
+            distanceForLookup = msResult.effectiveDistance();
+        } else {
+            distanceForLookup = turretFieldPosition.getDistance(targetLocation);
+        }
+
+        // 2. Taret Açısını Hesapla / Calculate Turret Angle
         double angleToTargetRad = Math.atan2(
-                targetLocation.getY() - turretFieldPosition.getY(),
-                targetLocation.getX() - turretFieldPosition.getX());
+                aimTarget.getY() - turretFieldPosition.getY(),
+                aimTarget.getX() - turretFieldPosition.getX());
 
         double robotHeadingRad = robotPose.getRotation().getRadians();
         double targetTurretRad = angleToTargetRad - robotHeadingRad;
         targetTurretRad = MathUtil.angleModulus(targetTurretRad);
 
+        // Pass için manuel offset yok (genellikle)
         // No manual offset for pass (usually)
         turretTargetDeg = Math.toDegrees(targetTurretRad);
 
-        // Clamp Turret
+        // Taret limitlerine kırp / Clamp Turret
         if (ShooterConstants.kTurretSoftLimitsEnabled) {
             turretTargetDeg = MathUtil.clamp(turretTargetDeg,
                     turretMinAngle.get(),
                     turretMaxAngle.get());
         }
 
-        // 4. Calculate Shooter State (Alliance Pass Logic)
-        ShooterState state = calculateShooterStateForAlliancePass(distance);
+        // 3. Atıcı Durumunu Hesapla (Alliance Pass mantığı) — efektif mesafe kullan
+        // 3. Calculate Shooter State (Alliance Pass Logic) — use effective distance
+        ShooterState state = calculateShooterStateForAlliancePass(distanceForLookup);
         flywheelTargetRPM = state.rpm;
         hoodTargetDeg = state.hoodAngleDeg;
 
-        // 5. Apply Setpoints
+        // 4. Hedef değerleri uygula / Apply Setpoints
         setTurretAngle(turretTargetDeg);
         applyShooterState(state);
 
-        // Log Aiming Data
-        Logger.recordOutput("Tuning/Shooter/PassAiming/Distance", distance);
+        // Telemetri / Log Aiming Data
+        Logger.recordOutput("Tuning/Shooter/PassAiming/Distance", distanceForLookup);
         Logger.recordOutput("Tuning/Shooter/PassAiming/TargetTurretAngle", turretTargetDeg);
     }
 
@@ -838,14 +983,14 @@ public class ShooterSubsystem extends SubsystemBase {
      */
     public boolean isReadyToShoot() {
         // Check 1: RPM Tolerance
-        boolean rpmReady = Math.abs(getFlywheelRPM() - flywheelTargetRPM) < ShooterConstants.SHOOTER_RPM_TOLERANCE;
+        boolean rpmReady = Math.abs(getFlywheelRPM() - flywheelTargetRPM) < ShooterConstants.SHOOTER_RPM_TOLERANCE.get();
 
         // Check 2: Hood Tolerance
-        boolean hoodReady = Math.abs(getHoodAngle() - hoodTargetDeg) < ShooterConstants.HOOD_ANGLE_TOLERANCE;
+        boolean hoodReady = Math.abs(getHoodAngle() - hoodTargetDeg) < ShooterConstants.HOOD_ANGLE_TOLERANCE.get();
 
         // Check 3: Turret Tolerance (PID Error)
         // We compare current angle to target angle
-        boolean turretReady = Math.abs(getTurretAngle() - turretTargetDeg) < ShooterConstants.TURRET_AIM_TOLERANCE;
+        boolean turretReady = Math.abs(getTurretAngle() - turretTargetDeg) < ShooterConstants.TURRET_AIM_TOLERANCE.get();
 
         // Return true ONLY if ALL checks pass
         return rpmReady && hoodReady && turretReady;
@@ -886,7 +1031,7 @@ public class ShooterSubsystem extends SubsystemBase {
      * Turret hedefe ulaştı mı?
      */
     public boolean isTurretAtTarget() {
-        return turretMotor.getClosedLoopController().isAtSetpoint();
+        return Math.abs(getTurretAngle() - turretTargetDeg) < ShooterConstants.TURRET_AIM_TOLERANCE.get();
     }
 
     // =====================================================================
@@ -918,7 +1063,7 @@ public class ShooterSubsystem extends SubsystemBase {
      * Hood hedefe ulaştı mı?
      */
     public boolean isHoodAtTarget() {
-        return hoodMotor.getClosedLoopController().isAtSetpoint();
+        return Math.abs(getHoodAngle() - hoodTargetDeg) < ShooterConstants.HOOD_ANGLE_TOLERANCE.get();
     }
 
     // =====================================================================
@@ -1030,6 +1175,24 @@ public class ShooterSubsystem extends SubsystemBase {
         this.flywheelOffsetRPM += deltaRPM;
     }
 
+    /**
+     * Increase Hood Offset by 2 degrees.
+     */
+    public Command increaseHoodOffsetCommand() {
+        return Commands.runOnce(() -> adjustHoodOffset(2.0), this)
+                .ignoringDisable(true)
+                .withName("HoodOffset +2");
+    }
+
+    /**
+     * Decrease Hood Offset by 2 degrees.
+     */
+    public Command decreaseHoodOffsetCommand() {
+        return Commands.runOnce(() -> adjustHoodOffset(-2.0), this)
+                .ignoringDisable(true)
+                .withName("HoodOffset -2");
+    }
+
     public double getHoodOffset() {
         return hoodOffsetDeg;
     }
@@ -1038,86 +1201,9 @@ public class ShooterSubsystem extends SubsystemBase {
         return flywheelOffsetRPM;
     }
 
-    /**
-     * Tracks the target (Turret & Hood) WITHOUT running the Flywheel.
-     * Uses current robot pose.
-     */
     private void trackTarget() {
-        // 1. Get Robot Pose
-        Pose2d robotPose = robotPoseSupplier.get();
-
-        // --- Calculate Turret Field Position ---
-        Translation2d turretFieldPosition = robotPose.getTranslation()
-                .plus(getTurretCenterOfRotation().rotateBy(robotPose.getRotation()));
-
-        // 2. Determine Target (Hub or Pass) based on Zone
-        Translation2d targetLocation;
-        boolean isPassing = !isInAllianceZone();
-
-        if (isPassing) {
-            // Outside Zone -> PASS
-            targetLocation = FieldConstants.getPassTarget(DriverStation.getAlliance(), robotPose);
-        } else {
-            // Inside Zone -> SCORE (Hub)
-            targetLocation = getTargetHub();
-        }
-
-        // 3. Calculate Distance from Turret
-        double distance = turretFieldPosition.getDistance(targetLocation);
-
-        // 4. Calculate Turret Angle
-        double angleToTargetRad = Math.atan2(
-                targetLocation.getY() - turretFieldPosition.getY(),
-                targetLocation.getX() - turretFieldPosition.getX());
-
-        double robotHeadingRad = robotPose.getRotation().getRadians();
-        double targetTurretRad = angleToTargetRad - robotHeadingRad;
-
-        // --- INVERT AIMING FAILSAFE ---
-        boolean invertAiming = edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.getBoolean(
-                "Tuning/Shooter/InvertAiming",
-                false);
-        if (invertAiming) {
-            targetTurretRad += Math.PI; // Add 180 degrees (in radians)
-        }
-        // ------------------------------
-
-        targetTurretRad = MathUtil.angleModulus(targetTurretRad);
-
-        turretTargetDeg = Math.toDegrees(targetTurretRad) + autoAimOffsetDeg;
-
-        if (ShooterConstants.kTurretSoftLimitsEnabled) {
-            turretTargetDeg = MathUtil.clamp(turretTargetDeg,
-                    turretMinAngle.get(),
-                    turretMaxAngle.get());
-        }
-
-        // 5. Calculate Hood Angle & RPM
-        ShooterState state;
-        if (isPassing) {
-            state = calculateShooterStateForAlliancePass(distance);
-        } else {
-            state = calculateShooterState(distance);
-        }
-
-        // APPLY OFFSETS (Hood & Flywheel)
-        // Turret offset is already applied in step 4 (autoAimOffsetDeg)
-        hoodTargetDeg = state.hoodAngleDeg + hoodOffsetDeg;
-        flywheelTargetRPM = state.rpm + flywheelOffsetRPM;
-
-        // 6. Apply Setpoints (Turret & Hood ONLY)
-        setTurretAngle(turretTargetDeg);
-        setHoodAngle(hoodTargetDeg);
-
-        // Log Data
-        Logger.recordOutput("Tuning/Shooter/Aiming/Distance", distance);
-        Logger.recordOutput("Tuning/Shooter/Aiming/TargetTurretAngle", turretTargetDeg);
-        Logger.recordOutput("Tuning/Shooter/Aiming/HubX", targetLocation.getX());
-        Logger.recordOutput("Tuning/Shooter/Aiming/HubY", targetLocation.getY());
-
-        Logger.recordOutput("Tuning/Shooter/Offsets/Turret", autoAimOffsetDeg);
-        Logger.recordOutput("Tuning/Shooter/Offsets/Hood", hoodOffsetDeg);
-        Logger.recordOutput("Tuning/Shooter/Offsets/Flywheel", flywheelOffsetRPM);
+        // Use the centralized updateAiming call which handles moving shoot compensation
+        updateAiming(robotPoseSupplier.get(), fieldSpeedsSupplier.get());
     }
 
     /**
@@ -1271,8 +1357,9 @@ public class ShooterSubsystem extends SubsystemBase {
     // =====================================================================
     private void logTelemetry() {
         // Core state - sadece önemli değerler
-        Logger.recordOutput("Tuning/Shooter/Turret/ActualDeg", getTurretAngle());
+        Logger.recordOutput("Tuning/Shooter/ActualDeg", getTurretAngle());
         Logger.recordOutput("Tuning/Shooter/Hood/ActualDeg", getHoodAngle());
+        Logger.recordOutput("Tuning/Shooter/Hood/ErrorDeg", hoodTargetDeg - getHoodAngle());
         Logger.recordOutput("Tuning/Shooter/Flywheel/ActualRPM", getFlywheelRPM());
         Logger.recordOutput("Tuning/Shooter/AutoAimActive", isAutoAimActive);
         Logger.recordOutput("Tuning/Shooter/AutoAim/OffsetDeg", autoAimOffsetDeg);
@@ -1394,6 +1481,12 @@ public class ShooterSubsystem extends SubsystemBase {
         flywheelMotor.getSimState().setRotorVelocity(flyRPS);
         flywheelMotor.getSimState().setSupplyVoltage(12.0);
 
+        // Follower must also have its sensor updated. 
+        // If it's Opposed, its sensor rotates in the opposite direction of the mechanism.
+        double followerRPS = followerInvert.get() ? -flyRPS : flyRPS;
+        flywheelFollowerMotor.getSimState().setRotorVelocity(followerRPS);
+        flywheelFollowerMotor.getSimState().setSupplyVoltage(12.0);
+
         // Turret: SparkMax Encoder
         // Sim calculates Radians -> Convert to Degrees
         double turretDeg = Math.toDegrees(turretSim.getAngleRads());
@@ -1408,8 +1501,8 @@ public class ShooterSubsystem extends SubsystemBase {
         // Flywheel
         flySim = new edu.wpi.first.wpilibj.simulation.FlywheelSim(
                 edu.wpi.first.math.system.plant.LinearSystemId.createFlywheelSystem(
-                        edu.wpi.first.math.system.plant.DCMotor.getKrakenX60Foc(1), 0.001, 1.0),
-                edu.wpi.first.math.system.plant.DCMotor.getKrakenX60Foc(1), 1.0);
+                        edu.wpi.first.math.system.plant.DCMotor.getKrakenX60Foc(2), 0.001, 1.0),
+                edu.wpi.first.math.system.plant.DCMotor.getKrakenX60Foc(2), 1.0);
 
         // Turret
         turretSim = new edu.wpi.first.wpilibj.simulation.SingleJointedArmSim(
@@ -1433,14 +1526,34 @@ public class ShooterSubsystem extends SubsystemBase {
     // FeederSubsystem dışarıdan enjekte edilemiyor, bu yüzden komutu
     // RobotContainer initAutoShootCommand() çağrısıyla kurar.
 
-    /**
-     * Dashboard üzerinden başlatılabilecek AutoShoot komutunu oluşturup
-     * SmartDashboard'a kaydeder.
-     * Bu metod RobotContainer tarafından çağrılmalıdır.
-     *
-     * @param feeder       Feeder alt sistemi
-     * @param poseSupplier Robot konum kaynağı
-     */
+    public void setHoodVoltage(double volts) {
+        hoodMotor.setVoltage(volts);
+    }
+
+    public void setTurretVoltage(double volts) {
+        turretMotor.setVoltage(volts);
+    }
+
+    public void setTurretPercent(double percent) {
+        turretMotor.set(percent);
+    }
+
+    public boolean isTurretAtHomeLimit() {
+        return turretMotor.getReverseLimitSwitch().isPressed();
+    }
+
+    public void resetHoodEncoder() {
+        hoodMotor.getEncoder().setPosition(0.0);
+    }
+
+    public void resetTurretEncoder() {
+        turretMotor.getEncoder().setPosition(0.0);
+    }
+
+    public double getTurretEncoderPosition() {
+        return turretMotor.getEncoder().getPosition();
+    }
+
     public void initAutoShootCommand(frc.robot.subsystems.feeder.FeederSubsystem feeder,
             frc.robot.subsystems.drive.DriveSubsystem drive,
             frc.robot.subsystems.intake.IntakeSubsystem intake,
@@ -1449,84 +1562,6 @@ public class ShooterSubsystem extends SubsystemBase {
                 "Tuning/Shooter/Test/AutoShoot",
                 new frc.robot.commands.shooter.AutoShootCommand(this, feeder, drive, intake, poseSupplier)
                         .withName("AutoShoot"));
-    }
-
-    // =====================================================================
-    // HOOD HOMING COMMAND
-    // =====================================================================
-    /**
-     * Creates a command to HOME the Hood.
-     * Drives the hood motor at negative voltage (down) for 1 second,
-     * then resets the encoder to 0.
-     */
-    public Command getHomeHoodCommand() {
-        return Commands.run(() -> hoodMotor.setVoltage(-2.0), this) // Drive down gently
-                .withTimeout(1.0) // For 1 second
-                .finallyDo(() -> {
-                    hoodMotor.setVoltage(0); // Stop
-                    hoodMotor.getEncoder().setPosition(0.0); // Reset Encoder
-                    System.out.println("[Shooter] Hood Homed & Encoder Reset to 0.");
-                });
-    }
-
-    // =====================================================================
-    // TURRET HOMING COMMAND
-    // =====================================================================
-    /**
-     * Creates a command to HOME the Turret using a magnetic limit switch.
-     * Taret 0 noktasında olduğu ve -200/+200 dönebildiği için önce sola 100 derece,
-     * bulamazsa sağa 100 derece tarama yapar.
-     */
-    public Command getHomeTurretCommand() {
-        return new Command() {
-            private double startPos;
-            private int state; // 0: sola dön, 1: sağa dön, 2: bulunamadı
-
-            @Override
-            public void initialize() {
-                startPos = turretMotor.getEncoder().getPosition();
-                state = 0;
-                addRequirements(ShooterSubsystem.this);
-            }
-
-            @Override
-            public void execute() {
-                if (turretMotor.getReverseLimitSwitch().isPressed()) {
-                    return; // isFinished() yakalayacak
-                }
-
-                double currentPos = turretMotor.getEncoder().getPosition();
-
-                if (state == 0) {
-                    turretMotor.set(-0.06); // Sola yavaşça dön
-                    if (currentPos <= startPos - 100.0) {
-                        state = 1; // 100 derece sola gittik bulamadık, sağa dön
-                    }
-                } else if (state == 1) {
-                    turretMotor.set(0.06); // Sağa dön
-                    if (currentPos >= startPos + 100.0) {
-                        state = 2; // Başlangıçtan sağa da 100 derece gittik bulamadık, vazgeç
-                    }
-                }
-            }
-
-            @Override
-            public boolean isFinished() {
-                return turretMotor.getReverseLimitSwitch().isPressed() || state == 2;
-            }
-
-            @Override
-            public void end(boolean interrupted) {
-                turretMotor.set(0);
-                if (turretMotor.getReverseLimitSwitch().isPressed()) {
-                    turretMotor.getEncoder().setPosition(0.0);
-                    setTurretAngle(0.0);
-                    System.out.println("[Shooter] Turret Homed to Magnet Switch! Encoder Reset to 0.");
-                } else {
-                    System.out.println("[Shooter] Turret Homing Failed (Magnet switch not found)!");
-                }
-            }
-        }.withName("HomeTurret");
     }
 
     public void stopAll() {

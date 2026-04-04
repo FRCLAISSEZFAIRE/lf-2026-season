@@ -25,17 +25,18 @@ public final class RobotMap {
 
     // ==================== MECHANISMS (10-19) ====================
     // Intake
-    public static final int kIntakeMotorID = 10; // Kraken X60 (Velocity)
+    public static final int kIntakeMotorID = 10; // Vortex (RPM)
     public static final int kIntakePivotMotorID = 11; // NEO
 
     // Shooter
     public static final int kShooterMasterID = 12; // Kraken X60 (Flywheel)
+    public static final int kShooterFollowerID = 13; // Kraken X60 (Follower)
     public static final int kTurretMotorID = 14; // NEO
     public static final int kHoodMotorID = 15; // NEO 550
 
     // Feeder (Indexer + Kicker)
     public static final int kIndexerMotorID = 16; // NEO v1.1 (Indexer)
-    public static final int kKickerMotorID = 17;  // NEO v1.1 (Kicker)
+    public static final int kKickerMotorID = 17; // NEO v1.1 (Kicker)
 
     // ==================== LIFT / CLIMBER (20-29) ====================
     public static final int kClimberLeftMotorID = 20; // NEO

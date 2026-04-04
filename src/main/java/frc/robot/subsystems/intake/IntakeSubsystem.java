@@ -1,13 +1,6 @@
 package frc.robot.subsystems.intake;
 
 import edu.wpi.first.wpilibj.RobotBase;
-import com.ctre.phoenix6.configs.TalonFXConfiguration;
-import com.ctre.phoenix6.controls.VelocityVoltage;
-import com.ctre.phoenix6.controls.VoltageOut;
-import com.ctre.phoenix6.hardware.TalonFX;
-import com.ctre.phoenix6.signals.InvertedValue;
-import com.ctre.phoenix6.signals.NeutralModeValue;
-
 import com.revrobotics.spark.SparkMax;
 import com.revrobotics.spark.SparkLowLevel.MotorType;
 import com.revrobotics.spark.SparkBase.PersistMode;
@@ -38,14 +31,10 @@ import org.littletonrobotics.junction.Logger;
  */
 public class IntakeSubsystem extends SubsystemBase {
 
-    private final TalonFX rollerMotor;
+    private final SparkMax rollerMotor;
     private final SparkMax extensionMotor;
     private final SparkClosedLoopController extensionPID;
     private final RelativeEncoder extensionEncoder;
-
-    // Control Requests
-    private final VelocityVoltage velocityRequest = new VelocityVoltage(0);
-    private final VoltageOut voltageRequest = new VoltageOut(0);
 
     // =====================================================================
     // ROLLER PID (RIO'ya kaydedilir)
@@ -140,8 +129,8 @@ public class IntakeSubsystem extends SubsystemBase {
         lastEnableSoftLimitsState = savedEnableSoftLimits;
 
         // --- SECOND: Initialize Motors ---
-        // --- ROLLER (Kraken X60) ---
-        rollerMotor = new TalonFX(RobotMap.kIntakeMotorID);
+        // --- ROLLER (Vortex + Solo Adapter + SparkMax) ---
+        rollerMotor = new SparkMax(RobotMap.kIntakeMotorID, MotorType.kBrushless);
         configureRoller();
 
         // --- EXTENSION (NEO 1.2 — Relative Encoder) ---
@@ -165,23 +154,26 @@ public class IntakeSubsystem extends SubsystemBase {
     // ROLLER CONFIGURATION
     // =====================================================================
     private void configureRoller() {
-        TalonFXConfiguration rollerConfig = new TalonFXConfiguration();
+        SparkMaxConfig rollerConfig = new SparkMaxConfig();
 
-        rollerConfig.MotorOutput.NeutralMode = NeutralModeValue.Coast;
+        rollerConfig.idleMode(IdleMode.kCoast);
         boolean rollerInvert = SmartDashboard.getBoolean("Tuning/Intake/Extension/RollerInvert", IntakeConstants.kRollerInverted);
-        rollerConfig.MotorOutput.Inverted = rollerInvert
-                ? InvertedValue.Clockwise_Positive
-                : InvertedValue.CounterClockwise_Positive;
+        rollerConfig.inverted(rollerInvert);
 
-        rollerConfig.CurrentLimits.SupplyCurrentLimit = IntakeConstants.kRollerCurrentLimit;
-        rollerConfig.CurrentLimits.SupplyCurrentLimitEnable = true;
+        rollerConfig.smartCurrentLimit(IntakeConstants.kRollerCurrentLimit);
 
-        rollerConfig.Slot0.kV = rollerKV.get();
-        rollerConfig.Slot0.kP = rollerKP.get();
-        rollerConfig.Slot0.kI = rollerKI.get();
-        rollerConfig.Slot0.kD = rollerKD.get();
+        rollerConfig.closedLoop.pid(rollerKP.get(), rollerKI.get(), rollerKD.get());
+        rollerConfig.closedLoop.feedForward.kV(rollerKV.get());
 
-        rollerMotor.getConfigurator().apply(rollerConfig);
+        // CAN Optimization: Roller Motor
+        rollerConfig.signals
+                .absoluteEncoderPositionPeriodMs(500)
+                .absoluteEncoderVelocityPeriodMs(500)
+                .analogVoltagePeriodMs(500)
+                // We use velocity control so keep velocity at default (20ms), slow down position
+                .primaryEncoderPositionPeriodMs(500);
+
+        rollerMotor.configure(rollerConfig, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
     }
 
     // =====================================================================
@@ -336,7 +328,7 @@ public class IntakeSubsystem extends SubsystemBase {
 
     public void runRoller(double volts) {
         if (motorsEnabled && !manualOverrideEnabled) {
-            rollerMotor.setControl(voltageRequest.withOutput(volts));
+            rollerMotor.setVoltage(volts);
         }
     }
 
@@ -344,12 +336,12 @@ public class IntakeSubsystem extends SubsystemBase {
         if (motorsEnabled && !manualOverrideEnabled) {
             double clampedRPM = Math.max(rollerMinRPM.get(), Math.min(rpm, rollerMaxRPM.get()));
             lastRollerSetpointRPM = clampedRPM;
-            rollerMotor.setControl(velocityRequest.withVelocity(clampedRPM / 60.0));
+            rollerMotor.getClosedLoopController().setSetpoint(clampedRPM, com.revrobotics.spark.SparkBase.ControlType.kVelocity);
         }
     }
 
     public double getRollerRPM() {
-        return rollerMotor.getVelocity().getValueAsDouble() * 60.0;
+        return rollerMotor.getEncoder().getVelocity();
     }
 
     /** Roller'ı durdurur */

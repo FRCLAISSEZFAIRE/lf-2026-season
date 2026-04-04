@@ -199,10 +199,10 @@ public final class ShooterConstants {
         public static final TunableNumber[] PASS_HOOD_TUNABLES = { kPassHood0, kPassHood1, kPassHood2, kPassHood3,
                         kPassHood4 };
 
-        // --- TOLERANCES ---
-        public static final double SHOOTER_RPM_TOLERANCE = 50.0;
-        public static final double HOOD_ANGLE_TOLERANCE = 1.0;
-        public static final double TURRET_AIM_TOLERANCE = 2.0;
+        // --- TOLERANCES (Dashboard Tunable) ---
+        public static final TunableNumber SHOOTER_RPM_TOLERANCE = new TunableNumber("Shooter/Tolerances", "RPM", 50.0);
+        public static final TunableNumber HOOD_ANGLE_TOLERANCE = new TunableNumber("Shooter/Tolerances", "HoodAngle", 2.0);
+        public static final TunableNumber TURRET_AIM_TOLERANCE = new TunableNumber("Shooter/Tolerances", "TurretAim", 2.0);
 
         /**
          * Default safe values for invalid/null distance (Fender shot)

@@ -27,7 +27,9 @@ import frc.robot.commands.drive.BumpPassCommand;
 // --- COMMANDS ---
 import frc.robot.commands.drive.DriveWithJoystick;
 import frc.robot.commands.drive.SimpleDriveToPose;
-
+import frc.robot.commands.shooter.HomeHoodCommand;
+import frc.robot.commands.shooter.HomeTurretCommand;
+import edu.wpi.first.wpilibj.DigitalInput;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 
@@ -77,6 +79,8 @@ public class RobotContainer {
         private final ShooterSubsystem shooterSubsystem;
         private final FeederSubsystem feederSubsystem;
         private final LEDSubsystem ledSubsystem;
+        private final DigitalInput mz80_8;
+        private final DigitalInput mz80_9;
 
         // ==================== BINDINGS ====================
         private final ControllerBindings bindings;
@@ -101,6 +105,14 @@ public class RobotContainer {
                 return intakeSubsystem;
         }
 
+        public boolean getMZ80_8() {
+                return mz80_8.get();
+        }
+        
+        public boolean getMZ80_9() {
+                return mz80_9.get();
+        }
+
         // ==================== CONSTRUCTOR ====================
         public RobotContainer() {
                 // 1. IO Katmanlarını Oluştur
@@ -113,12 +125,14 @@ public class RobotContainer {
                 // Vision Subsystem requires DriveSubsystem for Odometry updates
                 visionSubsystem = new VisionSubsystem(driveSubsystem);
 
-                shooterSubsystem = new ShooterSubsystem(driveSubsystem::getPose);
+                shooterSubsystem = new ShooterSubsystem(driveSubsystem::getPose, driveSubsystem::getFieldVelocity);
                 feederSubsystem = new FeederSubsystem();
                 intakeSubsystem = new IntakeSubsystem();
 
                 // LED Subsystem requires FeederState
                 ledSubsystem = new LEDSubsystem(feederSubsystem);
+                mz80_8 = new DigitalInput(8);
+                mz80_9 = new DigitalInput(9);
 
                 // AutoShoot dashboard butonu (FeederSubsystem gerektiriyor)
                 shooterSubsystem.initAutoShootCommand(feederSubsystem, driveSubsystem, intakeSubsystem,
@@ -126,11 +140,11 @@ public class RobotContainer {
 
                 // --- SCHEDULE HOOD HOMING ---
                 // Runs once on robot startup to calibrate hood
-                shooterSubsystem.getHomeHoodCommand().schedule();
+                new HomeHoodCommand(shooterSubsystem).schedule();
 
                 // --- SCHEDULE TURRET HOMING ---
                 // Runs once on robot startup to calibrate turret via magnet switch
-                shooterSubsystem.getHomeTurretCommand().schedule();
+                new HomeTurretCommand(shooterSubsystem).schedule();
 
                 // Intake homing is now scheduled dynamically in onTeleopInit / onAutonomousInit
 
@@ -154,7 +168,9 @@ public class RobotContainer {
                                 shooterSubsystem,
                                 feederSubsystem,
                                 intakeSubsystem,
-                                ledSubsystem);
+                                ledSubsystem,
+                                mz80_8,
+                                mz80_9);
                 configureDefaultCommands();
                 bindings.configureAll();
 
@@ -205,6 +221,12 @@ public class RobotContainer {
                 SmartDashboard.putData("Commands/Shooter/RPM Offset -50",
                                 Commands.runOnce(() -> shooterSubsystem.adjustFlywheelOffset(-50.0), shooterSubsystem)
                                                 .ignoringDisable(true).withName("RPM Offset -50"));
+
+                // ==================== HOOD OFFSET BUTTONS ====================
+                SmartDashboard.putData("Commands/Shooter/Hood Offset +2",
+                                shooterSubsystem.increaseHoodOffsetCommand());
+                SmartDashboard.putData("Commands/Shooter/Hood Offset -2",
+                                shooterSubsystem.decreaseHoodOffsetCommand());
 
                 // ==================== HUB OFFSET BUTTONS ====================
                 SmartDashboard.putData("Commands/Shooter/Reset Hub Offset",

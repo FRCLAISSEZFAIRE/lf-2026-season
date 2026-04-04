@@ -98,7 +98,7 @@ public class AutoShootCommand extends Command {
         if (shooter.isInAllianceZone()) {
             shooter.updateAiming(currentPose, drive.getFieldVelocity());
         } else {
-            shooter.updateAimingForPass(currentPose);
+            shooter.updateAimingForPass(currentPose, drive.getFieldVelocity());
         }
 
         // 3. Fire-latch logic

@@ -53,11 +53,7 @@ public class Robot extends LoggedRobot {
     // USB bağlantısında Limelight varsayılan IP: 172.22.11.2
     // Port 5800 = MJPEG video akışı, Port 5801 = Web arayüzü
     // =====================================================================
-    for (int port = 5800; port <= 5809; port++) {
-      PortForwarder.add(port, "172.29.0.1", port);
-    }
-    System.out.println("[PortForwarder] Sürücü kamerası (USB) → roborio.local:5800 (stream) / :5801 (web)");
-
+   
     // Instantiate our RobotContainer. This will perform all our button bindings,
     // and put our
     // autonomous chooser on the dashboard.
@@ -84,6 +80,8 @@ public class Robot extends LoggedRobot {
     // robot's periodic
     // block in order for anything in the Command-based framework to work.
     CommandScheduler.getInstance().run();
+    Logger.recordOutput("Sensors/MZ80_8", m_robotContainer.getMZ80_8());
+    Logger.recordOutput("Sensors/MZ80_8", m_robotContainer.getMZ80_9());
   }
 
   /** This function is called once each time the robot enters Disabled mode. */

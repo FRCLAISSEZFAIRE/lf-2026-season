@@ -1,5 +1,7 @@
 package frc.robot;
 
+import edu.wpi.first.math.geometry.Pose2d;
+import edu.wpi.first.wpilibj.DigitalInput;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 
@@ -25,6 +27,9 @@ public class ControllerBindings {
         private final FeederSubsystem feederSubsystem;
         private final IntakeSubsystem intakeSubsystem;
         private final LEDSubsystem ledSubsystem;
+        private final DigitalInput mz80_8;
+        private final DigitalInput mz80_9;
+
 
         // Intake toggle durumu
         private boolean intakeRunning = false;
@@ -37,7 +42,9 @@ public class ControllerBindings {
                         ShooterSubsystem shooterSubsystem,
                         FeederSubsystem feederSubsystem,
                         IntakeSubsystem intakeSubsystem,
-                        LEDSubsystem ledSubsystem) {
+                        LEDSubsystem ledSubsystem,
+                        DigitalInput mz80_8,
+                        DigitalInput mz80_9) {
 
                 this.driverController = driverController;
                 this.operatorController = operatorController;
@@ -47,6 +54,8 @@ public class ControllerBindings {
                 this.feederSubsystem = feederSubsystem;
                 this.intakeSubsystem = intakeSubsystem;
                 this.ledSubsystem = ledSubsystem;
+                this.mz80_8 = mz80_8;
+                this.mz80_9 = mz80_9;
         }
 
         /** Tüm binding'leri yapılandır */
@@ -90,6 +99,8 @@ public class ControllerBindings {
                                                 feederSubsystem,
                                                 driveSubsystem,
                                                 intakeSubsystem,
+                                                mz80_8,
+                                                mz80_9,
                                                 driveSubsystem::getPose));
 
                 // [SOL TETİK] INTAKE ROLLER TOGGLE
@@ -148,22 +159,38 @@ public class ControllerBindings {
                                 Commands.runOnce(() -> shooterSubsystem.adjustFlywheelOffset(50.0), shooterSubsystem)
                                                 .ignoringDisable(true));
 
+                // ==================== HOOD OFFSET (BUMPERS) ====================
+                operatorController.leftBumper().onTrue(shooterSubsystem.decreaseHoodOffsetCommand());
+                operatorController.rightBumper().onTrue(shooterSubsystem.increaseHoodOffsetCommand());
+
                 // ==================== HUB POZİSYON OFFSET (POV) ====================
                 // Hub hedef noktasını kaydırarak RPM/açı hesaplamasını ince ayar yapar
                 // POV Up/Down: Y offset (±0.1 metre)
                 operatorController.povUp().onTrue(Commands.runOnce(() -> shooterSubsystem.adjustHubOffset(0.0, 0.1)));
-                operatorController.povDown().onTrue(Commands.runOnce(() -> shooterSubsystem.adjustHubOffset(0.0, -0.1)));
+                operatorController.povDown()
+                                .onTrue(Commands.runOnce(() -> shooterSubsystem.adjustHubOffset(0.0, -0.1)));
 
                 // POV Left/Right: X offset (±0.1 metre)
-                operatorController.povLeft().onTrue(Commands.runOnce(() -> shooterSubsystem.adjustHubOffset(-0.1, 0.0)));
-                operatorController.povRight().onTrue(Commands.runOnce(() -> shooterSubsystem.adjustHubOffset(0.1, 0.0)));
+                operatorController.povLeft()
+                                .onTrue(Commands.runOnce(() -> shooterSubsystem.decreaseHoodOffsetCommand()));
+                operatorController.povRight()
+                                .onTrue(Commands.runOnce(() -> shooterSubsystem.increaseHoodOffsetCommand()));
                 // ============================================================
+                                // [RIGHT BUMPER] İTTİFAKA VE KONUMA GÖRE A->B veya B->A SIRALI GİDİŞ
+                operatorController.rightTrigger(0.8)
+                                .whileTrue(new frc.robot.commands.drive.TrenchPassCommand(driveSubsystem,
+                                                shooterSubsystem));
+
+                // [LEFT BUMPER] İTTİFAKA VE KONUMA GÖRE GÜVENLİ BUMP PASS
+                driverController.leftTrigger(0.8)
+                                .whileTrue(new frc.robot.commands.drive.BumpPassCommand(driveSubsystem,
+                                                shooterSubsystem));
         }
 
         /**
          * Alliance'a göre ideal atış pozisyonunu hesaplar.
          */
-        private edu.wpi.first.math.geometry.Pose2d getShootingPose() {
+        private Pose2d getShootingPose() {
                 var alliance = edu.wpi.first.wpilibj.DriverStation.getAlliance();
                 edu.wpi.first.math.geometry.Translation2d hubCenter = frc.robot.constants.FieldConstants
                                 .getHubCenter(alliance);

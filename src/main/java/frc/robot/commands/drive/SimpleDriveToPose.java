@@ -29,9 +29,9 @@ public class SimpleDriveToPose extends Command {
         this.targetPose = targetPose;
 
         // PID ayarları
-        xController = new PIDController(2.0, 0.0, 0.1);
-        yController = new PIDController(2.0, 0.0, 0.1);
-        rotController = new PIDController(3.0, 0.0, 0.1);
+        xController = new PIDController(3.0, 0.0, 0.1);
+        yController = new PIDController(3.0, 0.0, 0.1);
+        rotController = new PIDController(6.0, 0.0, 0.1);
 
         // Rotation controller için continuous input
         rotController.enableContinuousInput(-Math.PI, Math.PI);
