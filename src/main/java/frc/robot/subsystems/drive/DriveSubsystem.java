@@ -74,6 +74,10 @@ public class DriveSubsystem extends SubsystemBase {
     private final TunableNumber feedSpeedMultiplier = new TunableNumber("Tuning/Auto", "FeedSpeedMultiplier", 0.5);
     private boolean feedMode = false;
 
+    // Shoot Speed Multiplier — Atış sırasında ek yavaşlatma (atış hassasiyeti için)
+    private final TunableNumber shootSpeedMultiplier = new TunableNumber("Tuning/Drive", "ShootSpeedMultiplier", 0.4);
+    private boolean shootMode = false;
+
     // Module PID Tunables
     private final TunableNumber moduleDriveP = new TunableNumber("Tuning/Drive", "ModuleDrive_kP", 0.04);
     private final TunableNumber moduleTurnP = new TunableNumber("Drive/Module", "Turn kP", 1.0);
@@ -203,6 +207,16 @@ public class DriveSubsystem extends SubsystemBase {
 
         System.out.println("[DriveSubsystem] Gyro Reset to " + targetHeading.getDegrees() + " degrees ("
                 + (alliance.isPresent() ? alliance.get() : "Unknown") + ")");
+    }
+
+    /**
+     * Resets the robot's field-relative rotation to a specific angle.
+     * Keeps the current translation (position) unchanged.
+     */
+    public void resetRotation(Rotation2d rotation) {
+        Pose2d currentPose = getPose();
+        resetOdometry(new Pose2d(currentPose.getTranslation(), rotation));
+        System.out.println("[DriveSubsystem] Rotation manual reset to " + rotation.getDegrees() + " degrees.");
     }
 
     @Override
@@ -355,6 +369,12 @@ public class DriveSubsystem extends SubsystemBase {
         } else if (DriverStation.isTeleop()) {
             multiplier = Math.max(0.1, Math.min(1.0, teleopSpeedMultiplier.get()));
         }
+
+        // Shoot mode: atış sırasında yavaşlatma (Teleop ve Auto fark etmeksizin)
+        if (shootMode) {
+            multiplier *= Math.max(0.1, Math.min(1.0, shootSpeedMultiplier.get()));
+        }
+
         speeds.vxMetersPerSecond *= multiplier;
         speeds.vyMetersPerSecond *= multiplier;
         speeds.omegaRadiansPerSecond *= multiplier;
@@ -382,6 +402,15 @@ public class DriveSubsystem extends SubsystemBase {
 
     public boolean isFeedMode() {
         return feedMode;
+    }
+
+    /** Shoot modu: atış sırasında ek yavaşlatma çarpanı aktif eder */
+    public void setShootMode(boolean enabled) {
+        this.shootMode = enabled;
+    }
+
+    public boolean isShootMode() {
+        return shootMode;
     }
 
     // Compatibility: 5-arg drive for AutoClimbCommand (vX, vY, rot, fieldRelative,

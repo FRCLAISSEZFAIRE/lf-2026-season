@@ -134,6 +134,20 @@ public class ControllerBindings {
                 driverController.y().onTrue(
                                 Commands.runOnce(() -> shooterSubsystem.setHoodAngle(0), shooterSubsystem));
 
+                // [POV BUTTONS] ROBOT YÖNÜNÜ AYARLA (Orientation Snap)
+                // POV Up: 0° (İleri), Right: 270° (Sağ), Down: 180° (Geri), Left: 90° (Sol)
+                driverController.povUp().onTrue(Commands.runOnce(
+                                () -> driveSubsystem.resetRotation(edu.wpi.first.math.geometry.Rotation2d.fromDegrees(0)),
+                                driveSubsystem));
+                driverController.povRight().onTrue(Commands.runOnce(
+                                () -> driveSubsystem.resetRotation(edu.wpi.first.math.geometry.Rotation2d.fromDegrees(270)),
+                                driveSubsystem));
+                driverController.povDown().onTrue(Commands.runOnce(
+                                () -> driveSubsystem.resetRotation(edu.wpi.first.math.geometry.Rotation2d.fromDegrees(180)),
+                                driveSubsystem));
+                driverController.povLeft().onTrue(Commands.runOnce(
+                                () -> driveSubsystem.resetRotation(edu.wpi.first.math.geometry.Rotation2d.fromDegrees(90)),
+                                driveSubsystem));
         }
 
         // =========================================================================

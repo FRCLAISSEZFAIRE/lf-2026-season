@@ -5,8 +5,8 @@ import frc.robot.subsystems.shooter.ShooterSubsystem;
 
 /**
  * Command to HOME the Hood.
- * Drives the hood motor at negative voltage (down) for 1 second,
- * then resets the encoder to 0.
+ * Drives the hood motor to the bottom mechanical stop,
+ * then resets the encoder to 30.0 (mechanical home).
  */
 public class HomeHoodCommand extends Command {
     private final ShooterSubsystem shooter;
@@ -25,7 +25,7 @@ public class HomeHoodCommand extends Command {
 
     @Override
     public void execute() {
-        shooter.setHoodVoltage(-2.0); // Drive down gently
+        shooter.setHoodVoltage(-4.0); // Drive down gently
     }
 
     @Override
@@ -38,7 +38,7 @@ public class HomeHoodCommand extends Command {
         shooter.setHoodVoltage(0);
         if (!interrupted) {
             shooter.resetHoodEncoder();
-            System.out.println("[HomeHood] Hood Homed & Encoder Reset to 0.");
+            System.out.println("[HomeHood] Hood Homed & Encoder Reset to physical home (30°).");
         }
     }
 }

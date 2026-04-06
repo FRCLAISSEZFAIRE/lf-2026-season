@@ -145,6 +145,8 @@ public class IntakeSubsystem extends SubsystemBase {
                 deployCommand());
         edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.putData("Tuning/Intake/IntakeYukarı(Retract)",
                 retractCommand());
+        edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.putData("Tuning/Intake/TÜHBE - Acil Geri Sar",
+                new frc.robot.commands.intake.TuhBeCommand(this));
 
         System.out.println("[Intake] Extension: Relative Encoder, Gear Ratio=" + extensionGearRatio.get()
                 + ":1, HOMING gerekli");
@@ -446,6 +448,36 @@ public class IntakeSubsystem extends SubsystemBase {
         extensionMotor.stopMotor();
         lastExtensionSetpointCm = 0;
         lastRollerSetpointRPM = 0;
+    }
+
+    // =========================================================================
+    // ENCODER RESET & RAW VOLTAGE (Homing / TühBe destek metodları)
+    // ENCODER RESET & RAW VOLTAGE (Homing / TuhBe support methods)
+    // =========================================================================
+
+    /**
+     * Extension motoruna ham voltaj uygular (soft limit ve PID bypass).
+     * Applies raw voltage to the extension motor (bypasses soft limits and PID).
+     * Sadece homing ve acil komutlar için kullanın.
+     * Use only for homing and emergency commands.
+     *
+     * @param volts Uygulanacak voltaj (-12..12) / Voltage to apply (-12..12)
+     */
+    public void applyExtensionVoltage(double volts) {
+        extensionMotor.setVoltage(volts);
+    }
+
+    /**
+     * Extension encoder pozisyonunu sıfırlar (0.0 motor devri = 0 cm).
+     * Resets the extension encoder position to zero (0.0 motor revs = 0 cm).
+     * TühBe ve home-on-limit-switch senaryolarında çağrılır.
+     * Called in TuhBe and home-on-limit-switch scenarios.
+     */
+    public void resetExtensionEncoder() {
+        extensionEncoder.setPosition(0.0);
+        isHomed = true;
+        lastExtensionSetpointCm = 0;
+        System.out.println("[Intake] Extension encoder sıfırlandı (0.0 rev = 0 cm) / Extension encoder reset to 0");
     }
 
     // =========================================================================

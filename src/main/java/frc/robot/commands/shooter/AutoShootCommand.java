@@ -79,10 +79,24 @@ public class AutoShootCommand extends Command {
         hasShot = false;
         timer.restart();
 
-        // Set center of rotation to turret physical center during shoot
+        // Atış süresince dönüş merkezini taretin fiziksel merkezine ayarla
         drive.setCenterOfRotation(shooter.getTurretCenterOfRotation());
 
-        System.out.println("[AutoShoot] Started - duration=" + shootDurationSec.get() + "s");
+        // Atış modunu aktif et (hız limiti)
+        drive.setShootMode(true);
+
+        // ▶️ Kritik: initialize'da hemen hedefleme al — flywheel ilk frame'den itibaren ısınsın
+        // ▶️ Critical: immediately update aiming in initialize — flywheel starts warming from frame 0
+        Pose2d initPose = poseSupplier.get();
+        if (initPose != null) {
+            if (shooter.isInAllianceZone()) {
+                shooter.updateAiming(initPose, drive.getFieldVelocity());
+            } else {
+                shooter.updateAimingForPass(initPose, drive.getFieldVelocity());
+            }
+        }
+
+        System.out.println("[AutoShoot] Başlatıldı — Süre: " + shootDurationSec.get() + "s");
     }
 
     @Override
@@ -101,8 +115,9 @@ public class AutoShootCommand extends Command {
             shooter.updateAimingForPass(currentPose, drive.getFieldVelocity());
         }
 
-        // 3. Fire-latch logic
-        boolean ready = shooter.isFlywheelAtTarget();
+        // 3. "Ateşi Tut" Mantığı — LATCH (Kilitleme)
+        // Tüm sistemler hazır olduğunda ateşle (flywheel + hood + taret)
+        boolean ready = shooter.isReadyToShoot();
 
         if (ready && !hasShot) {
             hasShot = true;
@@ -138,6 +153,14 @@ public class AutoShootCommand extends Command {
 
         // Reset center of rotation back to robot center
         drive.resetCenterOfRotation();
+
+        // Atış bittiğinde hood'u tekrar mekanik sınıra (30°) yasla ve kalibre et
+        // Home hood back to mechanical stop (30°) and recalibrate on end
+        edu.wpi.first.wpilibj2.command.CommandScheduler.getInstance().schedule(new HomeHoodCommand(shooter));
+
+        // Atış modunu kapat (hız limiti kaldır)
+        drive.setShootMode(false);
+
         timer.stop();
 
         System.out.println("[AutoShoot] Finished - " + (interrupted ? "interrupted" : "timed out"));

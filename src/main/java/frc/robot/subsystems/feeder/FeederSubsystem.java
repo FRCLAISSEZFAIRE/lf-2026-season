@@ -125,7 +125,9 @@ public class FeederSubsystem extends SubsystemBase {
                 // We use velocity, so keep velocity fast (20ms default), but we can slow down position
                 .primaryEncoderPositionPeriodMs(500);
 
-        indexerMotor.configure(indexerConfig, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
+        // kNoResetSafeParameters: Yavaş CAN başlangıcında konfig silinmesin
+        // kNoResetSafeParameters: Don't wipe config on slow CAN startup
+        indexerMotor.configure(indexerConfig, ResetMode.kNoResetSafeParameters, PersistMode.kPersistParameters);
     }
 
     private void configureKicker() {
@@ -148,7 +150,9 @@ public class FeederSubsystem extends SubsystemBase {
                 // We use velocity, so keep velocity fast (20ms default), but we can slow down position
                 .primaryEncoderPositionPeriodMs(500);
 
-        kickerMotor.configure(kickerConfig, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
+        // kNoResetSafeParameters: Yavaş CAN başlangıcında konfig silinmesin
+        // kNoResetSafeParameters: Don't wipe config on slow CAN startup
+        kickerMotor.configure(kickerConfig, ResetMode.kNoResetSafeParameters, PersistMode.kPersistParameters);
     }
 
     /**

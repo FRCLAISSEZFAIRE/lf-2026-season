@@ -78,23 +78,23 @@ public final class ShooterConstants {
         public static final double kHoodI = 0.0;
         public static final double kHoodD = 0.05;
 
-        public static final double kHoodMinAngle = 0.0;
-        public static final double kHoodMaxAngle = 48.0;
+        public static final double kHoodMinAngle = 30.0; // Mekanik limit (en alt)
+        public static final double kHoodMaxAngle = 65.0; // Mekanik limit (en üst)
         public static final double kHoodTolerance = 1.5;
 
         /** Hood dişli oranı. */
         public static final double kHoodGearRatio = 100.0;
 
         /** Hood başlangıç açısı (robot açılışında varsayılan pozisyon) */
-        public static final double kHoodHomeAngle = 15.0;
+        public static final double kHoodHomeAngle = 30.0;
 
         /** Hood Smart Current Limit (Amps) - NEO 550 Safety */
         public static final int kHoodCurrentLimit = 20;
 
         // Hood presets
-        public static final double kHoodCloseAngle = 5.0;
-        public static final double kHoodMidAngle = 15.0;
-        public static final double kHoodFarAngle = 25.0;
+        public static final double kHoodCloseAngle = 30.0;
+        public static final double kHoodMidAngle = 30.0;
+        public static final double kHoodFarAngle = 55.0;
 
         // ===========================================================================
         // FLYWHEEL (Kraken X60 - TEK MOTOR, FOLLOWER YOK)
@@ -104,7 +104,8 @@ public final class ShooterConstants {
         /** Flywheel dişli oranı. */
         public static final double kFlywheelGearRatio = 1.0; // Direct drive
 
-        public static final double kIdleFlywheelRPM = 2000.0;
+        public static final double kIdleFlywheelRPM = 0.0; // KAPALI — Sadece ShootCommand çalıştırır / OFF — Only
+                                                           // ShootCommand activates
         public static final double kFlywheelToleranceRPM = 100.0;
         public static final double kFlywheelTolerance = 200.0; // RPM tolerance for at-target check
 
@@ -201,8 +202,10 @@ public final class ShooterConstants {
 
         // --- TOLERANCES (Dashboard Tunable) ---
         public static final TunableNumber SHOOTER_RPM_TOLERANCE = new TunableNumber("Shooter/Tolerances", "RPM", 50.0);
-        public static final TunableNumber HOOD_ANGLE_TOLERANCE = new TunableNumber("Shooter/Tolerances", "HoodAngle", 2.0);
-        public static final TunableNumber TURRET_AIM_TOLERANCE = new TunableNumber("Shooter/Tolerances", "TurretAim", 2.0);
+        public static final TunableNumber HOOD_ANGLE_TOLERANCE = new TunableNumber("Shooter/Tolerances", "HoodAngle",
+                        2.0);
+        public static final TunableNumber TURRET_AIM_TOLERANCE = new TunableNumber("Shooter/Tolerances", "TurretAim",
+                        2.0);
 
         /**
          * Default safe values for invalid/null distance (Fender shot)

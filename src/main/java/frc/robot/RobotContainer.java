@@ -137,6 +137,7 @@ public class RobotContainer {
                 // AutoShoot dashboard butonu (FeederSubsystem gerektiriyor)
                 shooterSubsystem.initAutoShootCommand(feederSubsystem, driveSubsystem, intakeSubsystem,
                                 driveSubsystem::getPose);
+                shooterSubsystem.initShootResetCommand();
 
                 // --- SCHEDULE HOOD HOMING ---
                 // Runs once on robot startup to calibrate hood

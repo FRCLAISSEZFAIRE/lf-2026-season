@@ -73,6 +73,22 @@ public class ShootCommand extends Command {
         // Atış süresince dönüş merkezini taretin fiziksel merkezine ayarla
         drive.setCenterOfRotation(shooter.getTurretCenterOfRotation());
 
+        // Atış modunu aktif et (hız limiti)
+        drive.setShootMode(true);
+
+        // ▶️ Kritik: initialize'da hemen hedefleme al — flywheel ilk frame'den itibaren
+        // ısınsın
+        // ▶️ Critical: immediately update aiming in initialize — flywheel starts
+        // warming from frame 0
+        Pose2d initPose = poseSupplier.get();
+        if (initPose != null) {
+            if (shooter.isInAllianceZone()) {
+                shooter.updateAiming(initPose, drive.getFieldVelocity());
+            } else {
+                shooter.updateAimingForPass(initPose, drive.getFieldVelocity());
+            }
+        }
+
         System.out.println("[ShootCommand] Başlatıldı — Pose Hedefleme, Dönüş Merkezi Taret");
     }
 
@@ -94,7 +110,9 @@ public class ShootCommand extends Command {
         }
 
         // 3. "Ateşi Tut" Mantığı — LATCH (Kilitleme)
-        boolean ready = shooter.isFlywheelAtTarget();
+        // Tum sistemler hazır olduğunda ateşle (flywheel + hood + taret)
+        // Fire when ALL systems ready (flywheel + hood + turret)
+        boolean ready = shooter.isReadyToShoot();
 
         if (ready && !hasShot) {
             hasShot = true;
@@ -109,7 +127,6 @@ public class ShootCommand extends Command {
 
         // 4. Intake roller — sadece düşük RPM'de roller çalıştır (extension'a dokunma)
         intake.runRollerRPM(intakeShootRPM.get());
-
     }
 
     @Override
@@ -119,9 +136,14 @@ public class ShootCommand extends Command {
         feeder.stop();
         intake.stopRoller();
         // Extension'a dokunma — intake konum neredeyse orada kalsın
-        shooter.setHoodAngle(30);
+        // Atış bittiğinde hood'u tekrar mekanik sınıra (30°) yasla ve kalibre et
+        // Home hood back to mechanical stop (30°) and recalibrate on end
+        edu.wpi.first.wpilibj2.command.CommandScheduler.getInstance().schedule(new HomeHoodCommand(shooter));
         // Dönüş merkezini tekrar robot merkezine sıfırla
         drive.resetCenterOfRotation();
+
+        // Atış modunu kapat (hız limiti kaldır)
+        drive.setShootMode(false);
 
         System.out.println("[ShootCommand] Durduruldu");
     }
