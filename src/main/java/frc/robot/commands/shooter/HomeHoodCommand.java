@@ -19,13 +19,14 @@ public class HomeHoodCommand extends Command {
 
     @Override
     public void initialize() {
+        shooter.setHoodAngle(30);
         startTime = edu.wpi.first.wpilibj.Timer.getFPGATimestamp();
         System.out.println("[HomeHood] Starting Homing...");
     }
 
     @Override
     public void execute() {
-        shooter.setHoodVoltage(-4.0); // Drive down gently
+        shooter.setHoodVoltage(-8.0); // Drive down gently\
     }
 
     @Override
