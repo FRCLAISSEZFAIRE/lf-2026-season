@@ -129,10 +129,10 @@ public class ControllerBindings {
                                                         feederSubsystem.stop();
                                                 }));
 
-                // [Y BUTTON] HOOD AÇISINI 0 YAP (KAPANMA)
-                // Y tuşuna basıldığında (onTrue), Hood motoru 0 dereceye konumlanır.
+                // [Y BUTTON] MANUEL YAVAŞ SÜRÜŞ BİLGİSİ (TOGGLE)
+                // Y tuşuna basılması, "shoot" hız çarpanını manuel olarak açıp kapatır (Slow Mode).
                 driverController.y().onTrue(
-                                Commands.runOnce(() -> shooterSubsystem.setHoodAngle(0), shooterSubsystem));
+                                Commands.runOnce(() -> driveSubsystem.toggleManualSlowMode(), driveSubsystem));
 
                 // [POV BUTTONS] ROBOT YÖNÜNÜ AYARLA (Orientation Snap)
                 // POV Up: 0° (İleri), Right: 270° (Sağ), Down: 180° (Geri), Left: 90° (Sol)

@@ -1,6 +1,7 @@
 package frc.robot.commands.shooter;
 
 import edu.wpi.first.wpilibj2.command.Command;
+import frc.robot.constants.ShooterConstants;
 import frc.robot.subsystems.shooter.ShooterSubsystem;
 
 /**
@@ -10,7 +11,8 @@ import frc.robot.subsystems.shooter.ShooterSubsystem;
  */
 public class HomeHoodCommand extends Command {
     private final ShooterSubsystem shooter;
-    private double startTime;
+    private final edu.wpi.first.wpilibj.Timer timer = new edu.wpi.first.wpilibj.Timer();
+    private boolean seatingPhase = false;
 
     public HomeHoodCommand(ShooterSubsystem shooter) {
         this.shooter = shooter;
@@ -19,18 +21,33 @@ public class HomeHoodCommand extends Command {
 
     @Override
     public void initialize() {
-        startTime = edu.wpi.first.wpilibj.Timer.getFPGATimestamp();
-        System.out.println("[HomeHood] Starting Homing...");
+        timer.restart();
+        seatingPhase = false;
+        System.out.println("[HomeHood] Phase 1: High-Speed PID to 30°...");
+        
+        // Önce PID ile 30'a hızlıca yönel
+        shooter.setHoodAngle(ShooterConstants.kHoodHomeAngle);
     }
 
     @Override
     public void execute() {
-        shooter.setHoodVoltage(-4.0); // Drive down gently
+        if (!seatingPhase) {
+            // Eğer hood açısı 33°'nin altına düştüyse veya 0.75 saniye geçtiyse (tıkanma ihtimaline karşı), 2. faza geç
+            if (shooter.getHoodAngle() <= 33.0 || timer.hasElapsed(0.75)) {
+                seatingPhase = true;
+                timer.restart();
+                System.out.println("[HomeHood] Phase 2: Seating (-4.0V) for 0.25s...");
+            }
+        } else {
+            // Mekanik stop'a yaslanması için çok kısa süre hafifçe zorla
+            shooter.setHoodVoltage(-4.0);
+        }
     }
 
     @Override
     public boolean isFinished() {
-        return (edu.wpi.first.wpilibj.Timer.getFPGATimestamp() - startTime) >= 1.0;
+        // Yaslanma fazı 0.25 saniye sürdükten sonra komutu bitir
+        return seatingPhase && timer.hasElapsed(0.25);
     }
 
     @Override

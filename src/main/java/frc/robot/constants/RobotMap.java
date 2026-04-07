@@ -38,9 +38,7 @@ public final class RobotMap {
     public static final int kIndexerMotorID = 16; // NEO v1.1 (Indexer)
     public static final int kKickerMotorID = 17; // NEO v1.1 (Kicker)
 
-    // ==================== LIFT / CLIMBER (20-29) ====================
-    public static final int kClimberLeftMotorID = 20; // NEO
-    public static final int kClimberRightMotorID = 21; // NEO
+
 
     // ==================== PWM PORTS ====================
     // LED

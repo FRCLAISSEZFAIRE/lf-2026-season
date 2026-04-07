@@ -77,6 +77,7 @@ public class DriveSubsystem extends SubsystemBase {
     // Shoot Speed Multiplier — Atış sırasında ek yavaşlatma (atış hassasiyeti için)
     private final TunableNumber shootSpeedMultiplier = new TunableNumber("Tuning/Drive", "ShootSpeedMultiplier", 0.4);
     private boolean shootMode = false;
+    private boolean manualSlowMode = false;
 
     // Module PID Tunables
     private final TunableNumber moduleDriveP = new TunableNumber("Tuning/Drive", "ModuleDrive_kP", 0.04);
@@ -370,8 +371,8 @@ public class DriveSubsystem extends SubsystemBase {
             multiplier = Math.max(0.1, Math.min(1.0, teleopSpeedMultiplier.get()));
         }
 
-        // Shoot mode: atış sırasında yavaşlatma (Teleop ve Auto fark etmeksizin)
-        if (shootMode) {
+        // Shoot mode or manual slow mode: atış sırasında veya manuel (Y tuşu) yavaşlatma
+        if (shootMode || manualSlowMode) {
             multiplier *= Math.max(0.1, Math.min(1.0, shootSpeedMultiplier.get()));
         }
 
@@ -411,6 +412,16 @@ public class DriveSubsystem extends SubsystemBase {
 
     public boolean isShootMode() {
         return shootMode;
+    }
+
+    /** Manuel yavaş mod (Y tuşu ile tetiklenen) geçişi */
+    public void toggleManualSlowMode() {
+        this.manualSlowMode = !this.manualSlowMode;
+        System.out.println("[DriveSubsystem] Manual Slow Mode " + (this.manualSlowMode ? "ENABLED" : "DISABLED"));
+    }
+
+    public boolean isManualSlowMode() {
+        return manualSlowMode;
     }
 
     // Compatibility: 5-arg drive for AutoClimbCommand (vX, vY, rot, fieldRelative,
