@@ -196,7 +196,7 @@ public class ControllerBindings {
                                                 shooterSubsystem));
 
                 // [LEFT BUMPER] İTTİFAKA VE KONUMA GÖRE GÜVENLİ BUMP PASS
-                driverController.leftTrigger(0.8)
+                operatorController.leftTrigger(0.8)
                                 .whileTrue(new frc.robot.commands.drive.BumpPassCommand(driveSubsystem,
                                                 shooterSubsystem));
         }
