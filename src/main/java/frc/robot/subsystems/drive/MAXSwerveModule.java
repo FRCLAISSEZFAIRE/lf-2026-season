@@ -17,6 +17,7 @@ import com.revrobotics.spark.config.SparkMaxConfig;
 import com.revrobotics.spark.config.SparkFlexConfig;
 
 import frc.robot.Configs;
+import frc.robot.util.TunableNumber;
 
 public class MAXSwerveModule {
     private final SparkFlex m_drivingSpark; // Vortex
@@ -29,7 +30,16 @@ public class MAXSwerveModule {
     private final SparkClosedLoopController m_turningClosedLoopController;
 
     private double m_chassisAngularOffset = 0;
+    private TunableNumber m_angularOffsetTunable = null; // null → fixed offset kullanılır
     private SwerveModuleState m_desiredState = new SwerveModuleState(0.0, new Rotation2d());
+
+    /** Aktif angular offset'i radyan cinsinden döndürür (tunable veya sabit). */
+    private double getAngularOffset() {
+        if (m_angularOffsetTunable != null) {
+            return Math.toRadians(m_angularOffsetTunable.get());
+        }
+        return m_chassisAngularOffset;
+    }
 
     /**
      * Constructs a MAXSwerveModule and configures the driving and turning motor,
@@ -41,6 +51,12 @@ public class MAXSwerveModule {
      * @param drivingInverted      true if driving motor should be inverted
      *                             (typically FR and RL)
      */
+    /** TunableNumber tabanlı constructor — canlı offset güncellemesi sağlar. */
+    public MAXSwerveModule(int drivingCANId, int turningCANId, TunableNumber angularOffsetDeg, boolean drivingInverted) {
+        this(drivingCANId, turningCANId, Math.toRadians(angularOffsetDeg.get()), drivingInverted);
+        m_angularOffsetTunable = angularOffsetDeg;
+    }
+
     public MAXSwerveModule(int drivingCANId, int turningCANId, double chassisAngularOffset, boolean drivingInverted) {
         m_drivingSpark = new SparkFlex(drivingCANId, MotorType.kBrushless);
         m_turningSpark = new SparkMax(turningCANId, MotorType.kBrushless);
@@ -87,7 +103,7 @@ public class MAXSwerveModule {
         // Apply chassis angular offset to the desired state.
         SwerveModuleState correctedDesiredState = new SwerveModuleState();
         correctedDesiredState.speedMetersPerSecond = desiredState.speedMetersPerSecond;
-        correctedDesiredState.angle = desiredState.angle.plus(Rotation2d.fromRadians(m_chassisAngularOffset));
+        correctedDesiredState.angle = desiredState.angle.plus(Rotation2d.fromRadians(getAngularOffset()));
 
         // Optimize the reference state to avoid spinning further than 90 degrees.
         correctedDesiredState.optimize(new Rotation2d(m_turningEncoder.getPosition()));
@@ -107,13 +123,16 @@ public class MAXSwerveModule {
      * @param turnP  Turning motor Proportional gain.
      */
     public void updatePID(double driveP, double turnP) {
-        // Create partial configs for updates
+        updatePID(driveP, 0.0, 0.0, turnP, 0.0);
+    }
+
+    public void updatePID(double driveP, double driveD, double driveFF, double turnP, double turnD) {
         SparkFlexConfig driveConfig = new SparkFlexConfig();
-        driveConfig.closedLoop.pid(driveP, 0.0, 0.0);
+        driveConfig.closedLoop.pid(driveP, 0.0, driveD).feedForward.kV(driveFF);
         m_drivingSpark.configure(driveConfig, ResetMode.kNoResetSafeParameters, PersistMode.kNoPersistParameters);
 
         SparkMaxConfig turnConfig = new SparkMaxConfig();
-        turnConfig.closedLoop.pid(turnP, 0.0, 0.0);
+        turnConfig.closedLoop.pid(turnP, 0.0, turnD);
         m_turningSpark.configure(turnConfig, ResetMode.kNoResetSafeParameters, PersistMode.kNoPersistParameters);
     }
 
@@ -172,7 +191,7 @@ public class MAXSwerveModule {
             // simulationPeriodic)
             return new SwerveModulePosition(
                     m_simDrivePositionMeters,
-                    new Rotation2d(m_simTurnPositionRad - m_chassisAngularOffset));
+                    new Rotation2d(m_simTurnPositionRad - getAngularOffset()));
         }
 
         // Apply chassis angular offset to the encoder position to get the position
@@ -182,7 +201,7 @@ public class MAXSwerveModule {
         // encoder values which have the wrong sign. Negating here fixes odometry only.
         return new SwerveModulePosition(
                 -m_drivingEncoder.getPosition(),
-                new Rotation2d(m_turningEncoder.getPosition() - m_chassisAngularOffset));
+                new Rotation2d(m_turningEncoder.getPosition() - getAngularOffset()));
     }
 
     public SwerveModuleState getState() {
@@ -191,13 +210,13 @@ public class MAXSwerveModule {
             // simulationPeriodic)
             return new SwerveModuleState(
                     m_simDriveVelocityMetersPerSec,
-                    new Rotation2d(m_simTurnPositionRad - m_chassisAngularOffset));
+                    new Rotation2d(m_simTurnPositionRad - getAngularOffset()));
         }
 
         // Apply chassis angular offset to the encoder position to get the position
         // relative to the chassis.
         // Negate velocity for same reason as position above.
         return new SwerveModuleState(-m_drivingEncoder.getVelocity(),
-                new Rotation2d(m_turningEncoder.getPosition() - m_chassisAngularOffset));
+                new Rotation2d(m_turningEncoder.getPosition() - getAngularOffset()));
     }
 }

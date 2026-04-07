@@ -3,6 +3,7 @@ package frc.robot.constants;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.kinematics.SwerveDriveKinematics;
 import edu.wpi.first.math.util.Units;
+import frc.robot.util.TunableNumber;
 
 public final class DriveConstants {
     // Physical Constants
@@ -35,6 +36,12 @@ public final class DriveConstants {
     public static final double kFrontRightChassisAngularOffset = 0; // 0 deg
     public static final double kRearLeftChassisAngularOffset = Math.PI; // 180 deg
     public static final double kRearRightChassisAngularOffset = -Math.PI / 2; // -90 deg
+
+    // Angular Offsets (Tunable, derece cinsinden) — Sağa drift ince ayarı için
+    public static final TunableNumber kFrontLeftAngularOffsetDeg  = new TunableNumber("Drive/Offsets", "FL Deg",  90.0);
+    public static final TunableNumber kFrontRightAngularOffsetDeg = new TunableNumber("Drive/Offsets", "FR Deg",   0.0);
+    public static final TunableNumber kRearLeftAngularOffsetDeg   = new TunableNumber("Drive/Offsets", "RL Deg", 180.0);
+    public static final TunableNumber kRearRightAngularOffsetDeg  = new TunableNumber("Drive/Offsets", "RR Deg", -90.0);
 
     // ===========================================================================
     // MOTOR INVERSION SETTINGS

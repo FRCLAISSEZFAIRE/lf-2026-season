@@ -33,25 +33,25 @@ public class DriveSubsystem extends SubsystemBase {
     private final MAXSwerveModule m_frontLeft = new MAXSwerveModule(
             DriveConstants.kFrontLeftDrivingCanId,
             DriveConstants.kFrontLeftTurningCanId,
-            DriveConstants.kFrontLeftChassisAngularOffset,
+            DriveConstants.kFrontLeftAngularOffsetDeg,
             DriveConstants.kFrontLeftDrivingInverted);
 
     private final MAXSwerveModule m_frontRight = new MAXSwerveModule(
             DriveConstants.kFrontRightDrivingCanId,
             DriveConstants.kFrontRightTurningCanId,
-            DriveConstants.kFrontRightChassisAngularOffset,
+            DriveConstants.kFrontRightAngularOffsetDeg,
             DriveConstants.kFrontRightDrivingInverted);
 
     private final MAXSwerveModule m_rearLeft = new MAXSwerveModule(
             DriveConstants.kRearLeftDrivingCanId,
             DriveConstants.kRearLeftTurningCanId,
-            DriveConstants.kRearLeftChassisAngularOffset,
+            DriveConstants.kRearLeftAngularOffsetDeg,
             DriveConstants.kRearLeftDrivingInverted);
 
     private final MAXSwerveModule m_rearRight = new MAXSwerveModule(
             DriveConstants.kRearRightDrivingCanId,
             DriveConstants.kRearRightTurningCanId,
-            DriveConstants.kRearRightChassisAngularOffset,
+            DriveConstants.kRearRightAngularOffsetDeg,
             DriveConstants.kRearRightDrivingInverted);
 
     // The gyro sensor (NavX2 via Studica lib)
@@ -79,8 +79,12 @@ public class DriveSubsystem extends SubsystemBase {
     private boolean shootMode = false;
 
     // Module PID Tunables
-    private final TunableNumber moduleDriveP = new TunableNumber("Tuning/Drive", "ModuleDrive_kP", 0.04);
-    private final TunableNumber moduleTurnP = new TunableNumber("Drive/Module", "Turn kP", 1.0);
+    private final TunableNumber moduleDriveP  = new TunableNumber("Drive/Module", "Drive kP", 0.04);
+    private final TunableNumber moduleDriveD  = new TunableNumber("Drive/Module", "Drive kD", 0.0);
+    private final TunableNumber moduleDriveFF = new TunableNumber("Drive/Module", "Drive kV (FF)",
+            12.0 / frc.robot.constants.ModuleConstants.kDriveWheelFreeSpeedRps);
+    private final TunableNumber moduleTurnP   = new TunableNumber("Drive/Module", "Turn kP", 1.0);
+    private final TunableNumber moduleTurnD   = new TunableNumber("Drive/Module", "Turn kD", 0.0);
 
     private final TunableNumber maxAccel = new TunableNumber("Drive/Limits", "Max Accel (mps2)", 3.0);
     private final TunableNumber maxAngularAccelRad = new TunableNumber("Drive/Limits", "Max Angular Accel (radps2)",
@@ -174,12 +178,10 @@ public class DriveSubsystem extends SubsystemBase {
         m_rearLeft.updateInversions(invertDriveRL.get(), invertTurnRL.get());
         m_rearRight.updateInversions(invertDriveRR.get(), invertTurnRR.get());
 
-        double initDP = moduleDriveP.get();
-        double initTP = moduleTurnP.get();
-        m_frontLeft.updatePID(initDP, initTP);
-        m_frontRight.updatePID(initDP, initTP);
-        m_rearLeft.updatePID(initDP, initTP);
-        m_rearRight.updatePID(initDP, initTP);
+        m_frontLeft.updatePID(moduleDriveP.get(), moduleDriveD.get(), moduleDriveFF.get(), moduleTurnP.get(), moduleTurnD.get());
+        m_frontRight.updatePID(moduleDriveP.get(), moduleDriveD.get(), moduleDriveFF.get(), moduleTurnP.get(), moduleTurnD.get());
+        m_rearLeft.updatePID(moduleDriveP.get(), moduleDriveD.get(), moduleDriveFF.get(), moduleTurnP.get(), moduleTurnD.get());
+        m_rearRight.updatePID(moduleDriveP.get(), moduleDriveD.get(), moduleDriveFF.get(), moduleTurnP.get(), moduleTurnD.get());
     }
 
     /**
@@ -249,13 +251,14 @@ public class DriveSubsystem extends SubsystemBase {
         Logger.recordOutput("Tuning/Drive/ModuleStates/RearLeft", m_rearLeft.getState());
         Logger.recordOutput("Tuning/Drive/ModuleStates/RearRight", m_rearRight.getState());
 
-        if (moduleDriveP.hasChanged() || moduleTurnP.hasChanged()) {
-            double dP = moduleDriveP.get();
-            double tP = moduleTurnP.get();
-            m_frontLeft.updatePID(dP, tP);
-            m_frontRight.updatePID(dP, tP);
-            m_rearLeft.updatePID(dP, tP);
-            m_rearRight.updatePID(dP, tP);
+        if (moduleDriveP.hasChanged() || moduleDriveD.hasChanged() || moduleDriveFF.hasChanged()
+                || moduleTurnP.hasChanged() || moduleTurnD.hasChanged()) {
+            double dP = moduleDriveP.get(), dD = moduleDriveD.get(), dFF = moduleDriveFF.get();
+            double tP = moduleTurnP.get(), tD = moduleTurnD.get();
+            m_frontLeft.updatePID(dP, dD, dFF, tP, tD);
+            m_frontRight.updatePID(dP, dD, dFF, tP, tD);
+            m_rearLeft.updatePID(dP, dD, dFF, tP, tD);
+            m_rearRight.updatePID(dP, dD, dFF, tP, tD);
         }
 
         // Check for inversion changes

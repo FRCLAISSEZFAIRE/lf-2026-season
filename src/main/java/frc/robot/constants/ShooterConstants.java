@@ -200,6 +200,11 @@ public final class ShooterConstants {
         public static final TunableNumber[] PASS_HOOD_TUNABLES = { kPassHood0, kPassHood1, kPassHood2, kPassHood3,
                         kPassHood4 };
 
+        // --- PRE-AIM / STANDBY ---
+        /** Hub'a bu mesafe (metre) içine girilince hood+turret+flywheel pre-spin başlar. */
+        public static final TunableNumber PRE_AIM_DISTANCE_METERS = new TunableNumber("Shooter", "PreAim Distance m",
+                        2.0);
+
         // --- TOLERANCES (Dashboard Tunable) ---
         public static final TunableNumber SHOOTER_RPM_TOLERANCE = new TunableNumber("Shooter/Tolerances", "RPM", 50.0);
         public static final TunableNumber HOOD_ANGLE_TOLERANCE = new TunableNumber("Shooter/Tolerances", "HoodAngle",

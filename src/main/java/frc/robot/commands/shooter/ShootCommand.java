@@ -119,8 +119,15 @@ public class ShootCommand extends Command {
         }
 
         // KİLİTLEME MANTIĞI:
+        // Indexer: ball konumlanması için her zaman çalışır.
+        // Kicker: flywheel hedef hızda olduğunda devreye girer (erken ateşlemeyi önler).
         if (ready || hasShot) {
-            feeder.feed();
+            feeder.feedIndexer();
+            if (shooter.isFlywheelAtTarget()) {
+                feeder.feedKicker();
+            } else {
+                feeder.stopKicker();
+            }
         } else {
             feeder.stop();
         }

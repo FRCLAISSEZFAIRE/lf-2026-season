@@ -195,10 +195,7 @@ public class ControllerBindings {
                                 .whileTrue(new frc.robot.commands.drive.TrenchPassCommand(driveSubsystem,
                                                 shooterSubsystem));
 
-                // [LEFT BUMPER] İTTİFAKA VE KONUMA GÖRE GÜVENLİ BUMP PASS
-                driverController.leftTrigger(0.8)
-                                .whileTrue(new frc.robot.commands.drive.BumpPassCommand(driveSubsystem,
-                                                shooterSubsystem));
+                // [LEFT TRIGGER] BumpPass kaldırıldı — L2 sadece intake için kullanılıyor
         }
 
         /**

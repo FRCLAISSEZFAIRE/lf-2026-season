@@ -328,7 +328,10 @@ public class RobotContainer {
                 // ledSubsystem.setDefaultCommand(
                 // Commands.run(() -> ledSubsystem.setIdle(), ledSubsystem));
 
-                // Not: Shooter bindingleri ControllerBindings.java'da tanımlanıyor.
+                // Shooter: Hub'a yaklaşınca otomatik pre-aim + flywheel pre-spin
+                shooterSubsystem.setDefaultCommand(
+                                new frc.robot.commands.shooter.ShooterStandbyCommand(
+                                                shooterSubsystem, driveSubsystem));
 
         }
 
