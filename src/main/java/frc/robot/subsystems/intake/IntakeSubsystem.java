@@ -328,12 +328,6 @@ public class IntakeSubsystem extends SubsystemBase {
     // ROLLER COMMANDS
     // =========================================================================
 
-    public void runRoller(double volts) {
-        if (motorsEnabled && !manualOverrideEnabled) {
-            rollerMotor.setVoltage(volts);
-        }
-    }
-
     public void runRollerRPM(double rpm) {
         if (motorsEnabled && !manualOverrideEnabled) {
             double clampedRPM = Math.max(rollerMinRPM.get(), Math.min(rpm, rollerMaxRPM.get()));

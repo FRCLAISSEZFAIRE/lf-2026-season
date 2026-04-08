@@ -7,7 +7,6 @@ import frc.robot.subsystems.shooter.ShooterSubsystem;
 import frc.robot.subsystems.feeder.FeederSubsystem;
 import frc.robot.subsystems.drive.DriveSubsystem;
 import frc.robot.subsystems.intake.IntakeSubsystem;
-
 import frc.robot.util.TunableNumber;
 
 import java.util.function.Supplier;
@@ -135,9 +134,6 @@ public class ShootCommand extends Command {
         shooter.stopFlywheel();
         feeder.stop();
         intake.stopRoller();
-        // Extension'a dokunma — intake konum neredeyse orada kalsın
-        // Atış bittiğinde hood'u tekrar mekanik sınıra (30°) yasla ve kalibre et
-        // Home hood back to mechanical stop (30°) and recalibrate on end
         edu.wpi.first.wpilibj2.command.CommandScheduler.getInstance().schedule(new HomeHoodCommand(shooter));
         // Dönüş merkezini tekrar robot merkezine sıfırla
         drive.resetCenterOfRotation();

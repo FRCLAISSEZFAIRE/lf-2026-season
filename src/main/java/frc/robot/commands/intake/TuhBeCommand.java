@@ -81,7 +81,6 @@ public class TuhBeCommand extends Command {
             case HOMING:
                 // Eksi yönde düşük voltajla sür — mekanik durdurucu hattına kadar
                 // Drive in negative direction at low voltage — until mechanical hard stop
-                intake.runRoller(0); // Roller durdur / Stop roller
                 // Extension motoruna direkt voltaj uygula (soft limit bypass)
                 // Apply direct voltage to extension motor (soft limit bypass happens below)
                 applyRawExtensionVoltage(homingVolts.get());

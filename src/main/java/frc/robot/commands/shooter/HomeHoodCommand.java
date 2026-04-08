@@ -24,7 +24,7 @@ public class HomeHoodCommand extends Command {
         timer.restart();
         seatingPhase = false;
         System.out.println("[HomeHood] Phase 1: High-Speed PID to 30°...");
-        
+        shooter.setHoodAngle(ShooterConstants.kHoodMinAngle);
         // Önce PID ile 30'a hızlıca yönel
         shooter.setHoodAngle(ShooterConstants.kHoodHomeAngle);
     }
@@ -40,20 +40,22 @@ public class HomeHoodCommand extends Command {
             }
         } else {
             // Mekanik stop'a yaslanması için çok kısa süre hafifçe zorla
-            shooter.setHoodVoltage(-4.0);
+            shooter.setHoodVoltage(-8.0);
         }
     }
 
     @Override
     public boolean isFinished() {
         // Yaslanma fazı 0.25 saniye sürdükten sonra komutu bitir
-        return seatingPhase && timer.hasElapsed(0.25);
+        return seatingPhase && timer.hasElapsed(0.5);
     }
 
     @Override
     public void end(boolean interrupted) {
         shooter.setHoodVoltage(0);
-        if (!interrupted) {
+        // Seating fazına girdiyse hood mekanik stopa yaklaşmış demektir —
+        // interrupt olsa bile encoder'ı resetle (bas-çekte drift birikimini önler)
+        if (!interrupted || seatingPhase) {
             shooter.resetHoodEncoder();
             System.out.println("[HomeHood] Hood Homed & Encoder Reset to physical home (30°).");
         }
