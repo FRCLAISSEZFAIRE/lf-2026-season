@@ -26,10 +26,10 @@ import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 
+import frc.robot.constants.Constants;
 import frc.robot.constants.FieldConstants;
 import frc.robot.constants.RobotMap;
 import frc.robot.constants.ShooterConstants;
-import frc.robot.constants.Constants;
 import frc.robot.util.TunableNumber;
 
 import org.littletonrobotics.junction.Logger;
@@ -82,11 +82,20 @@ public class ShooterSubsystem extends SubsystemBase {
 
     // Target values (HEPSİ DERECE veya RPM)
     private double turretTargetDeg = 0;
-    private double hoodTargetDeg = ShooterConstants.kHoodMidAngle;
-    private double flywheelTargetRPM = ShooterConstants.kIdleFlywheelRPM;
+    private double hoodTargetDeg = ShooterConstants.kHoodHomeAngle;
+    private double flywheelTargetRPM = 0; // Varsayılan: KAPALI. Sadece ShootCommand çalıştırır.
+                                          // Default: OFF. Only ShootCommand activates flywheel.
     private double autoAimOffsetDeg = 0.0;
     private double hubOffsetX = 0.0; // Hub X offset (metre)
     private double hubOffsetY = 0.0; // Hub Y offset (metre)
+
+    // EMA-smoothed velocity for moving shoot (prevents sudden jumps)
+    private double smoothedVx = 0.0;
+    private double smoothedVy = 0.0;
+
+    // Hood hysteresis — only update hood when distance changes significantly
+    private double lastHoodUpdateDistanceM = -1.0;
+    private static final double HOOD_UPDATE_THRESHOLD_M = 0.15;
 
     // =====================================================================
     // CALIBRATION MAPS
@@ -131,6 +140,10 @@ public class ShooterSubsystem extends SubsystemBase {
     private final TunableNumber turretMaxAngle = new TunableNumber("Shooter", "Turret MaxAngle",
             ShooterConstants.kTurretMaxAngle);
 
+    // Hood Soft Limits (Dashboard'dan ayarlanabilir)
+    private final TunableNumber hoodMaxAngle = new TunableNumber("Shooter", "Hood MaxAngle",
+            ShooterConstants.kHoodMaxAngle);
+
     // Turret Gear Ratios (Tunable for calibration)
     private final TunableNumber turretGearRatio = new TunableNumber("Shooter", "Turret Gear Ratio",
             ShooterConstants.kTurretGearRatio);
@@ -142,8 +155,8 @@ public class ShooterSubsystem extends SubsystemBase {
             ShooterConstants.kHoodGearRatio);
 
     // Turret Physical Position (Robot frame — robot merkezine göre taret pozisyonu,
-    private final TunableNumber turretPositionX = new TunableNumber("Shooter", "Turret Center X", 0.0);
-    private final TunableNumber turretPositionY = new TunableNumber("Shooter", "Turret Center Y", 0.0);
+    private final TunableNumber turretPositionX = new TunableNumber("Shooter", "Turret Center X", 15.0);
+    private final TunableNumber turretPositionY = new TunableNumber("Shooter", "Turret Center Y", 15.0);
 
     // =====================================================================
     // MOVING SHOOT TUNABLES
@@ -152,11 +165,13 @@ public class ShooterSubsystem extends SubsystemBase {
     // =====================================================================
     private final frc.robot.util.TunableBoolean enableMovingShoot = new frc.robot.util.TunableBoolean("Shooter",
             "Enable Moving Shoot", true);
-    private final frc.robot.util.TunableBoolean followerInvert = new frc.robot.util.TunableBoolean("Shooter", "Follower Invert", true);
+    private final frc.robot.util.TunableBoolean followerInvert = new frc.robot.util.TunableBoolean("Shooter",
+            "Follower Invert", true);
     private final TunableNumber averageShotVelocityMps = new TunableNumber("Shooter", "Average Shot Velocity m/s",
             18.0);
 
-    // Mekanik gecikme: feeder tetiklemesinden topun namluyu terk etmesine kadar geçen süre (ms)
+    // Mekanik gecikme: feeder tetiklemesinden topun namluyu terk etmesine kadar
+    // geçen süre (ms)
     // Mechanical latency: time from feeder trigger to ball exiting barrel (ms)
     private final TunableNumber mechanicalLatencyMs = new TunableNumber("Shooter", "Mech Latency ms", 80.0);
 
@@ -179,6 +194,10 @@ public class ShooterSubsystem extends SubsystemBase {
     // 1.0 = fizik doğru / 0.0 = kompanzasyon kapalı / >1.0 = agresif
     // 1.0 = physics-correct / 0.0 = compensation off / >1.0 = aggressive
     private final TunableNumber movingShootVelGain = new TunableNumber("Shooter", "Moving Shoot Vel Gain", 1.0);
+
+    // EMA alpha for velocity smoothing: 0.0=frozen, 1.0=raw (no filter)
+    // 0.2 @ 50Hz → ~80ms time constant
+    private final TunableNumber velocitySmoothAlpha = new TunableNumber("Shooter", "Velocity Smooth Alpha", 0.2);
 
     // =====================================================================
     // CONSTRUCTOR
@@ -449,9 +468,11 @@ public class ShooterSubsystem extends SubsystemBase {
         // Soft Limits Ekleme
         hoodConfig.softLimit
                 .forwardSoftLimitEnabled(true)
-                .forwardSoftLimit((float) ShooterConstants.kHoodMaxAngle)
+                .forwardSoftLimit((float) hoodMaxAngle.get())
                 .reverseSoftLimitEnabled(true)
-                .reverseSoftLimit((float) ShooterConstants.kHoodMinAngle);
+                // Homing sırasında soft limit kapatılıp CAN'i bloklamasın diye 2 derece
+                // güvenlik payı bırakıldı
+                .reverseSoftLimit((float) (ShooterConstants.kHoodMinAngle - 2.0));
 
         // CAN Optimization: Hood Motor
         hoodConfig.signals
@@ -464,8 +485,14 @@ public class ShooterSubsystem extends SubsystemBase {
 
         hoodMotor.configure(hoodConfig, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
 
-        // Encoder'ı başlangıç açısına ayarla
+        // Encoder'ı başlangıç açısına ayarla (30°)
         hoodMotor.getEncoder().setPosition(ShooterConstants.kHoodHomeAngle);
+        // ▶️ KRİTİK: Başlangıç açısını PID hedefi olarak hemen motorun içine yaz!
+        // ▶️ CRITICAL: Immediately write the home angle as a PID target to the motor's
+        // controller!
+        // Bu motorun açılışta 0'a gitmeye çalışıp mekanik sınıra (30°) çarpmasını
+        // önler.
+        hoodMotor.getClosedLoopController().setSetpoint(ShooterConstants.kHoodHomeAngle, ControlType.kPosition);
 
         System.out.println("[Shooter] Hood: Onboard PID, Home=" + ShooterConstants.kHoodHomeAngle + "°");
     }
@@ -489,7 +516,8 @@ public class ShooterSubsystem extends SubsystemBase {
 
         // --- Follower Configuration ---
         flywheelFollowerMotor.getConfigurator().apply(flywheelConfig); // Inherit current limits and neutral mode
-        flywheelFollowerMotor.setControl(new Follower(flywheelMotor.getDeviceID(), followerInvert.get() ? MotorAlignmentValue.Opposed : MotorAlignmentValue.Aligned));
+        flywheelFollowerMotor.setControl(new Follower(flywheelMotor.getDeviceID(),
+                followerInvert.get() ? MotorAlignmentValue.Opposed : MotorAlignmentValue.Aligned));
 
         System.out.println("[Shooter] Flywheel: Phoenix6 Velocity Control (Master-Follower Dual Kraken X60)");
 
@@ -572,6 +600,13 @@ public class ShooterSubsystem extends SubsystemBase {
                     + turretMinAngle.get() + "° to " + turretMaxAngle.get() + "°");
         }
 
+        // --- HOOD SOFT LIMIT UPDATE ---
+        if (hoodMaxAngle.hasChanged()) {
+            hoodConfig.softLimit.forwardSoftLimit((float) hoodMaxAngle.get());
+            hoodMotor.configure(hoodConfig, ResetMode.kNoResetSafeParameters, PersistMode.kNoPersistParameters);
+            System.out.println("[Shooter] Hood Forward Soft Limit Updated: " + hoodMaxAngle.get() + "°");
+        }
+
         // --- HOOD PID UPDATE ---
         if (hoodKP.hasChanged() || hoodKI.hasChanged() || hoodKD.hasChanged()) {
             hoodConfig.closedLoop
@@ -595,7 +630,8 @@ public class ShooterSubsystem extends SubsystemBase {
 
         // --- FOLLOWER INVERSION UPDATE ---
         if (followerInvert.hasChanged()) {
-            flywheelFollowerMotor.setControl(new Follower(flywheelMotor.getDeviceID(), followerInvert.get() ? MotorAlignmentValue.Opposed : MotorAlignmentValue.Aligned));
+            flywheelFollowerMotor.setControl(new Follower(flywheelMotor.getDeviceID(),
+                    followerInvert.get() ? MotorAlignmentValue.Opposed : MotorAlignmentValue.Aligned));
             System.out.println("[Shooter] Follower Inversion Updated");
         }
 
@@ -666,6 +702,22 @@ public class ShooterSubsystem extends SubsystemBase {
         tuningTable.getEntry("Offsets/HubX").setDouble(hubOffsetX);
         tuningTable.getEntry("Offsets/HubY").setDouble(hubOffsetY);
 
+        // EMA velocity smoothing for moving shoot
+        ChassisSpeeds rawSpeeds = fieldSpeedsSupplier.get();
+        if (rawSpeeds != null) {
+            double rawVx = rawSpeeds.vxMetersPerSecond;
+            double rawVy = rawSpeeds.vyMetersPerSecond;
+            if (Math.hypot(rawVx, rawVy) < 0.1) {
+                // Robot durdu — residual hızı hemen sıfırla
+                smoothedVx = 0.0;
+                smoothedVy = 0.0;
+            } else {
+                double alpha = velocitySmoothAlpha.get();
+                smoothedVx = alpha * rawVx + (1.0 - alpha) * smoothedVx;
+                smoothedVy = alpha * rawVy + (1.0 - alpha) * smoothedVy;
+            }
+        }
+
         if (isAutoAimActive) {
             trackTarget();
         }
@@ -689,6 +741,17 @@ public class ShooterSubsystem extends SubsystemBase {
      * @param fieldSpeeds Current robot field-relative speeds
      */
     public void updateAiming(Pose2d robotPose, edu.wpi.first.math.kinematics.ChassisSpeeds fieldSpeeds) {
+        updateAiming(robotPose, fieldSpeeds, true);
+    }
+
+    /**
+     * @param applyFlywheel true ise flywheel'i de çalıştır (ShootCommand),
+     *                      false ise sadece taret + hood izle (AutoAim tracking).
+     *                      true = also spin flywheel (ShootCommand use),
+     *                      false = only turret + hood tracking (AutoAim use).
+     */
+    public void updateAiming(Pose2d robotPose, edu.wpi.first.math.kinematics.ChassisSpeeds fieldSpeeds,
+            boolean applyFlywheel) {
         // --- Taret saha pozisyonunu hesapla ---
         // --- Calculate Turret Field Position ---
         Translation2d turretFieldPosition = robotPose.getTranslation()
@@ -722,21 +785,23 @@ public class ShooterSubsystem extends SubsystemBase {
         double msToF = 0;
         double msEffectiveDist = 0;
 
-        if (enableMovingShoot.get() && fieldSpeeds != null) {
+        if (enableMovingShoot.get()) {
+            // Smoothed velocity kullan — ham hız yerine EMA filtreli hız
+            // Use smoothed velocity — EMA-filtered instead of raw
+            ChassisSpeeds smoothed = new ChassisSpeeds(smoothedVx, smoothedVy, 0);
             // Tam fizik hesabını çağır
             // Call the full physics calculation
-            frc.robot.util.MovingShootUtil.MovingShootResult msResult =
-                frc.robot.util.MovingShootUtil.calculate(
+            frc.robot.util.MovingShootUtil.MovingShootResult msResult = frc.robot.util.MovingShootUtil.calculate(
                     hubLocation,
                     turretFieldPosition,
-                    fieldSpeeds,
+                    smoothed,
                     averageShotVelocityMps.get(),
-                    mechanicalLatencyMs.get() / 1000.0,  // ms → saniye / ms → seconds
-                    turretResponseMs.get() / 1000.0,     // ms → saniye / ms → seconds
+                    mechanicalLatencyMs.get() / 1000.0, // ms → saniye / ms → seconds
+                    turretResponseMs.get() / 1000.0, // ms → saniye / ms → seconds
                     enableLatencyComp.get(),
                     enableTurretLead.get(),
-                    movingShootVelGain.get()             // Hız kazanç çarpanı / Velocity gain
-                );
+                    movingShootVelGain.get() // Hız kazanç çarpanı / Velocity gain
+            );
 
             // Sonuçları ayıkla / Extract results
             aimTarget = msResult.virtualTarget();
@@ -774,7 +839,7 @@ public class ShooterSubsystem extends SubsystemBase {
 
         // Dereceye çevir, offset ve öncüleme ekle (kullanıcı isteğine göre TERS)
         // Convert to Degrees, add offset and lead (INVERTED per user request)
-        turretTargetDeg = -Math.toDegrees(targetTurretRad) + autoAimOffsetDeg + turretLeadAngleDeg;
+        turretTargetDeg = -Math.toDegrees(targetTurretRad) + autoAimOffsetDeg - turretLeadAngleDeg;
 
         // Taret yumuşak limitlerine kırp
         // Clamp Turret to Soft Limits
@@ -795,7 +860,16 @@ public class ShooterSubsystem extends SubsystemBase {
         // 5. Hedef değerleri uygula
         // 5. Apply Setpoints
         setTurretAngle(turretTargetDeg);
-        applyShooterState(state);
+        if (applyFlywheel) {
+            // Flywheel her zaman güncellenir
+            setFlywheelRPM(state.rpm + flywheelOffsetRPM);
+        }
+        // Hood: sadece mesafe önemli ölçüde değiştiğinde güncelle (hysteresis)
+        // Hood: only update when distance changes significantly (hysteresis)
+        if (Math.abs(distanceForLookup - lastHoodUpdateDistanceM) > HOOD_UPDATE_THRESHOLD_M) {
+            setHoodAngle(state.hoodAngleDeg + hoodOffsetDeg);
+            lastHoodUpdateDistanceM = distanceForLookup;
+        }
 
         // =====================================================================
         // TELEMETRİ — Tüm fizik ara değerlerini logla
@@ -896,17 +970,26 @@ public class ShooterSubsystem extends SubsystemBase {
      * @param robotPose Current robot pose
      */
     public void updateAimingForPass(Pose2d robotPose) {
-        updateAimingForPass(robotPose, new ChassisSpeeds());
+        updateAimingForPass(robotPose, new ChassisSpeeds(), true);
+    }
+
+    public void updateAimingForPass(Pose2d robotPose, ChassisSpeeds fieldSpeeds) {
+        updateAimingForPass(robotPose, fieldSpeeds, true);
     }
 
     /**
      * Alliance Pass hedeflemesini günceller — hareket telafisi destekli.
      * Updates Alliance Pass aiming — with moving shoot compensation.
      *
-     * @param robotPose   Robotun güncel pozisyonu / Current robot pose
-     * @param fieldSpeeds Robotun saha-referanslı hız vektörü / Robot field-relative velocity
+     * @param robotPose     Robotun güncel pozisyonu / Current robot pose
+     * @param fieldSpeeds   Robotun saha-referanslı hız vektörü / Robot
+     *                      field-relative velocity
+     * @param applyFlywheel true = flywheel'i de çalıştır (ShootCommand); false =
+     *                      sadece taret+hood (AutoAim)
+     *                      true = also spin flywheel (ShootCommand); false =
+     *                      turret+hood only (AutoAim)
      */
-    public void updateAimingForPass(Pose2d robotPose, ChassisSpeeds fieldSpeeds) {
+    public void updateAimingForPass(Pose2d robotPose, ChassisSpeeds fieldSpeeds, boolean applyFlywheel) {
         // --- Taret saha pozisyonunu hesapla ---
         // --- Calculate Turret Field Position ---
         Translation2d turretFieldPosition = robotPose.getTranslation()
@@ -922,8 +1005,7 @@ public class ShooterSubsystem extends SubsystemBase {
         Translation2d aimTarget = targetLocation;
 
         if (enableMovingShoot.get() && fieldSpeeds != null) {
-            frc.robot.util.MovingShootUtil.MovingShootResult msResult =
-                frc.robot.util.MovingShootUtil.calculate(
+            frc.robot.util.MovingShootUtil.MovingShootResult msResult = frc.robot.util.MovingShootUtil.calculate(
                     targetLocation,
                     turretFieldPosition,
                     fieldSpeeds,
@@ -932,8 +1014,7 @@ public class ShooterSubsystem extends SubsystemBase {
                     turretResponseMs.get() / 1000.0,
                     enableLatencyComp.get(),
                     enableTurretLead.get(),
-                    movingShootVelGain.get()             // Hız kazanç çarpanı / Velocity gain
-                );
+                    movingShootVelGain.get());
             aimTarget = msResult.virtualTarget();
             distanceForLookup = msResult.effectiveDistance();
         } else {
@@ -949,8 +1030,6 @@ public class ShooterSubsystem extends SubsystemBase {
         double targetTurretRad = angleToTargetRad - robotHeadingRad;
         targetTurretRad = MathUtil.angleModulus(targetTurretRad);
 
-        // Pass için manuel offset yok (genellikle)
-        // No manual offset for pass (usually)
         turretTargetDeg = Math.toDegrees(targetTurretRad);
 
         // Taret limitlerine kırp / Clamp Turret
@@ -963,12 +1042,18 @@ public class ShooterSubsystem extends SubsystemBase {
         // 3. Atıcı Durumunu Hesapla (Alliance Pass mantığı) — efektif mesafe kullan
         // 3. Calculate Shooter State (Alliance Pass Logic) — use effective distance
         ShooterState state = calculateShooterStateForAlliancePass(distanceForLookup);
-        flywheelTargetRPM = state.rpm;
         hoodTargetDeg = state.hoodAngleDeg;
 
         // 4. Hedef değerleri uygula / Apply Setpoints
         setTurretAngle(turretTargetDeg);
-        applyShooterState(state);
+        if (applyFlywheel) {
+            flywheelTargetRPM = state.rpm;
+            applyShooterState(state);
+        } else {
+            // Sadece hood izle — flywheel şu an çalışmıyor
+            // Only track hood — flywheel not running yet
+            setHoodAngle(hoodTargetDeg + hoodOffsetDeg);
+        }
 
         // Telemetri / Log Aiming Data
         Logger.recordOutput("Tuning/Shooter/PassAiming/Distance", distanceForLookup);
@@ -983,14 +1068,16 @@ public class ShooterSubsystem extends SubsystemBase {
      */
     public boolean isReadyToShoot() {
         // Check 1: RPM Tolerance
-        boolean rpmReady = Math.abs(getFlywheelRPM() - flywheelTargetRPM) < ShooterConstants.SHOOTER_RPM_TOLERANCE.get();
+        boolean rpmReady = Math.abs(getFlywheelRPM() - flywheelTargetRPM) < ShooterConstants.SHOOTER_RPM_TOLERANCE
+                .get();
 
         // Check 2: Hood Tolerance
         boolean hoodReady = Math.abs(getHoodAngle() - hoodTargetDeg) < ShooterConstants.HOOD_ANGLE_TOLERANCE.get();
 
         // Check 3: Turret Tolerance (PID Error)
         // We compare current angle to target angle
-        boolean turretReady = Math.abs(getTurretAngle() - turretTargetDeg) < ShooterConstants.TURRET_AIM_TOLERANCE.get();
+        boolean turretReady = Math.abs(getTurretAngle() - turretTargetDeg) < ShooterConstants.TURRET_AIM_TOLERANCE
+                .get();
 
         // Return true ONLY if ALL checks pass
         return rpmReady && hoodReady && turretReady;
@@ -1046,7 +1133,7 @@ public class ShooterSubsystem extends SubsystemBase {
     public void setHoodAngle(double angleDeg) {
         hoodTargetDeg = MathUtil.clamp(angleDeg,
                 ShooterConstants.kHoodMinAngle,
-                ShooterConstants.kHoodMaxAngle);
+                hoodMaxAngle.get());
 
         // setSetpoint ile onboard PID'e hedef gönder
         hoodMotor.getClosedLoopController().setSetpoint(hoodTargetDeg, ControlType.kPosition);
@@ -1136,14 +1223,12 @@ public class ShooterSubsystem extends SubsystemBase {
      */
     public void disableAutoAim() {
         isAutoAimActive = false;
-        // Sync with Dashboard
+        // Dashboard ile senkronize et / Sync with Dashboard
         edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.putBoolean("Tuning/Shooter/EnableAutoAim", false);
         tuningTable.getEntry("Tuning/Shooter/EnableAutoAim").setBoolean(false);
-        System.out.println("[Shooter] Auto-aim DISABLED");
-        // Optional: Stop Turret/Hood or keep at last position?
-        // Usually safer to stop or just let them stay.
-        setTurretAngle(0); // Reset turret on disable? Or keep?
-        // Let's reset to 0 for safety/predictability as per typical FRC usage.
+        System.out.println("[Shooter] Auto-aim KAPALI / DISABLED — Taret son konumda kalıyor.");
+        // NOT: Tureti 0'a almıyoruz — son hedefleme konumunda bırakıyoruz.
+        // NOTE: We do NOT reset turret to 0 — leaving it at last aim position.
     }
 
     // =====================================================================
@@ -1179,7 +1264,7 @@ public class ShooterSubsystem extends SubsystemBase {
      * Increase Hood Offset by 2 degrees.
      */
     public Command increaseHoodOffsetCommand() {
-        return Commands.runOnce(() -> adjustHoodOffset(2.0), this)
+        return Commands.runOnce(() -> adjustHoodOffset(2.0))
                 .ignoringDisable(true)
                 .withName("HoodOffset +2");
     }
@@ -1188,7 +1273,7 @@ public class ShooterSubsystem extends SubsystemBase {
      * Decrease Hood Offset by 2 degrees.
      */
     public Command decreaseHoodOffsetCommand() {
-        return Commands.runOnce(() -> adjustHoodOffset(-2.0), this)
+        return Commands.runOnce(() -> adjustHoodOffset(-2.0))
                 .ignoringDisable(true)
                 .withName("HoodOffset -2");
     }
@@ -1202,8 +1287,28 @@ public class ShooterSubsystem extends SubsystemBase {
     }
 
     private void trackTarget() {
-        // Use the centralized updateAiming call which handles moving shoot compensation
-        updateAiming(robotPoseSupplier.get(), fieldSpeedsSupplier.get());
+        // Null guard: pose veya hız supplier henüz hazır değilse atla
+        // Null guard: skip if pose or speed supplier not ready yet
+        Pose2d pose = robotPoseSupplier.get();
+        if (pose == null) {
+            Logger.recordOutput("Tuning/Shooter/AutoAim/PoseNull", true);
+            return;
+        }
+        Logger.recordOutput("Tuning/Shooter/AutoAim/PoseNull", false);
+
+        ChassisSpeeds speeds = fieldSpeedsSupplier != null ? fieldSpeedsSupplier.get() : new ChassisSpeeds();
+        if (speeds == null)
+            speeds = new ChassisSpeeds();
+
+        // AutoAim izleme modunda flywheel KAPATIK — sadece taret + hood hedefler
+        // In AutoAim tracking mode flywheel OFF — only turret + hood track target
+        // Flywheel sadece ShootCommand/AutoShootCommand aktifken çalışır.
+        // Flywheel only runs when ShootCommand/AutoShootCommand is active.
+        if (isInAllianceZone()) {
+            updateAiming(pose, speeds, false); // applyFlywheel = false
+        } else {
+            updateAimingForPass(pose, speeds, false); // applyFlywheel = false
+        }
     }
 
     /**
@@ -1481,8 +1586,9 @@ public class ShooterSubsystem extends SubsystemBase {
         flywheelMotor.getSimState().setRotorVelocity(flyRPS);
         flywheelMotor.getSimState().setSupplyVoltage(12.0);
 
-        // Follower must also have its sensor updated. 
-        // If it's Opposed, its sensor rotates in the opposite direction of the mechanism.
+        // Follower must also have its sensor updated.
+        // If it's Opposed, its sensor rotates in the opposite direction of the
+        // mechanism.
         double followerRPS = followerInvert.get() ? -flyRPS : flyRPS;
         flywheelFollowerMotor.getSimState().setRotorVelocity(followerRPS);
         flywheelFollowerMotor.getSimState().setSupplyVoltage(12.0);
@@ -1530,6 +1636,23 @@ public class ShooterSubsystem extends SubsystemBase {
         hoodMotor.setVoltage(volts);
     }
 
+    /** Hood hysteresis'i sıfırla — ShootCommand başladığında çağır. */
+    public void resetHoodUpdateDistance() {
+        lastHoodUpdateDistanceM = -1.0;
+    }
+
+    public void disableHoodReverseSoftLimit() {
+        // İPTAL EDİLDİ: CAN overun (35ms gecikme) yaratıyordu.
+        // Konfigürasyonda kHoodMinAngle - 2.0 yapılarak limit fiziksel stop'un gerisine
+        // çekildi,
+        // böylece homing sırasında yazılımsal limite çarpmadan mekanik stop'a
+        // yaslanabiliyor.
+    }
+
+    public void enableHoodReverseSoftLimit() {
+        // İPTAL EDİLDİ: CAN overrun önlemi.
+    }
+
     public void setTurretVoltage(double volts) {
         turretMotor.setVoltage(volts);
     }
@@ -1543,11 +1666,18 @@ public class ShooterSubsystem extends SubsystemBase {
     }
 
     public void resetHoodEncoder() {
-        hoodMotor.getEncoder().setPosition(0.0);
+        // Enkoderi en alt limit olan 30 dereceye sıfırla
+        hoodMotor.getEncoder().setPosition(ShooterConstants.kHoodMinAngle);
+        hoodTargetDeg = ShooterConstants.kHoodMinAngle;
+        // ▶️ Sync Setpoint to prevent jump
+        hoodMotor.getClosedLoopController().setSetpoint(hoodTargetDeg, ControlType.kPosition);
+        System.out.println("[Shooter] Hood encoder sıfırlandı → " + ShooterConstants.kHoodMinAngle + "°");
     }
 
     public void resetTurretEncoder() {
         turretMotor.getEncoder().setPosition(0.0);
+        turretTargetDeg = 0.0;
+        System.out.println("[Shooter] Turret encoder sıfırlandı → 0° / Turret encoder reset → 0°");
     }
 
     public double getTurretEncoderPosition() {
@@ -1569,4 +1699,12 @@ public class ShooterSubsystem extends SubsystemBase {
         hoodMotor.set(0);
         stopFlywheel();
     }
+
+    /**
+     * Dashboard'dan ShootResetCommand'ı başlatmak için kaydeder.
+     * Registers ShootResetCommand for Dashboard triggering.
+     * Constructor'dan sonra RobotContainer'da çağrılmalı.
+     * Should be called from RobotContainer after construction.ssss
+     */
+
 }

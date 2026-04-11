@@ -1,6 +1,5 @@
 package frc.robot;
 
-import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.wpilibj.DigitalInput;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
@@ -29,7 +28,6 @@ public class ControllerBindings {
         private final LEDSubsystem ledSubsystem;
         private final DigitalInput mz80_8;
         private final DigitalInput mz80_9;
-
 
         // Intake toggle durumu
         private boolean intakeRunning = false;
@@ -129,10 +127,10 @@ public class ControllerBindings {
                                                         feederSubsystem.stop();
                                                 }));
 
-                // [Y BUTTON] HOOD AÇISINI 0 YAP (KAPANMA)
-                // Y tuşuna basıldığında (onTrue), Hood motoru 0 dereceye konumlanır.
-                driverController.y().onTrue(
-                                Commands.runOnce(() -> shooterSubsystem.setHoodAngle(0), shooterSubsystem));
+                // [Y BUTTON] MANUEL YAVAŞ SÜRÜŞ BİLGİSİ (TOGGLE)
+                // Y tuşuna basılması, "shoot" hız çarpanını manuel olarak açıp kapatır (Slow
+                // [POV BUTTONS] ROBOT YÖNÜNÜ AYARLA (Orientation Snap)
+                // POV Up: 0° (İleri), Right: 270° (Sağ), Down: 180° (Geri), Left: 90° (Sol)
 
         }
 
@@ -151,63 +149,51 @@ public class ControllerBindings {
 
                 // [X BUTTON] FLYWHEEL OFFSET -50 RPM
                 operatorController.x().onTrue(
-                                Commands.runOnce(() -> shooterSubsystem.adjustFlywheelOffset(-50.0), shooterSubsystem)
+                                Commands.runOnce(() -> shooterSubsystem.adjustFlywheelOffset(-50.0))
                                                 .ignoringDisable(true));
 
                 // [Y BUTTON] FLYWHEEL OFFSET +50 RPM
                 operatorController.y().onTrue(
-                                Commands.runOnce(() -> shooterSubsystem.adjustFlywheelOffset(50.0), shooterSubsystem)
+                                Commands.runOnce(() -> shooterSubsystem.adjustFlywheelOffset(50.0))
                                                 .ignoringDisable(true));
 
                 // ==================== HOOD OFFSET (BUMPERS) ====================
                 operatorController.leftBumper().onTrue(shooterSubsystem.decreaseHoodOffsetCommand());
                 operatorController.rightBumper().onTrue(shooterSubsystem.increaseHoodOffsetCommand());
 
-                // ==================== HUB POZİSYON OFFSET (POV) ====================
-                // Hub hedef noktasını kaydırarak RPM/açı hesaplamasını ince ayar yapar
-                // POV Up/Down: Y offset (±0.1 metre)
-                operatorController.povUp().onTrue(Commands.runOnce(() -> shooterSubsystem.adjustHubOffset(0.0, 0.1)));
-                operatorController.povDown()
-                                .onTrue(Commands.runOnce(() -> shooterSubsystem.adjustHubOffset(0.0, -0.1)));
+                // ==================== ROBOT POSE OFFSET (LEFT JOYSTICK) ====================
+                // Robotun odometri pozisyonunu sürekli olarak kaydırır (sürekli eğimli - analog
+                // kontrol).
+                // Bu özellik Limelight veya odometri hatasını düzeltmek için robotun sanal
+                // pozisyonunu sürükler.
+                new edu.wpi.first.wpilibj2.command.button.Trigger(() -> Math.abs(operatorController.getLeftX()) > 0.1
+                                || Math.abs(operatorController.getLeftY()) > 0.1).whileTrue(
+                                                Commands.run(() -> {
+                                                        // X ekseni (sol/sağ) robotun Y koordinatını (yanal) değiştirir
+                                                        // (Field referanslı)
+                                                        double joyX = edu.wpi.first.math.MathUtil.applyDeadband(
+                                                                        operatorController.getLeftX(), 0.1);
+                                                        // Y ekseni (ileri/geri) robotun X koordinatını (ileri)
+                                                        // değiştirir. Xbox'ta ileri negatiftir.
+                                                        double joyY = -edu.wpi.first.math.MathUtil.applyDeadband(
+                                                                        operatorController.getLeftY(), 0.1);
 
-                // POV Left/Right: X offset (±0.1 metre)
-                operatorController.povLeft()
-                                .onTrue(Commands.runOnce(() -> shooterSubsystem.decreaseHoodOffsetCommand()));
-                operatorController.povRight()
-                                .onTrue(Commands.runOnce(() -> shooterSubsystem.increaseHoodOffsetCommand()));
+                                                        // 0.5 m/s maksimum kaydırma hızı (0.02s dt -> tick başına max
+                                                        // 0.01 metre)
+                                                        double shiftX = joyY * 0.5 * 0.02; // İleri/Geri -> Field X
+                                                        double shiftY = -joyX * 0.5 * 0.02; // Sol/Sağ -> Field Y (sağa
+                                                                                            // gitmek -Y yönüdür)
+
+                                                        edu.wpi.first.math.geometry.Pose2d currentPose = driveSubsystem
+                                                                        .getPose();
+                                                        driveSubsystem.resetOdometry(
+                                                                        new edu.wpi.first.math.geometry.Pose2d(
+                                                                                        currentPose.getX() + shiftX,
+                                                                                        currentPose.getY() + shiftY,
+                                                                                        currentPose.getRotation()));
+                                                }).ignoringDisable(true).withName("AnalogPoseOffset"));
                 // ============================================================
-                                // [RIGHT BUMPER] İTTİFAKA VE KONUMA GÖRE A->B veya B->A SIRALI GİDİŞ
-                operatorController.rightTrigger(0.8)
-                                .whileTrue(new frc.robot.commands.drive.TrenchPassCommand(driveSubsystem,
-                                                shooterSubsystem));
 
-                // [LEFT BUMPER] İTTİFAKA VE KONUMA GÖRE GÜVENLİ BUMP PASS
-                driverController.leftTrigger(0.8)
-                                .whileTrue(new frc.robot.commands.drive.BumpPassCommand(driveSubsystem,
-                                                shooterSubsystem));
         }
 
-        /**
-         * Alliance'a göre ideal atış pozisyonunu hesaplar.
-         */
-        private Pose2d getShootingPose() {
-                var alliance = edu.wpi.first.wpilibj.DriverStation.getAlliance();
-                edu.wpi.first.math.geometry.Translation2d hubCenter = frc.robot.constants.FieldConstants
-                                .getHubCenter(alliance);
-
-                if (alliance.isPresent()
-                                && alliance.get() == edu.wpi.first.wpilibj.DriverStation.Alliance.Red) {
-                        return new edu.wpi.first.math.geometry.Pose2d(
-                                        hubCenter.getX()
-                                                        - frc.robot.constants.FieldConstants.kIdealShootingDistanceMeters,
-                                        hubCenter.getY(),
-                                        edu.wpi.first.math.geometry.Rotation2d.fromDegrees(180));
-                } else {
-                        return new edu.wpi.first.math.geometry.Pose2d(
-                                        hubCenter.getX()
-                                                        + frc.robot.constants.FieldConstants.kIdealShootingDistanceMeters,
-                                        hubCenter.getY(),
-                                        edu.wpi.first.math.geometry.Rotation2d.fromDegrees(0));
-                }
-        }
 }

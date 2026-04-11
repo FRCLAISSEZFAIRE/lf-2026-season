@@ -55,7 +55,7 @@ public class DriveSubsystem extends SubsystemBase {
             DriveConstants.kRearRightDrivingInverted);
 
     // The gyro sensor (NavX2 via Studica lib)
-    private final AHRS m_gyro = new AHRS(NavXComType.kUSB1);
+    private final AHRS m_gyro = new AHRS(NavXComType.kMXP_SPI);
 
     // Simulation State
     private Rotation2d m_simRotation = new Rotation2d();

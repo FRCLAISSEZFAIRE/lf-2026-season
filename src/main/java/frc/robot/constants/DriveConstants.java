@@ -46,7 +46,7 @@ public final class DriveConstants {
     public static final boolean kRearRightDrivingInverted = false; // RR: Normal
 
     // Speed Limits
-    public static final double kMaxSpeedMetersPerSecond = 4.8;
+    public static final double kMaxSpeedMetersPerSecond = 7.2;
     public static final double kMaxAngularSpeed = 2 * Math.PI; // radians per second
 
     // Legacy Compatibility (renaming for existing code)
