@@ -1,7 +1,7 @@
 package frc.robot.commands.shooter;
 
 import edu.wpi.first.math.geometry.Pose2d;
-import edu.wpi.first.wpilibj.DigitalInput;
+
 import edu.wpi.first.wpilibj2.command.Command;
 import frc.robot.subsystems.shooter.ShooterSubsystem;
 import frc.robot.subsystems.feeder.FeederSubsystem;
@@ -29,8 +29,6 @@ public class ShootCommand extends Command {
     private final DriveSubsystem drive;
     private final IntakeSubsystem intake;
     private final Supplier<Pose2d> poseSupplier;
-    private final DigitalInput mz80_8;
-    private final DigitalInput mz80_9;
 
     // Ateş kilidi — bir kez başladıktan sonra feeder durmaz
     private boolean hasShot = false;
@@ -47,21 +45,18 @@ public class ShootCommand extends Command {
      * @param intake       Intake alt sistemi
      * @param poseSupplier Robot pose kaynağı (DriveSubsystem'den)
      */
+
     public ShootCommand(
             ShooterSubsystem shooter,
             FeederSubsystem feeder,
             DriveSubsystem drive,
             IntakeSubsystem intake,
-            DigitalInput mz80_8,
-            DigitalInput mz80_9,
             Supplier<Pose2d> poseSupplier) {
         this.shooter = shooter;
         this.feeder = feeder;
         this.drive = drive;
         this.intake = intake;
         this.poseSupplier = poseSupplier;
-        this.mz80_8 = mz80_8;
-        this.mz80_9 = mz80_9;
 
         addRequirements(shooter, feeder, intake);
     }
@@ -74,6 +69,7 @@ public class ShootCommand extends Command {
         drive.setCenterOfRotation(shooter.getTurretCenterOfRotation());
 
         System.out.println("[ShootCommand] Başlatıldı — Pose Hedefleme, Dönüş Merkezi Taret");
+        
     }
 
     @Override
@@ -87,10 +83,10 @@ public class ShootCommand extends Command {
 
         // 2. Hedefleme güncelle (Taret, Hood, RPM)
         if (shooter.isInAllianceZone()) {
-            shooter.updateAiming(currentPose, drive.getFieldVelocity());
+            shooter.updateAiming(currentPose);
         } else {
             // For now, let's keep pass aiming static or add overload if needed.
-            shooter.updateAimingForPass(currentPose, drive.getFieldVelocity());
+            shooter.updateAimingForPass(currentPose);
         }
 
         // 3. "Ateşi Tut" Mantığı — LATCH (Kilitleme)
@@ -98,6 +94,8 @@ public class ShootCommand extends Command {
 
         if (ready && !hasShot) {
             hasShot = true;
+            edu.wpi.first.math.geometry.Translation2d hubLoc = shooter.getTargetHub();
+            System.out.println("[Shot Log] Atış yapıldı! Robot Konumu: X: " + String.format("%.2f", currentPose.getX()) + "m, Y: " + String.format("%.2f", currentPose.getY()) + "m, Açısı: " + String.format("%.1f", currentPose.getRotation().getDegrees()) + "° | Hedef Hub: X: " + String.format("%.2f", hubLoc.getX()) + "m, Y: " + String.format("%.2f", hubLoc.getY()) + "m | Taret Açısı: " + String.format("%.1f", shooter.getTurretAngle()) + "°");
         }
 
         // KİLİTLEME MANTIĞI:
@@ -109,7 +107,6 @@ public class ShootCommand extends Command {
 
         // 4. Intake roller — sadece düşük RPM'de roller çalıştır (extension'a dokunma)
         intake.runRollerRPM(intakeShootRPM.get());
-
     }
 
     @Override
@@ -119,7 +116,7 @@ public class ShootCommand extends Command {
         feeder.stop();
         intake.stopRoller();
         // Extension'a dokunma — intake konum neredeyse orada kalsın
-        shooter.setHoodAngle(30);
+        shooter.setHoodAngle(0);
         // Dönüş merkezini tekrar robot merkezine sıfırla
         drive.resetCenterOfRotation();
 

@@ -96,9 +96,9 @@ public class AutoShootCommand extends Command {
 
         // 2. Update aiming (Turret, Hood, RPM)
         if (shooter.isInAllianceZone()) {
-            shooter.updateAiming(currentPose, drive.getFieldVelocity());
+            shooter.updateAiming(currentPose);
         } else {
-            shooter.updateAimingForPass(currentPose, drive.getFieldVelocity());
+            shooter.updateAimingForPass(currentPose);
         }
 
         // 3. Fire-latch logic
@@ -106,7 +106,10 @@ public class AutoShootCommand extends Command {
 
         if (ready && !hasShot) {
             hasShot = true;
+            edu.wpi.first.math.geometry.Translation2d hubLoc = shooter.getTargetHub();
+            System.out.println("[Shot Log] Atış yapıldı! Robot Konumu: X: " + String.format("%.2f", currentPose.getX()) + "m, Y: " + String.format("%.2f", currentPose.getY()) + "m, Açısı: " + String.format("%.1f", currentPose.getRotation().getDegrees()) + "° | Hedef Hub: X: " + String.format("%.2f", hubLoc.getX()) + "m, Y: " + String.format("%.2f", hubLoc.getY()) + "m | Taret Açısı: " + String.format("%.1f", shooter.getTurretAngle()) + "°");
         }
+
 
         // LATCH LOGIC:
         if (ready || hasShot) {

@@ -28,7 +28,7 @@ import frc.robot.commands.drive.BumpPassCommand;
 import frc.robot.commands.drive.DriveWithJoystick;
 import frc.robot.commands.drive.SimpleDriveToPose;
 import frc.robot.commands.shooter.HomeHoodCommand;
-import frc.robot.commands.shooter.HomeTurretCommand;
+
 import edu.wpi.first.wpilibj.DigitalInput;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
@@ -108,7 +108,7 @@ public class RobotContainer {
         public boolean getMZ80_8() {
                 return mz80_8.get();
         }
-        
+
         public boolean getMZ80_9() {
                 return mz80_9.get();
         }
@@ -125,7 +125,7 @@ public class RobotContainer {
                 // Vision Subsystem requires DriveSubsystem for Odometry updates
                 visionSubsystem = new VisionSubsystem(driveSubsystem);
 
-                shooterSubsystem = new ShooterSubsystem(driveSubsystem::getPose, driveSubsystem::getFieldVelocity);
+                shooterSubsystem = new ShooterSubsystem(driveSubsystem::getPose);
                 feederSubsystem = new FeederSubsystem();
                 intakeSubsystem = new IntakeSubsystem();
 
@@ -143,8 +143,7 @@ public class RobotContainer {
                 new HomeHoodCommand(shooterSubsystem).schedule();
 
                 // --- SCHEDULE TURRET HOMING ---
-                // Runs once on robot startup to calibrate turret via magnet switch
-                new HomeTurretCommand(shooterSubsystem).schedule();
+                // IPTAL EDILDI: Taret artik acilis konumunu 0 kabul ediyor.
 
                 // Intake homing is now scheduled dynamically in onTeleopInit / onAutonomousInit
 
@@ -207,12 +206,12 @@ public class RobotContainer {
                                                 .withName("Otoatış"));
 
                 // Taret Offset ayarı (her basışta ±3 derece)
-                SmartDashboard.putData("Commands/TurretOffset +3",
-                                Commands.runOnce(() -> shooterSubsystem.adjustAutoAimOffset(3.0))
-                                                .ignoringDisable(true).withName("TurretOffset +3"));
-                SmartDashboard.putData("Commands/TurretOffset -3",
-                                Commands.runOnce(() -> shooterSubsystem.adjustAutoAimOffset(-3.0))
-                                                .ignoringDisable(true).withName("TurretOffset -3"));
+                SmartDashboard.putData("Commands/TurretOffset +2",
+                                Commands.runOnce(() -> shooterSubsystem.adjustAutoAimOffset(2.0))
+                                                .ignoringDisable(true).withName("TurretOffset +2"));
+                SmartDashboard.putData("Commands/TurretOffset -2",
+                                Commands.runOnce(() -> shooterSubsystem.adjustAutoAimOffset(-2.0))
+                                                .ignoringDisable(true).withName("TurretOffset -2"));
 
                 // ==================== RPM OFFSET BUTTONS ====================
                 SmartDashboard.putData("Commands/Shooter/RPM Offset +50",
@@ -224,9 +223,11 @@ public class RobotContainer {
 
                 // ==================== HOOD OFFSET BUTTONS ====================
                 SmartDashboard.putData("Commands/Shooter/Hood Offset +2",
-                                shooterSubsystem.increaseHoodOffsetCommand());
+                                Commands.runOnce(() -> shooterSubsystem.adjustHoodOffset(2.0), shooterSubsystem)
+                                                .ignoringDisable(true).withName("HoodOffset +2"));
                 SmartDashboard.putData("Commands/Shooter/Hood Offset -2",
-                                shooterSubsystem.decreaseHoodOffsetCommand());
+                                Commands.runOnce(() -> shooterSubsystem.adjustHoodOffset(-2.0), shooterSubsystem)
+                                                .ignoringDisable(true).withName("HoodOffset -2"));
 
                 // ==================== HUB OFFSET BUTTONS ====================
                 SmartDashboard.putData("Commands/Shooter/Reset Hub Offset",
@@ -257,7 +258,6 @@ public class RobotContainer {
         }
 
         // ==================== STARTING POSE ====================
-
         /**
          * Başlangıç pozisyonunu yapılandırır.
          * Alliance'a göre otomatik seçim yapar.

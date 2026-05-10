@@ -97,9 +97,9 @@ public final class ShooterConstants {
         public static final double kHoodFarAngle = 25.0;
 
         // ===========================================================================
-        // FLYWHEEL (Kraken X60 - TEK MOTOR, FOLLOWER YOK)
+        // FLYWHEEL (Kraken X60 - TEK MOTOR, CAN ID 13)
         // ===========================================================================
-        // NOT: Flywheel tek motor ile çalışıyor, ikinci motor/follower yok.
+        // Flywheel tek motor ile çalışıyor (kShooterFollowerID = 13).
 
         /** Flywheel dişli oranı. */
         public static final double kFlywheelGearRatio = 1.0; // Direct drive

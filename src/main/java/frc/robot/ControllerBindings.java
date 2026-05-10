@@ -97,8 +97,6 @@ public class ControllerBindings {
                                                 feederSubsystem,
                                                 driveSubsystem,
                                                 intakeSubsystem,
-                                                mz80_8,
-                                                mz80_9,
                                                 driveSubsystem::getPose));
 
                 // [SOL TETİK] INTAKE ROLLER TOGGLE
@@ -157,9 +155,28 @@ public class ControllerBindings {
                                 Commands.runOnce(() -> shooterSubsystem.adjustFlywheelOffset(50.0))
                                                 .ignoringDisable(true));
 
-                // ==================== HOOD OFFSET (BUMPERS) ====================
-                operatorController.leftBumper().onTrue(shooterSubsystem.decreaseHoodOffsetCommand());
-                operatorController.rightBumper().onTrue(shooterSubsystem.increaseHoodOffsetCommand());
+                // ==================== TURRET OFFSET (BUMPERS) ====================
+                operatorController.leftBumper()
+                                .onTrue(Commands.runOnce(() -> shooterSubsystem.adjustAutoAimOffset(-1.0))
+                                                .ignoringDisable(true).withName("TurretOffset -1"));
+                operatorController.rightBumper()
+                                .onTrue(Commands.runOnce(() -> shooterSubsystem.adjustAutoAimOffset(1.0))
+                                                .ignoringDisable(true).withName("TurretOffset +1"));
+
+                // ==================== HOOD OFFSET (D-PAD UP/DOWN) ====================
+                operatorController.povUp()
+                                .onTrue(Commands.runOnce(() -> shooterSubsystem.adjustHoodOffset(1.0))
+                                                .ignoringDisable(true).withName("HoodOffset +1"));
+                operatorController.povDown()
+                                .onTrue(Commands.runOnce(() -> shooterSubsystem.adjustHoodOffset(-1.0))
+                                                .ignoringDisable(true).withName("HoodOffset -1"));
+
+                // ==================== RESET GYRO (RIGHT TRIGGER) ====================
+                operatorController.rightTrigger()
+                                .onTrue(Commands.runOnce(() -> {
+                                        driveSubsystem.zeroHeading();
+                                        System.out.println("[Operator] Gyro sıfırlandı!");
+                                }).ignoringDisable(true).withName("ResetGyro"));
 
                 // ==================== ROBOT POSE OFFSET (LEFT JOYSTICK) ====================
                 // Robotun odometri pozisyonunu sürekli olarak kaydırır (sürekli eğimli - analog

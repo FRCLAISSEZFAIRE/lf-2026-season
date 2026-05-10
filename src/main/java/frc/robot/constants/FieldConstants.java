@@ -48,131 +48,120 @@ public final class FieldConstants {
         // Group: "Field"
 
         // HUB
-        private static final TunableNumber blueHubX = new TunableNumber("Field", "BlueHub/X", 4.6);
-        private static final TunableNumber blueHubY = new TunableNumber("Field", "BlueHub/Y", 4.0);
-
-        private static final TunableNumber redHubX = new TunableNumber("Field", "RedHub/X", 12);
-        private static final TunableNumber redHubY = new TunableNumber("Field", "RedHub/Y", 4);
+        public static final Translation2d BLUE_HUB_CENTER = new Translation2d(4.6, 4.0);
+        public static final Translation2d RED_HUB_CENTER = new Translation2d(12.0, 4.0);
 
         // FEEDING (Source/Station Target)
-        private static final TunableNumber blueFeedingX = new TunableNumber("Field", "BlueFeeding/X", 3.5);
-        private static final TunableNumber blueFeedingY = new TunableNumber("Field", "BlueFeeding/Y", 4.05);
+        private static final double blueFeedingX = 3.5;
+        private static final double blueFeedingY = 4.05;
 
-        private static final TunableNumber redFeedingX = new TunableNumber("Field", "RedFeeding/X", 12.99);
-        private static final TunableNumber redFeedingY = new TunableNumber("Field", "RedFeeding/Y", 4.05);
+        private static final double redFeedingX = 12.99;
+        private static final double redFeedingY = 4.05;
 
         // PASS TARGETS (Left/Right)
         // Blue Pass
-        private static final TunableNumber bluePassRightX = new TunableNumber("Field", "BluePassRight/X", 1.2);
-        private static final TunableNumber bluePassRightY = new TunableNumber("Field", "BluePassRight/Y", 1.0);
+        private static final double bluePassRightX = 1.2;
+        private static final double bluePassRightY = 1.0;
 
-        private static final TunableNumber bluePassLeftX = new TunableNumber("Field", "BluePassLeft/X", 1.2);
-        private static final TunableNumber bluePassLeftY = new TunableNumber("Field", "BluePassLeft/Y", 6.5);
+        private static final double bluePassLeftX = 1.2;
+        private static final double bluePassLeftY = 6.5;
 
         // Red Pass
-        private static final TunableNumber redPassRightX = new TunableNumber("Field", "RedPassRight/X", 15.6);
-        private static final TunableNumber redPassRightY = new TunableNumber("Field", "RedPassRight/Y", 6.6);
+        private static final double redPassRightX = 15.6;
+        private static final double redPassRightY = 6.6;
 
-        private static final TunableNumber redPassLeftX = new TunableNumber("Field", "RedPassLeft/X", 15.6);
-        private static final TunableNumber redPassLeftY = new TunableNumber("Field", "RedPassLeft/Y", 1.0);
+        private static final double redPassLeftX = 15.6;
+        private static final double redPassLeftY = 1.0;
 
         // TOWER
-        private static final TunableNumber towerX = new TunableNumber("Field", "Tower/X", 8.245);
-        private static final TunableNumber towerY = new TunableNumber("Field", "Tower/Y", 4.05);
+        private static final double towerX = 8.245;
+        private static final double towerY = 4.05;
 
         // SOURCE / DEPOT POSITIONS (Per Alliance)
-        private static final TunableNumber depotBlueX = new TunableNumber("Field", "DepotBlue/X", 1.1);
-        private static final TunableNumber depotBlueY = new TunableNumber("Field", "DepotBlue/Y", 5.8);
-        private static final TunableNumber depotBlueAngle = new TunableNumber("Field", "DepotBlue/Angle", 180.0);
+        private static final double depotBlueX = 1.1;
+        private static final double depotBlueY = 5.8;
+        private static final double depotBlueAngle = 180.0;
 
-        private static final TunableNumber depotRedX = new TunableNumber("Field", "DepotRed/X", 15.4);
-        private static final TunableNumber depotRedY = new TunableNumber("Field", "DepotRed/Y", 2.0);
-        private static final TunableNumber depotRedAngle = new TunableNumber("Field", "DepotRed/Angle", 0.0);
+        private static final double depotRedX = 15.4;
+        private static final double depotRedY = 2.0;
+        private static final double depotRedAngle = 0.0;
 
         // TRENCH PASS POINTS (Blue Alliance has A, B, C, D)
-        private static final TunableNumber trenchBlueA_X = new TunableNumber("Field", "TrenchBlueA/X", 3.270);
-        private static final TunableNumber trenchBlueA_Y = new TunableNumber("Field", "TrenchBlueA/Y", 0.650);
-        private static final TunableNumber trenchBlueA_Angle = new TunableNumber("Field", "TrenchBlueA/Angle",
-                        0.0);
+        private static final double trenchBlueA_X = 3.270;
+        private static final double trenchBlueA_Y = 0.650;
+        public static final double trenchBlueA_Angle = 0.0;
 
-        private static final TunableNumber trenchBlueB_X = new TunableNumber("Field", "TrenchBlueB/X", 5.700);
-        private static final TunableNumber trenchBlueB_Y = new TunableNumber("Field", "TrenchBlueB/Y", 0.650);
-        private static final TunableNumber trenchBlueB_Angle = new TunableNumber("Field", "TrenchBlueB/Angle",
-                        0.0);
+        private static final double trenchBlueB_X = 5.700;
+        private static final double trenchBlueB_Y = 0.650;
+        public static final double trenchBlueB_Angle = 0.0;
 
-        private static final TunableNumber trenchBlueC_X = new TunableNumber("Field", "TrenchBlueC/X", 3.270);
-        private static final TunableNumber trenchBlueC_Y = new TunableNumber("Field", "TrenchBlueC/Y", 7.410);
-        private static final TunableNumber trenchBlueC_Angle = new TunableNumber("Field", "TrenchBlueC/Angle",
-                        0.0);
+        private static final double trenchBlueC_X = 3.270;
+        private static final double trenchBlueC_Y = 7.410;
+        public static final double trenchBlueC_Angle = 0.0;
 
-        private static final TunableNumber trenchBlueD_X = new TunableNumber("Field", "TrenchBlueD/X", 5.700);
-        private static final TunableNumber trenchBlueD_Y = new TunableNumber("Field", "TrenchBlueD/Y", 7.410);
-        private static final TunableNumber trenchBlueD_Angle = new TunableNumber("Field", "TrenchBlueD/Angle",
-                        0.0);
+        private static final double trenchBlueD_X = 5.700;
+        private static final double trenchBlueD_Y = 7.410;
+        public static final double trenchBlueD_Angle = 0.0;
 
         // TRENCH PASS POINTS (Red Alliance has A, B, C, D)
-        private static final TunableNumber trenchRedA_X = new TunableNumber("Field", "TrenchRedA/X", 13.400);
-        private static final TunableNumber trenchRedA_Y = new TunableNumber("Field", "TrenchRedA/Y", 7.470);
-        private static final TunableNumber trenchRedA_Angle = new TunableNumber("Field", "TrenchRedA/Angle",
-                        180.0);
+        private static final double trenchRedA_X = 13.400;
+        private static final double trenchRedA_Y = 7.470;
+        public static final double trenchRedA_Angle = 180.0;
 
-        private static final TunableNumber trenchRedB_X = new TunableNumber("Field", "TrenchRedB/X", 10.800);
-        private static final TunableNumber trenchRedB_Y = new TunableNumber("Field", "TrenchRedB/Y", 7.470);
-        private static final TunableNumber trenchRedB_Angle = new TunableNumber("Field", "TrenchRedB/Angle",
-                        180.0);
+        private static final double trenchRedB_X = 10.800;
+        private static final double trenchRedB_Y = 7.470;
+        public static final double trenchRedB_Angle = 180.0;
 
-        private static final TunableNumber trenchRedC_X = new TunableNumber("Field", "TrenchRedC/X", 13.400);
-        private static final TunableNumber trenchRedC_Y = new TunableNumber("Field", "TrenchRedC/Y", 0.650);
-        private static final TunableNumber trenchRedC_Angle = new TunableNumber("Field", "TrenchRedC/Angle",
-                        180.0);
+        private static final double trenchRedC_X = 13.400;
+        private static final double trenchRedC_Y = 0.650;
+        public static final double trenchRedC_Angle = 180.0;
 
-        private static final TunableNumber trenchRedD_X = new TunableNumber("Field", "TrenchRedD/X", 10.800);
-        private static final TunableNumber trenchRedD_Y = new TunableNumber("Field", "TrenchRedD/Y", 0.650);
-        private static final TunableNumber trenchRedD_Angle = new TunableNumber("Field", "TrenchRedD/Angle",
-                        180.0);
+        private static final double trenchRedD_X = 10.800;
+        private static final double trenchRedD_Y = 0.650;
+        public static final double trenchRedD_Angle = 180.0;
 
         // BUMP PASS POINTS (Blue Alliance has A, B, C, D)
-        private static final TunableNumber bumpBlueA_X = new TunableNumber("Field", "BumpBlueA/X", 3.270);
-        private static final TunableNumber bumpBlueA_Y = new TunableNumber("Field", "BumpBlueA/Y", 2.7);
-        private static final TunableNumber bumpBlueA_Angle = new TunableNumber("Field", "BumpBlueA/Angle", 0.0);
+        private static final double bumpBlueA_X = 3.270;
+        private static final double bumpBlueA_Y = 2.7;
+        private static final double bumpBlueA_Angle = 0.0;
 
-        private static final TunableNumber bumpBlueB_X = new TunableNumber("Field", "BumpBlueB/X", 5.9);
-        private static final TunableNumber bumpBlueB_Y = new TunableNumber("Field", "BumpBlueB/Y", 2.3);
-        private static final TunableNumber bumpBlueB_Angle = new TunableNumber("Field", "BumpBlueB/Angle", 0.0);
+        private static final double bumpBlueB_X = 5.9;
+        private static final double bumpBlueB_Y = 2.3;
+        private static final double bumpBlueB_Angle = 0.0;
 
-        private static final TunableNumber bumpBlueC_X = new TunableNumber("Field", "BumpBlueC/X", 3.270);
-        private static final TunableNumber bumpBlueC_Y = new TunableNumber("Field", "BumpBlueC/Y", 5.5);
-        private static final TunableNumber bumpBlueC_Angle = new TunableNumber("Field", "BumpBlueC/Angle", 0.0);
+        private static final double bumpBlueC_X = 3.270;
+        private static final double bumpBlueC_Y = 5.5;
+        private static final double bumpBlueC_Angle = 0.0;
 
-        private static final TunableNumber bumpBlueD_X = new TunableNumber("Field", "BumpBlueD/X", 5.9);
-        private static final TunableNumber bumpBlueD_Y = new TunableNumber("Field", "BumpBlueD/Y", 5.5);
-        private static final TunableNumber bumpBlueD_Angle = new TunableNumber("Field", "BumpBlueD/Angle", 0.0);
+        private static final double bumpBlueD_X = 5.9;
+        private static final double bumpBlueD_Y = 5.5;
+        private static final double bumpBlueD_Angle = 0.0;
 
         // BUMP PASS POINTS (Red Alliance has A, B, C, D)
-        private static final TunableNumber bumpRedA_X = new TunableNumber("Field", "BumpRedA/X", 13.3);
-        private static final TunableNumber bumpRedA_Y = new TunableNumber("Field", "BumpRedA/Y", 5.58);
-        private static final TunableNumber bumpRedA_Angle = new TunableNumber("Field", "BumpRedA/Angle", 180.0);
+        private static final double bumpRedA_X = 13.3;
+        private static final double bumpRedA_Y = 5.58;
+        private static final double bumpRedA_Angle = 180.0;
 
-        private static final TunableNumber bumpRedB_X = new TunableNumber("Field", "BumpRedB/X", 10.4);
-        private static final TunableNumber bumpRedB_Y = new TunableNumber("Field", "BumpRedB/Y", 5.58);
-        private static final TunableNumber bumpRedB_Angle = new TunableNumber("Field", "BumpRedB/Angle", 180.0);
+        private static final double bumpRedB_X = 10.4;
+        private static final double bumpRedB_Y = 5.58;
+        private static final double bumpRedB_Angle = 180.0;
 
-        private static final TunableNumber bumpRedC_X = new TunableNumber("Field", "BumpRedC/X", 13.3);
-        private static final TunableNumber bumpRedC_Y = new TunableNumber("Field", "BumpRedC/Y", 2.42);
-        private static final TunableNumber bumpRedC_Angle = new TunableNumber("Field", "BumpRedC/Angle", 180.0);
+        private static final double bumpRedC_X = 13.3;
+        private static final double bumpRedC_Y = 2.42;
+        private static final double bumpRedC_Angle = 180.0;
 
-        private static final TunableNumber bumpRedD_X = new TunableNumber("Field", "BumpRedD/X", 10.4);
-        private static final TunableNumber bumpRedD_Y = new TunableNumber("Field", "BumpRedD/Y", 2.42);
-        private static final TunableNumber bumpRedD_Angle = new TunableNumber("Field", "BumpRedD/Angle", 180.0);
+        private static final double bumpRedD_X = 10.4;
+        private static final double bumpRedD_Y = 2.42;
+        private static final double bumpRedD_Angle = 180.0;
 
         // OUTPOST POSITIONS (Per Alliance)
-        private static final TunableNumber outpostBlueX = new TunableNumber("Field", "OutpostBlue/X", 0.4);
-        private static final TunableNumber outpostBlueY = new TunableNumber("Field", "OutpostBlue/Y", 0.6);
-        private static final TunableNumber outpostBlueAngle = new TunableNumber("Field", "OutpostBlue/Angle", 90.0);
+        private static final double outpostBlueX = 0.4;
+        private static final double outpostBlueY = 0.6;
+        private static final double outpostBlueAngle = 90.0;
 
-        private static final TunableNumber outpostRedX = new TunableNumber("Field", "OutpostRed/X", 16.1);
-        private static final TunableNumber outpostRedY = new TunableNumber("Field", "OutpostRed/Y", 7.4);
-        private static final TunableNumber outpostRedAngle = new TunableNumber("Field", "OutpostRed/Angle", -90.0);
+        private static final double outpostRedX = 16.1;
+        private static final double outpostRedY = 7.4;
+        private static final double outpostRedAngle = -90.0;
 
         // =====================================================================
         // FEED PASS POSITIONS (Auto Collection Paths)
@@ -180,51 +169,41 @@ public final class FieldConstants {
 
         // --- BLUE ALLIANCE FEED PASS (Diagonal Paths for Maximum Collection) ---
         // Left Path (Y High to Low Diagonal)
-        private static final TunableNumber feedStartBlueLeftX = new TunableNumber("Field", "FeedStartBlueLeft/X", 7.3);
-        private static final TunableNumber feedStartBlueLeftY = new TunableNumber("Field", "FeedStartBlueLeft/Y", 6);
-        private static final TunableNumber feedStartBlueLeftAngle = new TunableNumber("Field",
-                        "FeedStartBlueLeft/Angle", -70);
+        private static final double feedStartBlueLeftX = 7.3;
+        private static final double feedStartBlueLeftY = 6;
+        public static final double feedStartBlueLeftAngle = -70;
 
-        private static final TunableNumber feedStopBlueLeftX = new TunableNumber("Field", "FeedStopBlueLeft/X", 7.3);
-        private static final TunableNumber feedStopBlueLeftY = new TunableNumber("Field", "FeedStopBlueLeft/Y", 5.8);
-        private static final TunableNumber feedStopBlueLeftAngle = new TunableNumber("Field", "FeedStopBlueLeft/Angle",
-                        -70);
+        private static final double feedStopBlueLeftX = 7.3;
+        private static final double feedStopBlueLeftY = 5.8;
+        public static final double feedStopBlueLeftAngle = -70;
 
         // Right Path (Y Low to High Diagonal)
-        private static final TunableNumber feedStartBlueRightX = new TunableNumber("Field", "FeedStartBlueRight/X",
-                        7.6);
-        private static final TunableNumber feedStartBlueRightY = new TunableNumber("Field", "FeedStartBlueRight/Y",
-                        1.8);
-        private static final TunableNumber feedStartBlueRightAngle = new TunableNumber("Field",
-                        "FeedStartBlueRight/Angle", 70);
+        public static final double feedStartBlueRightX = 7.6;
+        public static final double feedStartBlueRightY = 1.8;
+        public static final double feedStartBlueRightAngle = 70;
 
-        private static final TunableNumber feedStopBlueRightX = new TunableNumber("Field", "FeedStopBlueRight/X", 7.6);
-        private static final TunableNumber feedStopBlueRightY = new TunableNumber("Field", "FeedStopBlueRight/Y", 1.8);
-        private static final TunableNumber feedStopBlueRightAngle = new TunableNumber("Field",
-                        "FeedStopBlueRight/Angle", 70);
+        private static final double feedStopBlueRightX = 7.6;
+        private static final double feedStopBlueRightY = 1.8;
+        public static final double feedStopBlueRightAngle = 70;
 
         // --- RED ALLIANCE FEED PASS (Diagonal Paths for Maximum Collection) ---
         // Left Path (Y High to Low Diagonal)
-        private static final TunableNumber feedStartRedLeftX = new TunableNumber("Field", "FeedStartRedLeft/X", 9);
-        private static final TunableNumber feedStartRedLeftY = new TunableNumber("Field", "FeedStartRedLeft/Y", 2.5);
-        private static final TunableNumber feedStartRedLeftAngle = new TunableNumber("Field", "FeedStartRedLeft/Angle",
-                        140.0);
+        private static final double feedStartRedLeftX = 9;
+        private static final double feedStartRedLeftY = 2.5;
+        public static final double feedStartRedLeftAngle = 140.0;
 
-        private static final TunableNumber feedStopRedLeftX = new TunableNumber("Field", "FeedStopRedLeft/X", 9);
-        private static final TunableNumber feedStopRedLeftY = new TunableNumber("Field", "FeedStopRedLeft/Y", 2.7);
-        private static final TunableNumber feedStopRedLeftAngle = new TunableNumber("Field", "FeedStopRedLeft/Angle",
-                        140.0);
+        private static final double feedStopRedLeftX = 9;
+        private static final double feedStopRedLeftY = 2.7;
+        public static final double feedStopRedLeftAngle = 140.0;
 
         // Right Path (Y Low to High Diagonal)
-        private static final TunableNumber feedStartRedRightX = new TunableNumber("Field", "FeedStartRedRight/X", 9);
-        private static final TunableNumber feedStartRedRightY = new TunableNumber("Field", "FeedStartRedRight/Y", 5.7);
-        private static final TunableNumber feedStartRedRightAngle = new TunableNumber("Field",
-                        "FeedStartRedRight/Angle", -130);
+        private static final double feedStartRedRightX = 9;
+        private static final double feedStartRedRightY = 5.7;
+        public static final double feedStartRedRightAngle = -130;
 
-        private static final TunableNumber feedStopRedRightX = new TunableNumber("Field", "FeedStopRedRight/X", 9);
-        private static final TunableNumber feedStopRedRightY = new TunableNumber("Field", "FeedStopRedRight/Y", 5.5);
-        private static final TunableNumber feedStopRedRightAngle = new TunableNumber("Field", "FeedStopRedRight/Angle",
-                        -130);
+        private static final double feedStopRedRightX = 9;
+        private static final double feedStopRedRightY = 5.5;
+        public static final double feedStopRedRightAngle = -130;
 
         // === LEGACY CONSTANTS (Restored & Linked) ===
         public static final double kHubHeightMeters = 1.83;
@@ -307,9 +286,9 @@ public final class FieldConstants {
          */
         public static Translation2d getHubCenter(Optional<Alliance> alliance) {
                 if (alliance.isPresent() && alliance.get() == Alliance.Red) {
-                        return new Translation2d(redHubX.get(), redHubY.get());
+                        return RED_HUB_CENTER;
                 }
-                return new Translation2d(blueHubX.get(), blueHubY.get());
+                return BLUE_HUB_CENTER;
         }
 
         /**
@@ -326,127 +305,127 @@ public final class FieldConstants {
          * Gets Trench Pass Point A for Blue Alliance
          */
         public static Pose2d getTrenchPointBlueA() {
-                return new Pose2d(trenchBlueA_X.get(), trenchBlueA_Y.get(),
-                                Rotation2d.fromDegrees(trenchBlueA_Angle.get()));
+                return new Pose2d(trenchBlueA_X, trenchBlueA_Y,
+                                Rotation2d.fromDegrees(trenchBlueA_Angle));
         }
 
         public static Pose2d getTrenchPointBlueB() {
-                return new Pose2d(trenchBlueB_X.get(), trenchBlueB_Y.get(),
-                                Rotation2d.fromDegrees(trenchBlueB_Angle.get()));
+                return new Pose2d(trenchBlueB_X, trenchBlueB_Y,
+                                Rotation2d.fromDegrees(trenchBlueB_Angle));
         }
 
         public static Pose2d getTrenchPointBlueC() {
-                return new Pose2d(trenchBlueC_X.get(), trenchBlueC_Y.get(),
-                                Rotation2d.fromDegrees(trenchBlueC_Angle.get()));
+                return new Pose2d(trenchBlueC_X, trenchBlueC_Y,
+                                Rotation2d.fromDegrees(trenchBlueC_Angle));
         }
 
         public static Pose2d getTrenchPointBlueD() {
-                return new Pose2d(trenchBlueD_X.get(), trenchBlueD_Y.get(),
-                                Rotation2d.fromDegrees(trenchBlueD_Angle.get()));
+                return new Pose2d(trenchBlueD_X, trenchBlueD_Y,
+                                Rotation2d.fromDegrees(trenchBlueD_Angle));
         }
 
         public static Pose2d getTrenchPointRedA() {
-                return new Pose2d(trenchRedA_X.get(), trenchRedA_Y.get(),
-                                Rotation2d.fromDegrees(trenchRedA_Angle.get()));
+                return new Pose2d(trenchRedA_X, trenchRedA_Y,
+                                Rotation2d.fromDegrees(trenchRedA_Angle));
         }
 
         public static Pose2d getTrenchPointRedB() {
-                return new Pose2d(trenchRedB_X.get(), trenchRedB_Y.get(),
-                                Rotation2d.fromDegrees(trenchRedB_Angle.get()));
+                return new Pose2d(trenchRedB_X, trenchRedB_Y,
+                                Rotation2d.fromDegrees(trenchRedB_Angle));
         }
 
         public static Pose2d getTrenchPointRedC() {
-                return new Pose2d(trenchRedC_X.get(), trenchRedC_Y.get(),
-                                Rotation2d.fromDegrees(trenchRedC_Angle.get()));
+                return new Pose2d(trenchRedC_X, trenchRedC_Y,
+                                Rotation2d.fromDegrees(trenchRedC_Angle));
         }
 
         public static Pose2d getTrenchPointRedD() {
-                return new Pose2d(trenchRedD_X.get(), trenchRedD_Y.get(),
-                                Rotation2d.fromDegrees(trenchRedD_Angle.get()));
+                return new Pose2d(trenchRedD_X, trenchRedD_Y,
+                                Rotation2d.fromDegrees(trenchRedD_Angle));
         }
 
         // --- BUMP PASS POINT GETTERS ---
 
         public static Pose2d getBumpPointBlueA() {
-                return new Pose2d(bumpBlueA_X.get(), bumpBlueA_Y.get(),
-                                Rotation2d.fromDegrees(bumpBlueA_Angle.get()));
+                return new Pose2d(bumpBlueA_X, bumpBlueA_Y,
+                                Rotation2d.fromDegrees(bumpBlueA_Angle));
         }
 
         public static Pose2d getBumpPointBlueB() {
-                return new Pose2d(bumpBlueB_X.get(), bumpBlueB_Y.get(),
-                                Rotation2d.fromDegrees(bumpBlueB_Angle.get()));
+                return new Pose2d(bumpBlueB_X, bumpBlueB_Y,
+                                Rotation2d.fromDegrees(bumpBlueB_Angle));
         }
 
         public static Pose2d getBumpPointBlueC() {
-                return new Pose2d(bumpBlueC_X.get(), bumpBlueC_Y.get(),
-                                Rotation2d.fromDegrees(bumpBlueC_Angle.get()));
+                return new Pose2d(bumpBlueC_X, bumpBlueC_Y,
+                                Rotation2d.fromDegrees(bumpBlueC_Angle));
         }
 
         public static Pose2d getBumpPointBlueD() {
-                return new Pose2d(bumpBlueD_X.get(), bumpBlueD_Y.get(),
-                                Rotation2d.fromDegrees(bumpBlueD_Angle.get()));
+                return new Pose2d(bumpBlueD_X, bumpBlueD_Y,
+                                Rotation2d.fromDegrees(bumpBlueD_Angle));
         }
 
         public static Pose2d getBumpPointRedA() {
-                return new Pose2d(bumpRedA_X.get(), bumpRedA_Y.get(),
-                                Rotation2d.fromDegrees(bumpRedA_Angle.get()));
+                return new Pose2d(bumpRedA_X, bumpRedA_Y,
+                                Rotation2d.fromDegrees(bumpRedA_Angle));
         }
 
         public static Pose2d getBumpPointRedB() {
-                return new Pose2d(bumpRedB_X.get(), bumpRedB_Y.get(),
-                                Rotation2d.fromDegrees(bumpRedB_Angle.get()));
+                return new Pose2d(bumpRedB_X, bumpRedB_Y,
+                                Rotation2d.fromDegrees(bumpRedB_Angle));
         }
 
         public static Pose2d getBumpPointRedC() {
-                return new Pose2d(bumpRedC_X.get(), bumpRedC_Y.get(),
-                                Rotation2d.fromDegrees(bumpRedC_Angle.get()));
+                return new Pose2d(bumpRedC_X, bumpRedC_Y,
+                                Rotation2d.fromDegrees(bumpRedC_Angle));
         }
 
         public static Pose2d getBumpPointRedD() {
-                return new Pose2d(bumpRedD_X.get(), bumpRedD_Y.get(),
-                                Rotation2d.fromDegrees(bumpRedD_Angle.get()));
+                return new Pose2d(bumpRedD_X, bumpRedD_Y,
+                                Rotation2d.fromDegrees(bumpRedD_Angle));
         }
 
         // --- FEED PASS TARGET GETTERS ---
 
         public static Pose2d getFeedStartBlueLeft() {
-                return new Pose2d(feedStartBlueLeftX.get(), feedStartBlueLeftY.get(),
-                                Rotation2d.fromDegrees(feedStartBlueLeftAngle.get()));
+                return new Pose2d(feedStartBlueLeftX, feedStartBlueLeftY,
+                                Rotation2d.fromDegrees(feedStartBlueLeftAngle));
         }
 
         public static Pose2d getFeedStopBlueLeft() {
-                return new Pose2d(feedStopBlueLeftX.get(), feedStopBlueLeftY.get(),
-                                Rotation2d.fromDegrees(feedStopBlueLeftAngle.get()));
+                return new Pose2d(feedStopBlueLeftX, feedStopBlueLeftY,
+                                Rotation2d.fromDegrees(feedStopBlueLeftAngle));
         }
 
         public static Pose2d getFeedStartBlueRight() {
-                return new Pose2d(feedStartBlueRightX.get(), feedStartBlueRightY.get(),
-                                Rotation2d.fromDegrees(feedStartBlueRightAngle.get()));
+                return new Pose2d(feedStartBlueRightX, feedStartBlueRightY,
+                                Rotation2d.fromDegrees(feedStartBlueRightAngle));
         }
 
         public static Pose2d getFeedStopBlueRight() {
-                return new Pose2d(feedStopBlueRightX.get(), feedStopBlueRightY.get(),
-                                Rotation2d.fromDegrees(feedStopBlueRightAngle.get()));
+                return new Pose2d(feedStopBlueRightX, feedStopBlueRightY,
+                                Rotation2d.fromDegrees(feedStopBlueRightAngle));
         }
 
         public static Pose2d getFeedStartRedLeft() {
-                return new Pose2d(feedStartRedLeftX.get(), feedStartRedLeftY.get(),
-                                Rotation2d.fromDegrees(feedStartRedLeftAngle.get()));
+                return new Pose2d(feedStartRedLeftX, feedStartRedLeftY,
+                                Rotation2d.fromDegrees(feedStartRedLeftAngle));
         }
 
         public static Pose2d getFeedStopRedLeft() {
-                return new Pose2d(feedStopRedLeftX.get(), feedStopRedLeftY.get(),
-                                Rotation2d.fromDegrees(feedStopRedLeftAngle.get()));
+                return new Pose2d(feedStopRedLeftX, feedStopRedLeftY,
+                                Rotation2d.fromDegrees(feedStopRedLeftAngle));
         }
 
         public static Pose2d getFeedStartRedRight() {
-                return new Pose2d(feedStartRedRightX.get(), feedStartRedRightY.get(),
-                                Rotation2d.fromDegrees(feedStartRedRightAngle.get()));
+                return new Pose2d(feedStartRedRightX, feedStartRedRightY,
+                                Rotation2d.fromDegrees(feedStartRedRightAngle));
         }
 
         public static Pose2d getFeedStopRedRight() {
-                return new Pose2d(feedStopRedRightX.get(), feedStopRedRightY.get(),
-                                Rotation2d.fromDegrees(feedStopRedRightAngle.get()));
+                return new Pose2d(feedStopRedRightX, feedStopRedRightY,
+                                Rotation2d.fromDegrees(feedStopRedRightAngle));
         }
 
         /**
@@ -457,29 +436,29 @@ public final class FieldConstants {
                 if (alliance.isPresent() && alliance.get() == Alliance.Red) {
                         // RED ALLIANCE
                         // Compare Y distance to Left and Right targets
-                        double rRightY = redPassRightY.get();
-                        double rLeftY = redPassLeftY.get();
+                        double rRightY = redPassRightY;
+                        double rLeftY = redPassLeftY;
 
                         double distRight = Math.abs(robotPose.getY() - rRightY);
                         double distLeft = Math.abs(robotPose.getY() - rLeftY);
 
                         if (distLeft < distRight) {
-                                return new Translation2d(redPassLeftX.get(), rLeftY);
+                                return new Translation2d(redPassLeftX, rLeftY);
                         } else {
-                                return new Translation2d(redPassRightX.get(), rRightY);
+                                return new Translation2d(redPassRightX, rRightY);
                         }
                 } else {
                         // BLUE ALLIANCE (Default)
-                        double bRightY = bluePassRightY.get();
-                        double bLeftY = bluePassLeftY.get();
+                        double bRightY = bluePassRightY;
+                        double bLeftY = bluePassLeftY;
 
                         double distRight = Math.abs(robotPose.getY() - bRightY);
                         double distLeft = Math.abs(robotPose.getY() - bLeftY);
 
                         if (distLeft < distRight) {
-                                return new Translation2d(bluePassLeftX.get(), bLeftY);
+                                return new Translation2d(bluePassLeftX, bLeftY);
                         } else {
-                                return new Translation2d(bluePassRightX.get(), bRightY);
+                                return new Translation2d(bluePassRightX, bRightY);
                         }
                 }
         }
@@ -489,13 +468,13 @@ public final class FieldConstants {
          */
         public static Translation2d getFeedingTarget(Optional<Alliance> alliance) {
                 if (alliance.isPresent() && alliance.get() == Alliance.Red) {
-                        return new Translation2d(redFeedingX.get(), redFeedingY.get());
+                        return new Translation2d(redFeedingX, redFeedingY);
                 }
-                return new Translation2d(blueFeedingX.get(), blueFeedingY.get());
+                return new Translation2d(blueFeedingX, blueFeedingY);
         }
 
         public static Translation2d getTowerCenter() {
-                return new Translation2d(towerX.get(), towerY.get());
+                return new Translation2d(towerX, towerY);
         }
 
         /**
@@ -503,11 +482,11 @@ public final class FieldConstants {
          */
         public static Pose2d getOutpostPose(Optional<Alliance> alliance) {
                 if (alliance.isPresent() && alliance.get() == Alliance.Red) {
-                        return new Pose2d(outpostRedX.get(), outpostRedY.get(),
-                                        Rotation2d.fromDegrees(outpostRedAngle.get()));
+                        return new Pose2d(outpostRedX, outpostRedY,
+                                        Rotation2d.fromDegrees(outpostRedAngle));
                 }
-                return new Pose2d(outpostBlueX.get(), outpostBlueY.get(),
-                                Rotation2d.fromDegrees(outpostBlueAngle.get()));
+                return new Pose2d(outpostBlueX, outpostBlueY,
+                                Rotation2d.fromDegrees(outpostBlueAngle));
         }
 
         /**
@@ -516,11 +495,11 @@ public final class FieldConstants {
          */
         public static Pose2d getSourcePose(Optional<Alliance> alliance) {
                 if (alliance.isPresent() && alliance.get() == Alliance.Red) {
-                        return new Pose2d(depotRedX.get(), depotRedY.get(),
-                                        Rotation2d.fromDegrees(depotRedAngle.get()));
+                        return new Pose2d(depotRedX, depotRedY,
+                                        Rotation2d.fromDegrees(depotRedAngle));
                 }
-                return new Pose2d(depotBlueX.get(), depotBlueY.get(),
-                                Rotation2d.fromDegrees(depotBlueAngle.get()));
+                return new Pose2d(depotBlueX, depotBlueY,
+                                Rotation2d.fromDegrees(depotBlueAngle));
         }
 
         private FieldConstants() {

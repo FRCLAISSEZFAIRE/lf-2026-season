@@ -166,6 +166,8 @@ public class FixedShotCommand extends Command {
 
         if (ready && !hasShot) {
             hasShot = true;
+            Pose2d currentPose = poseSupplier.get();
+            System.out.println("[Shot Log] Atış yapıldı! Robot Konumu: X: " + String.format("%.2f", currentPose.getX()) + "m, Y: " + String.format("%.2f", currentPose.getY()) + "m, Açısı: " + String.format("%.1f", currentPose.getRotation().getDegrees()) + "°");
         }
 
         // LATCH LOGIC:
